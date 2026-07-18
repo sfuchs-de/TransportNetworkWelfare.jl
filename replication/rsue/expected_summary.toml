@@ -1,0 +1,24 @@
+schema_version = 1
+source_package_sha256 = "0ba8a28c75987529ab77c882d55da3559c494bbbfa6adc2908feef7defed2a0d"
+status = "aggregate-only; external data required"
+
+[network]
+nodes = 234
+directed_policy_arcs = 704
+physical_policy_links = 352
+
+[results]
+mean_directed_primitive_elasticity = 0.00010716227429258084
+median_directed_primitive_elasticity = 0.00008814728822309912
+directed_output_sha256 = "98006cd9495c724527b9ce3402f2828bdd1ed874708e1b8372decd60f34e543c"
+physical_output_sha256 = "a4d193f40083e142b1515a676403416bb9189ca05ab96d66b5d9ef9214fca334"
+diagnostics_sha256 = "a87e6d43559d91c1decc354b1ca81f1a885bbf6a71c0b795829e5a803898aa6a"
+numeric_comparison_tolerance = 1.0e-10
+
+[parameters]
+alpha = 0.10
+beta = -0.30
+sigma = 9.0
+eta = 1.099
+lambda_road = 0.092
+lambda_terminal = 0.096

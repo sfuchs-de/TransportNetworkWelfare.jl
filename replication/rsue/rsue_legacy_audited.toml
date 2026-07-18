@@ -1,0 +1,56 @@
+schema_version = 1
+name = "rsue-legacy-audited"
+
+[input]
+adapter = "rsue_frozen_2026_07_12"
+data_root = "${RSUE_DATA_ROOT}"
+manifest = "input_manifest.toml"
+mode_order = ["road", "rail", "water_dom", "water_for"]
+
+[input.transformations]
+domestic_nodes = 228
+padded_foreign_nodes = 6
+symmetrize_modes = true
+normalize_mode_matrices = true
+apply_rsue_modal_weights = true
+filter_rail_by_terminal_count = true
+
+[model]
+alpha = 0.10
+beta = -0.30
+sigma = 9.0
+eta = 1.099
+modal_specification = "component_ces"
+route_curvature = "theorem"
+active_transport_modes = ["road", "rail"]
+
+[congestion]
+specification = "composite"
+endpoint_scale = 1.0
+
+[congestion.edge]
+road = 0.092
+
+[congestion.terminal]
+rail = 0.096
+
+[policy]
+mode = "road"
+unit = "both"
+shock_fraction = 0.01
+
+[output]
+directory = "output/rsue_legacy_audited"
+
+[diagnostics]
+tolerance = 1.0e-10
+condition_limit = 1.0e12
+
+[sensitivity]
+alpha = [0.02, 0.06, 0.10, 0.13, 0.145]
+beta = [-0.38, -0.34, -0.30, -0.27, -0.25]
+net_dispersion = [0.17, 0.185, 0.20, 0.23, 0.26]
+eta = [0.75, 0.90, 1.099, 1.25, 1.40]
+common_congestion = [0.0, 0.5, 1.0, 1.5, 2.0]
+lambda_road = [0.0, 0.046, 0.092, 0.138, 0.184]
+lambda_terminal = [0.0, 0.048, 0.096, 0.144, 0.192]

@@ -1,0 +1,10 @@
+schema_version = 1
+description = "SHA-256 hashes of the frozen July 12 RSUE external inputs."
+
+[files]
+"bilateral_barges_sparse.csv" = "bfecd7d4227834a7cc7257dfa035195472e705e21886dec5b545f34054f149d3"
+"bilateral_port_sparse.csv" = "9c92cec1e16010200a6e6814d28f9cc129dae94c1414b52f028fea4a31940800"
+"bilateral_rail_sparse.csv" = "bd1a84618fe6cdb3983c5a4c951555d50699455d1b70bef76df99756e260d6a7"
+"node_labor_income_interstate.csv" = "c4c914e5a4c5ea263283def3c3d09c8d5cc67b149a1726214239df3334b97b1f"
+"sparse_adjmat_interstate.csv" = "43d0dfb228742f87c64f7f0bec0214a068a84a01e36549887e58e5b014ff0edd"
+"terminals_count.csv" = "decd7c1733ccc9377e18e9c30fbf0beb40e8e1ea3ce44cd1b0be4c44aa78dcf3"

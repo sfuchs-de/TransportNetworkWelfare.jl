@@ -1,0 +1,11 @@
+.DS_Store
+Manifest.toml
+docs/build/
+output/
+replication/rsue/staging/
+*.cov
+*.jl.cov
+*.jl.*.cov
+plots/.venv/
+plots/__pycache__/
+*.pyc

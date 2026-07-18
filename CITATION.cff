@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the software release and the associated paper."
+title: "TransportNetworkWelfare.jl"
+type: software
+version: 0.1.0
+date-released: 2026-07-17
+license: MIT
+repository-code: "https://github.com/sfuchs-de/TransportNetworkWelfare.jl"
+authors:
+  - family-names: Allen
+    given-names: Treb
+  - family-names: Fuchs
+    given-names: Simon
+  - family-names: Wong
+    given-names: Woan Foong
+preferred-citation:
+  type: article
+  title: "Evaluating Transportation Improvements Quantitatively: A Primer"
+  authors:
+    - family-names: Allen
+      given-names: Treb
+    - family-names: Fuchs
+      given-names: Simon
+    - family-names: Wong
+      given-names: Woan Foong
+  year: 2026
