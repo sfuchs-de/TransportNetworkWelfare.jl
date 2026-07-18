@@ -17,7 +17,8 @@ const ROOT = normpath(joinpath(@__DIR__, ".."))
             0.00010716227429258084 atol=5e-15 rtol=0
         @test maximum(abs(row.identity_residual_route) for row in result.directed) < 1e-10
     else
-        @test true
+        @info "Skipping restricted RSUE acceptance test because RSUE_DATA_ROOT is not set"
+        @test_skip haskey(ENV, "RSUE_DATA_ROOT")
     end
 end
 

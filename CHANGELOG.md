@@ -4,6 +4,11 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+- Reject nonfinite parameters, diagnostics, sensitivity values, and ill-conditioned transport closures.
+- Fail CLI runs when numerical verification fails and record sensitivity outputs in run manifests.
+- Record dynamic package/Git state without machine-specific configuration paths.
+- Verify frozen RSUE artifact hashes and all mapped directed-result fields.
+- Pin CI actions and broaden repository secret scanning.
 - Reserve the choice-consistent RSUE configuration for theory and coauthor review.
 - Add external-data replication once redistribution and specification gates pass.
 

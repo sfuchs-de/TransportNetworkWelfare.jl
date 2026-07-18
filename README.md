@@ -29,7 +29,7 @@ model = build_model(project)
 welfare = welfare_effects(model)
 components = decompose_welfare(model)
 sensitivity = sensitivity_path(model, :alpha, [0.06, 0.10, 0.14])
-write_results(welfare, "output/")
+write_results(welfare, "output/"; project)
 ```
 
 ## Command line interface
@@ -51,7 +51,7 @@ export RSUE_DATA_ROOT=/absolute/path/to/rsue/Input
 julia --project=. bin/tnw.jl replicate-rsue replication/rsue/rsue_legacy_audited.toml
 ```
 
-The legacy configuration reproduces the frozen July 12 directed welfare elasticities to numerical precision. `rsue_candidate_choice.toml` is an explicitly labeled research candidate and is not paper-facing.
+The legacy configuration reproduces the frozen July 12 directed welfare elasticities to numerical precision. Run `replication/rsue/verify_legacy.jl` with both `RSUE_DATA_ROOT` and `RSUE_FROZEN_RESULTS_ROOT` to check the archived artifact hashes and the full directed table. Restricted-data tests are explicitly skipped in public CI when those paths are unavailable. `rsue_candidate_choice.toml` is an explicitly labeled research candidate and is not paper-facing.
 
 ## Documentation
 

@@ -15,6 +15,8 @@ end
 
 function scaled_congestion(spec::AbstractCongestionSpecification, edge_scale::Real,
                            terminal_scale_factor::Real)
+    all(value -> isfinite(value) && value >= 0, (edge_scale, terminal_scale_factor)) ||
+        throw(ArgumentError("congestion scale factors must be finite and nonnegative"))
     edge = Dict(mode => lambda*edge_scale for (mode, lambda) in edge_lambdas(spec))
     terminal = Dict(mode => lambda*terminal_scale_factor for
                     (mode, lambda) in terminal_lambdas(spec))
@@ -26,7 +28,8 @@ function scaled_congestion(spec::AbstractCongestionSpecification, edge_scale::Re
 end
 
 function replace_lambda(spec::AbstractCongestionSpecification, channel::Symbol, value::Real)
-    value >= 0 || throw(ArgumentError("congestion elasticity must be nonnegative"))
+    isfinite(value) && value >= 0 ||
+        throw(ArgumentError("congestion elasticity must be finite and nonnegative"))
     edge = copy(edge_lambdas(spec))
     terminal = copy(terminal_lambdas(spec))
     if channel == :lambda_road
@@ -110,8 +113,10 @@ function evaluate_sensitivity_point(model::TransportModel, project::Project)
     closure = build_transport_closure(project, data, point_basis, B)
     J = J0+closure.Jc
     condition_J = cond(J)
-    condition_J <= project.condition_limit ||
+    condition_within_limit(condition_J, project.condition_limit) ||
         error("sensitivity equilibrium exceeds the condition-number gate")
+    condition_within_limit(closure.condition, project.condition_limit) ||
+        error("sensitivity transport system exceeds the condition-number gate")
     q = AdjointRSUE.welfare_gradient(data.omega, c)
     adjoint = permutedims(J) \ q
 
@@ -133,10 +138,14 @@ function evaluate_sensitivity_point(model::TransportModel, project::Project)
     end
     mean_directed = dot(adjoint, B*aggregate_cost)
     solve_residual = norm(permutedims(J)*adjoint-q, Inf)/max(norm(q, Inf), eps())
-    verified = maximum((solve_residual, transport_residual)) <= project.tolerance
+    finite_outputs = all(isfinite, (
+        mean_directed, condition_J, closure.condition, solve_residual, transport_residual,
+    ))
+    verified = finite_outputs &&
+        maximum((solve_residual, transport_residual)) <= project.tolerance
     return (;
         mean_directed_elasticity=mean_directed,
-        mean_physical_elasticity=project.policy.unit == :directed_arc ? NaN : 2mean_directed,
+        mean_physical_elasticity=project.policy.unit == :directed_arc ? missing : 2mean_directed,
         e=c.e, rho=c.ρ, condition_F=condition_J,
         condition_transport_F=closure.condition,
         solve_residual, transport_residual, verified,
@@ -149,6 +158,8 @@ function sensitivity_path(model::TransportModel, parameter::Symbol, values)
     for value in Float64.(values)
         project = project_at(model.project, parameter, value)
         result = evaluate_sensitivity_point(model, project)
+        result.verified || error(
+            "sensitivity point $(parameter)=$(value) failed its numerical verification gate")
         push!(rows, (;
             parameter=String(parameter), value,
             result.mean_directed_elasticity,

@@ -1,3 +1,11 @@
+function enrich_diagnostics!(result, model::TransportModel)
+    result.diagnostics["input_hashes"] = model.data.input_hashes
+    result.diagnostics["transformations"] = model.data.transformations
+    result.diagnostics["shock_fraction"] = model.project.policy.shock_fraction
+    result.diagnostics["one_percent_gain_scale"] = 100*model.project.policy.shock_fraction
+    return result
+end
+
 function result_diagnostics(model::TransportModel, rows, primitive)
     closures = model.closures
     route = model.basis.diagnostics
@@ -16,10 +24,23 @@ function result_diagnostics(model::TransportModel, rows, primitive)
         row.primitive_externality+row.primitive_propagation+row.primitive_edge+
         row.primitive_terminal+row.primitive_pass_through)) for row in rows)
     tolerance = model.project.tolerance
-    verified = maximum((max_identity, max_ladder, max_realized_hulten,
-                        max_primitive_hulten, primitive.residual)) <= tolerance
+    finite_rows = all(row -> all(value -> !(value isa AbstractFloat) || isfinite(value), row), rows)
+    finite_diagnostics = all(isfinite, (
+        max_identity, max_ladder, max_realized_hulten, max_primitive_hulten,
+        primitive.residual, route.spectral_radius, route.absorption_error,
+        route.row_error, route.column_error, route.edge_error,
+        route.fixed_edge_relative_error, route.soft_edge_relative_error,
+        closures.conditions.NC, closures.conditions.NT, closures.conditions.F,
+        closures.conditions.FM, closures.conditions.FR,
+        closures.transport.NT.condition, closures.transport.F.condition,
+        closures.transport.FM.condition, closures.transport.FR.condition,
+    ))
+    verified = finite_rows && finite_diagnostics &&
+        maximum((max_identity, max_ladder, max_realized_hulten,
+                 max_primitive_hulten, primitive.residual)) <= tolerance
     return Dict{String,Any}(
         "verified" => verified,
+        "finite_outputs" => finite_rows && finite_diagnostics,
         "nodes" => model.data.N,
         "directed_edges" => length(model.data.edges),
         "active_edge_mode_pairs" => model.basis.P,
@@ -65,7 +86,7 @@ function welfare_effects(model::TransportModel)
     physical = model.project.policy.unit == :directed_arc ? NamedTuple[] :
         aggregate_physical(rows, model.closures.c.ρ)
     diagnostics = result_diagnostics(model, rows, primitive)
-    return WelfareResults(rows, physical, diagnostics)
+    return enrich_diagnostics!(WelfareResults(rows, physical, diagnostics), model)
 end
 
 welfare_effects(project::Project) = welfare_effects(build_model(project))
@@ -76,7 +97,7 @@ function decompose_welfare(model::TransportModel)
     physical = model.project.policy.unit == :directed_arc ? NamedTuple[] :
         aggregate_physical(rows, model.closures.c.ρ)
     diagnostics = result_diagnostics(model, rows, primitive)
-    return DecompositionResults(rows, physical, diagnostics)
+    return enrich_diagnostics!(DecompositionResults(rows, physical, diagnostics), model)
 end
 
 decompose_welfare(project::Project) = decompose_welfare(build_model(project))

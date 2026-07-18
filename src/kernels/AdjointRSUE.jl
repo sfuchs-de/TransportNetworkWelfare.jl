@@ -36,9 +36,14 @@ end
 
 """coefs(α, β, σ) → Coef. Regularity scalar e = 1 + β(σ−1) + ασ (R-XY); ρ = (1+α+β)/e."""
 function coefs(α::Real, β::Real, σ::Real)
+    all(isfinite, (α, β, σ)) ||
+        throw(ArgumentError("alpha, beta, and sigma must be finite"))
+    σ > 1 || throw(ArgumentError("sigma must exceed one"))
     e = 1 + β*(σ-1) + α*σ
-    @assert abs(e) > 1e-10 "regularity violated: e ≈ 0 (Prop 2 requires e ≠ 0)"
-    @assert abs(1 + α + β) > 1e-10 "regularity violated: 1+α+β ≈ 0 (Prop 2 requires 1+α+β ≠ 0)"
+    abs(e) > 1e-10 ||
+        throw(ArgumentError("regularity violated: e is too close to zero"))
+    abs(1 + α + β) > 1e-10 ||
+        throw(ArgumentError("regularity violated: 1+alpha+beta is too close to zero"))
     Coef(α, β, σ, e, (1+α)/e, σ*(α+β)/e, (α+β)*(σ-1)/e, 1 - σ*(α+β)/e, (1+α+β)/e)
 end
 

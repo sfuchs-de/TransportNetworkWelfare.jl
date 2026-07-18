@@ -327,10 +327,11 @@ function build_closures(project::Project, data::NetworkData, basis)
     J_F, J_FM, J_FR = J0+Ft.Jc, J0+FMt.Jc, J0+FRt.Jc
     conditions = (NC=cond(J_NC), NT=cond(J_NT), F=cond(J_F),
                   FM=cond(J_FM), FR=cond(J_FR))
-    maximum(values(conditions)) <= project.condition_limit ||
+    all(value -> condition_within_limit(value, project.condition_limit), values(conditions)) ||
         error("an equilibrium closure exceeds the condition-number gate")
-    maximum((NCt.condition, NTt.condition, Ft.condition, FMt.condition, FRt.condition)) <=
-        project.condition_limit || error("a transport closure exceeds the condition-number gate")
+    all(value -> condition_within_limit(value, project.condition_limit),
+        (NCt.condition, NTt.condition, Ft.condition, FMt.condition, FRt.condition)) ||
+        error("a transport closure exceeds the condition-number gate")
     return (;
         c, B, J0, NC=J_NC, NT=J_NT, F=J_F, FM=J_FM, FR=J_FR,
         transport=(NC=NCt, NT=NTt, F=Ft, FM=FMt, FR=FRt), conditions,
@@ -341,6 +342,10 @@ end
 
 "Load project data and build the common route-modal-congestion closure system."
 function build_model(project::Project)
+    isfinite(project.condition_limit) && 1 < project.condition_limit <= 1e12 ||
+        throw(ArgumentError("condition_limit must be finite and lie in (1, 1e12]"))
+    isfinite(project.tolerance) && project.tolerance > 0 ||
+        throw(ArgumentError("diagnostic tolerance must be finite and positive"))
     data = load_network(project)
     basis = build_route_basis(project, data)
     closures, point_basis = build_closures(project, data, basis)
@@ -397,6 +402,8 @@ function decomposition_rows(model::TransportModel)
         d_terminal = multipliers[:NT]-multipliers[:F]
         d_mode = multipliers[:F]-multipliers[:FM]
         d_route = multipliers[:F]-multipliers[:FR]
+        isfinite(values[:F]) && !iszero(values[:F]) ||
+            error("full-closure realized elasticity is zero or nonfinite; pass-through is undefined")
         chi = primitive_values[r] / values[:F]
         b = realized_forcing[:, r]
         identity_edge = (values[:NC]-values[:NT])-
@@ -468,6 +475,8 @@ function aggregate_physical(rows::Vector{NamedTuple}, rho::Real)
             throw(ArgumentError("physical link $link does not contain opposite directions"))
         sums = Dict(field => sum(getproperty(row, field) for row in group) for field in additive)
         h = sums[:hulten]
+        isfinite(sums[:realized_F]) && !iszero(sums[:realized_F]) ||
+            error("physical-link realized elasticity is zero or nonfinite; pass-through is undefined")
         mNC, mNT = sums[:realized_NC]/(rho*h), sums[:realized_NT]/(rho*h)
         mF, mFM, mFR = sums[:realized_F]/(rho*h), sums[:realized_FM]/(rho*h),
                         sums[:realized_FR]/(rho*h)

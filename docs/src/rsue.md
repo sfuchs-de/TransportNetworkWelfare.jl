@@ -18,4 +18,11 @@ julia --project=. bin/tnw.jl replicate-rsue \
 
 The legacy adapter records six historical operations: domestic-node count, foreign-node padding, modal symmetrization, within-mode normalization, RSUE modal weights, and terminal-based rail filtering. Generic projects do none of these operations.
 
-Aggregate acceptance values and frozen output hashes are in `expected_summary.toml`. The full result comparison runs only when the external data are present.
+Aggregate acceptance values and frozen output hashes are in `expected_summary.toml`. The full result comparison runs only when the external data are present:
+
+```bash
+export RSUE_FROZEN_RESULTS_ROOT=/absolute/path/to/Output_complete_decomposition
+julia --project=. replication/rsue/verify_legacy.jl
+```
+
+This gate verifies the three archived artifact hashes and compares every directed-arc result field against the frozen table. Public CI reports the restricted acceptance test as skipped rather than passed when `RSUE_DATA_ROOT` is absent.

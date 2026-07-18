@@ -180,6 +180,9 @@ end
 function mode_order(project::Project, rows)
     observed = Set(row.mode for row in rows)
     raw = get(project.input, "mode_order", String[])
+    raw isa AbstractVector || throw(ArgumentError("mode_order must be an array"))
+    all(value -> value isa AbstractString && !isempty(strip(value)), raw) ||
+        throw(ArgumentError("mode_order entries must be nonempty strings"))
     modes = isempty(raw) ? sort!(collect(observed); by=String) : Symbol.(raw)
     length(unique(modes)) == length(modes) || throw(ArgumentError("mode_order contains duplicates"))
     Set(modes) == observed ||
@@ -249,6 +252,11 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
     edges = sort!(collect(zip(origins, destinations)))
     edge_index = Dict(edge => t for (t, edge) in enumerate(edges))
     edge_row = Dict((node_index[row.origin], node_index[row.destination]) => row for row in normalized_rows)
+    rows_by_edge = Dict{Tuple{Int,Int},Vector{EdgeModeRow}}()
+    for row in normalized_rows
+        edge = (node_index[row.origin], node_index[row.destination])
+        push!(get!(rows_by_edge, edge, EdgeModeRow[]), row)
+    end
     edge_ids = [edge_row[edge].edge_id for edge in edges]
     physical_ids = [edge_row[edge].physical_link_id for edge in edges]
 
@@ -288,8 +296,7 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
         values = [flow[i, j] for flow in mode_flows] ./ Xi[i, j]
         s_edges[t, :] .= values
         shares[edge] = collect(values)
-        for row in normalized_rows
-            node_index[row.origin] == i && node_index[row.destination] == j || continue
+        for row in rows_by_edge[edge]
             m = mode_index[row.mode]
             pkey = (t, m)
             row.origin_terminal_id !== nothing && (terminal_origin[pkey] = row.origin_terminal_id)
@@ -332,11 +339,18 @@ end
 
 "Validate input schemas, accounting identities, route contraction, and model regularity."
 function validate(project::Project)
+    isfinite(project.condition_limit) && 1 < project.condition_limit <= 1e12 ||
+        throw(ArgumentError("condition_limit must be finite and lie in (1, 1e12]"))
+    isfinite(project.tolerance) && project.tolerance > 0 ||
+        throw(ArgumentError("diagnostic tolerance must be finite and positive"))
     data = load_network(project)
     c = AdjointRSUE.coefs(
         project.parameters.alpha, project.parameters.beta, project.parameters.sigma)
     spectral_radius = maximum(abs, eigvals(data.mu))
-    spectral_radius < 1 || throw(ArgumentError("route kernel is not contractive"))
+    isfinite(spectral_radius) && spectral_radius < 1 ||
+        throw(ArgumentError("route kernel is not contractive"))
+    all(isfinite, (c.e, c.ρ)) ||
+        throw(ArgumentError("model coefficients are nonfinite"))
     return (;
         valid=true,
         nodes=data.N,
