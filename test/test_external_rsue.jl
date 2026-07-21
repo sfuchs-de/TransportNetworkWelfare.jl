@@ -56,13 +56,18 @@ const ROOT = normpath(joinpath(@__DIR__, ".."))
         @test paper_project.modal.eta == 1.099
         @test paper_project.congestion isa EdgeCongestion
         paper_result = decompose_welfare(paper_project)
-        @test length(paper_result.directed) == 704
-        @test length(paper_result.physical) == 352
+        paper_expected = TOML.parsefile(joinpath(
+            ROOT, "replication", "rsue", "expected_summary.toml"))[
+                "paper_choice_edge_census_2017"]
+        @test length(paper_result.directed) == paper_expected["directed_policy_arcs"]
+        @test length(paper_result.physical) == paper_expected["physical_policy_links"]
         @test paper_result.diagnostics["verified"]
         @test mean(row.primitive_F for row in paper_result.physical) ≈
-            0.00022309500106787019 atol=5e-15 rtol=0
+            paper_expected["mean_physical_primitive_elasticity"] atol=5e-15 rtol=0
         @test median(row.primitive_F for row in paper_result.physical) ≈
-            0.00018070218508596498 atol=5e-15 rtol=0
+            paper_expected["median_physical_primitive_elasticity"] atol=5e-15 rtol=0
+        @test maximum(row.primitive_F for row in paper_result.physical) ≈
+            paper_expected["maximum_physical_primitive_elasticity"] atol=5e-15 rtol=0
         @test maximum(abs(row.identity_residual_route) for row in paper_result.directed) < 1e-10
     else
         @info "Skipping restricted RSUE acceptance test because RSUE_DATA_ROOT is not set"
