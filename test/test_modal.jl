@@ -23,6 +23,38 @@ function nonlinear_modal_logflows(costs, shares, specification, sigma)
     return (1-sigma-power) .* log_index .+ power .* costs
 end
 
+function solve_full_closure(model, pair, delta; step=1e-6)
+    closure = model.closures.transport.F
+    basis = model.basis
+    n = size(model.closures.J0, 1)
+    qcount = closure.Q
+    state = zeros(n+qcount)
+    theta = zeros(basis.P)
+    theta[basis.policy_pairs[pair]] = delta
+
+    function residual(value)
+        z = @view value[1:n]
+        log_quantity = @view value[n+1:end]
+        modal_cost = theta + closure.G*log_quantity
+        edge_cost = basis.Sagg*modal_cost
+        log_pair_flow = closure.Xz*z + basis.L*(closure.Croute*edge_cost)
+        !closure.fixed_modal &&
+            (log_pair_flow .+= TNW.modal_power(model.project.modal) .*
+                (modal_cost-basis.L*edge_cost))
+        spatial = model.closures.J0*z + model.closures.B*edge_cost
+        qcount == 0 && return spatial
+        quantities = closure.A*exp.(log_pair_flow)
+        return vcat(spatial, log_quantity-log.(quantities))
+    end
+
+    for _ in 1:40
+        current = residual(state)
+        norm(current, Inf) < 1e-13 && return state
+        state .-= central_jacobian(residual, state; step) \ current
+    end
+    error("nonlinear closure finite-difference solve did not converge")
+end
+
 @testset "Both modal conventions match independent nonlinear derivatives" begin
     shares = [0.23, 0.31, 0.46]
     sigma, eta = 5.0, 1.7
@@ -66,6 +98,37 @@ end
     ))
     zero_model = TNW.model_at(model, zero_terminal)
     @test zero_model.closures.NT ≈ zero_model.closures.F atol=1e-12 rtol=0
+end
+
+@testset "Choice-logsum paper derivative matches central finite differences" begin
+    config = normpath(joinpath(@__DIR__, "..", "examples", "toy", "config.toml"))
+    baseline = build_model(load_project(config))
+    cases = (
+        efficient=TNW.replace_project(
+            baseline.project; alpha=0.0, beta=0.0, congestion=NoCongestion()),
+        externality=TNW.replace_project(
+            baseline.project; congestion=NoCongestion()),
+        congestion=TNW.replace_project(
+            baseline.project; congestion=EdgeCongestion(Dict(:road => 0.05))),
+    )
+    shock = 1e-5
+    for (name, project) in pairs(cases)
+        model = TNW.model_at(baseline, project)
+        @test model.project.modal isa ChoiceLogsum
+        result = decompose_welfare(model)
+        welfare_row = TNW.AdjointRSUE.welfare_gradient(
+            model.data.omega, model.closures.c)
+        for pair in eachindex(model.basis.policy_pairs)
+            plus = solve_full_closure(model, pair, shock)
+            minus = solve_full_closure(model, pair, -shock)
+            n = size(model.closures.J0, 1)
+            finite_difference = -dot(welfare_row, plus[1:n]-minus[1:n])/(2shock)
+            analytic = result.directed[pair].primitive_F
+            @test finite_difference ≈ analytic atol=1e-8 rtol=1e-6
+        end
+        @test result.diagnostics["verified"]
+        @test name in (:efficient, :externality, :congestion)
+    end
 end
 
 end # module

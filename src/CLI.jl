@@ -49,8 +49,9 @@ function run_command(command::String, config::String)
         print_summary(Dict(
             "status" => "ok", "outputs" => [path, manifest], "rows" => length(rows)))
     elseif command == "replicate-rsue"
-        lowercase(String(get(project.input, "adapter", ""))) == "rsue_frozen_2026_07_12" ||
-            throw(ArgumentError("replicate-rsue requires the frozen RSUE adapter"))
+        adapter = lowercase(String(get(project.input, "adapter", "")))
+        adapter in ("rsue_frozen_2026_07_12", "rsue_census_ports_2017_v1") ||
+            throw(ArgumentError("replicate-rsue requires a supported RSUE adapter"))
         result = require_verified(decompose_welfare(model))
         extra_outputs = String[]
         if !isempty(project.sensitivity)

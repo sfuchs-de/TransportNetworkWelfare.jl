@@ -75,6 +75,11 @@ end
     @test length(rows) == length(values)
     @test all(row.verified for row in rows)
     @test all(isfinite(row.mean_directed_elasticity) for row in rows)
+
+    rank_rows = TNW.sensitivity_rank_path(model, :eta, values[1:2])
+    @test length(rank_rows) == 2
+    @test all(isfinite(row.spearman_vs_baseline) for row in rank_rows)
+    @test all(-1 <= row.spearman_vs_baseline <= 1 for row in rank_rows)
     baseline = only(row for row in rows if row.value == project.modal.eta)
     full_mean = sum(row.primitive_F for row in decompose_welfare(model).directed) /
         length(model.basis.policy_pairs)

@@ -1,8 +1,8 @@
-# Census port-trade candidate
+# Census port-trade layer
 
-This directory builds a directional foreign-water layer for the RSUE network
-from the U.S. Census International Trade API. It is a candidate calibration,
-not the frozen paper replication.
+This directory builds the directional foreign-water layer used by the current
+RSUE paper configuration from the U.S. Census International Trade API. The
+legacy frozen replication remains available separately.
 
 ## What was already in RSUE
 
@@ -11,7 +11,7 @@ allocation across 20 RSUE gateway nodes and six foreign regions. Several cells
 match the current Census `CNT_VAL_MO` series nearly exactly. The legacy loader then
 symmetrizes that matrix, so imports and exports have identical geography.
 
-The candidate keeps imports and exports separate:
+The paper layer keeps imports and exports separate:
 
 - imports run from a foreign-region node to a U.S. gateway;
 - exports run from a U.S. gateway to a foreign-region node;
@@ -78,22 +78,21 @@ This is a transparent balanced-trade projection, not a claim that measured
 imports equal measured exports. A model with trade deficits would require a
 different equilibrium closure and a new theory audit.
 
-## Run the candidate
+## Run the paper specification
 
 The restricted domestic RSUE inputs remain external:
 
 ```bash
 export RSUE_DATA_ROOT=/absolute/path/to/rsue/Input
-julia --project=. bin/tnw.jl decompose \
-  replication/rsue/rsue_census_ports_2017_candidate.toml
+julia --project=. bin/tnw.jl replicate-rsue \
+  replication/rsue/rsue_paper_choice_edge_census_2017.toml
 ```
 
-The candidate preserves the frozen road, rail, barge, mode-weight, and
+The paper configuration preserves the frozen road, rail, barge, mode-weight, and
 foreign-node-padding transformations. It replaces only the foreign-water
-distribution and activates all four transport modes. The aggregate
-foreign-water weight remains the legacy value. It should not be described as
-the paper specification until the balanced-trade projection, modal convention,
-and foreign-node treatment receive coauthor approval.
+distribution, activates all four transport modes, uses the negative-power
+choice logsum, and keeps congestion edge-local in the main application. The
+aggregate foreign-water weight remains the legacy value.
 
 `expected_summary.toml` records the checked-in overlay hash, source coverage,
 network dimensions, candidate result moments, and deterministic output hashes.

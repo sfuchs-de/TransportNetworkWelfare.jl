@@ -184,3 +184,64 @@ function all_sensitivity_paths(model::TransportModel)
     end
     return rows
 end
+
+function average_ranks(values::AbstractVector{<:Real})
+    all(isfinite, values) || throw(ArgumentError("rank inputs must be finite"))
+    order = sortperm(values)
+    ranks = zeros(Float64, length(values))
+    first_index = 1
+    while first_index <= length(order)
+        last_index = first_index
+        while last_index < length(order) &&
+              values[order[last_index+1]] == values[order[first_index]]
+            last_index += 1
+        end
+        rank = (first_index+last_index)/2
+        for position in first_index:last_index
+            ranks[order[position]] = rank
+        end
+        first_index = last_index+1
+    end
+    return ranks
+end
+
+function spearman_correlation(left::AbstractVector{<:Real},
+                              right::AbstractVector{<:Real})
+    length(left) == length(right) ||
+        throw(ArgumentError("rank-correlation inputs must have equal length"))
+    length(left) > 1 || throw(ArgumentError("rank correlation requires at least two values"))
+    left_rank, right_rank = average_ranks(left), average_ranks(right)
+    left_centered = left_rank .- mean(left_rank)
+    right_centered = right_rank .- mean(right_rank)
+    denominator = norm(left_centered)*norm(right_centered)
+    denominator > 0 || throw(ArgumentError("rank correlation is undefined for a constant input"))
+    return dot(left_centered, right_centered)/denominator
+end
+
+function physical_primitive_vector(model::TransportModel)
+    rows, _ = decomposition_rows(model)
+    physical = aggregate_physical(rows, model.closures.c.ρ)
+    sort!(physical; by=row -> row.physical_link_id)
+    return [row.primitive_F for row in physical]
+end
+
+"Trace mean physical-link effects and rank stability relative to the supplied baseline."
+function sensitivity_rank_path(model::TransportModel, parameter::Symbol, values)
+    baseline = physical_primitive_vector(model)
+    rows = NamedTuple[]
+    for value in Float64.(values)
+        project = project_at(model.project, parameter, value)
+        candidate = model_at(model, project; enforce_branch=true)
+        effects = physical_primitive_vector(candidate)
+        push!(rows, (;
+            parameter=String(parameter), value,
+            mean_physical_elasticity=mean(effects),
+            mean_physical_gain_pct=100*project.policy.shock_fraction*mean(effects),
+            spearman_vs_baseline=spearman_correlation(baseline, effects),
+            minimum_physical_elasticity=minimum(effects),
+            maximum_physical_elasticity=maximum(effects),
+            verified=true,
+        ))
+    end
+    return rows
+end

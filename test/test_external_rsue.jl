@@ -49,6 +49,21 @@ const ROOT = normpath(joinpath(@__DIR__, ".."))
             comparison["directed_primitive_correlation"] atol=1e-12 rtol=0
         @test maximum(abs.(control_values .- census_values)) ≈
             comparison["maximum_absolute_directed_difference"] atol=5e-15 rtol=0
+
+        paper_project = load_project(joinpath(
+            ROOT, "replication", "rsue", "rsue_paper_choice_edge_census_2017.toml"))
+        @test paper_project.modal isa ChoiceLogsum
+        @test paper_project.modal.eta == 1.099
+        @test paper_project.congestion isa EdgeCongestion
+        paper_result = decompose_welfare(paper_project)
+        @test length(paper_result.directed) == 704
+        @test length(paper_result.physical) == 352
+        @test paper_result.diagnostics["verified"]
+        @test mean(row.primitive_F for row in paper_result.physical) ≈
+            0.00022309500106787019 atol=5e-15 rtol=0
+        @test median(row.primitive_F for row in paper_result.physical) ≈
+            0.00018070218508596498 atol=5e-15 rtol=0
+        @test maximum(abs(row.identity_residual_route) for row in paper_result.directed) < 1e-10
     else
         @info "Skipping restricted RSUE acceptance test because RSUE_DATA_ROOT is not set"
         @test_skip haskey(ENV, "RSUE_DATA_ROOT")

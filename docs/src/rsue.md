@@ -14,11 +14,13 @@ julia --project=. bin/tnw.jl replicate-rsue \
 
 `rsue_legacy_audited.toml` uses `ComponentCES(1.099)`, road edge congestion `0.092`, endpoint rail-terminal congestion `0.096` at each endpoint, and the historical active transport subset needed to reproduce the frozen July 12 package.
 
-`rsue_candidate_choice.toml` uses `ChoiceLogsum(1.099)` and all active modes. It is a research candidate. Do not describe it as the paper specification until the theory audit, nonlinear finite-difference gate, and coauthor decision are complete.
+`rsue_candidate_choice.toml` retains the original research-candidate comparison.
 
 `rsue_census_ports_2017_candidate.toml` keeps the legacy component-CES convention but replaces the symmetrized foreign-water proxy with separate Census port-level imports and exports. It uses 2017 containerized vessel value, explicit Schedule C/D crosswalks, and a documented balanced-trade projection. It also activates all four modes. This is a data-and-model candidate, not the paper specification.
 
 Use `rsue_legacy_ports_all_modes_control.toml` for a like-for-like comparison. It activates the same four modes under the same component-CES and congestion specifications but retains the legacy symmetrized port layer.
+
+The July 2026 paper specification is `rsue_paper_choice_edge_census_2017.toml`. It combines `ChoiceLogsum(1.099)`, all four transport modes, road edge congestion of `0.092`, and the directional Census port layer. The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. `rsue_paper_terminal_extension_census_2017.toml` adds endpoint rail-terminal congestion only for the extension sensitivity panels. `rsue_paper_choice_edge_legacy_ports_control.toml` holds the paper model fixed and restores the legacy port layer as a data robustness check.
 
 The legacy adapter records six historical operations: domestic-node count, foreign-node padding, modal symmetrization, within-mode normalization, RSUE modal weights, and terminal-based rail filtering. Generic projects do none of these operations.
 
@@ -30,6 +32,15 @@ Run the candidate with:
 julia --project=. bin/tnw.jl decompose \
   replication/rsue/rsue_census_ports_2017_candidate.toml
 ```
+
+Build the complete paper result vintage, claim ledger, TeX macros, CBSA labels, and figures with:
+
+```bash
+export RSUE_DATA_ROOT=/absolute/path/to/rsue/Input
+julia --project=. replication/rsue/build_paper_artifacts.jl
+```
+
+The builder requires the official 2018 Census CBSA shapefile and `ogr2ogr` for the point-in-polygon location crosswalk. It writes no corridor name that cannot be assigned from the public polygon file. The generated maps and scatterplots have no internal title and are saved as PDF and transparent PNG.
 
 Legacy acceptance values and frozen output hashes are in `expected_summary.toml`; the corresponding Census-candidate targets are in `census_ports/expected_summary.toml`. The full result comparisons run only when the external data are present:
 
