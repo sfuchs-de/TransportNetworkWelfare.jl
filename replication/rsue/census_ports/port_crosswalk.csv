@@ -1,0 +1,30 @@
+census_port_code,census_port_name,rsue_node_id,rsue_port_group
+0401,"BOSTON, MA",224,Boston
+1001,"NEW YORK, NY",212,New York / New Jersey
+1003,"NEWARK, NJ",212,New York / New Jersey
+1101,"PHILADELPHIA, PA",209,Chester / Philadelphia / Wilmington DE
+1102,"CHESTER, PA",209,Chester / Philadelphia / Wilmington DE
+1103,"WILMINGTON, DE",209,Chester / Philadelphia / Wilmington DE
+1303,"BALTIMORE, MD",200,Baltimore
+1401,"NORFOLK-NEWPORT NEWS, VA",208,Norfolk / Newport News
+1501,"WILMINGTON, NC",203,Wilmington NC
+1601,"CHARLESTON, SC",180,Charleston
+1703,"SAVANNAH, GA",167,Savannah
+1801,"TAMPA, FL",158,Tampa
+1803,"JACKSONVILLE, FL",164,Jacksonville
+1821,"PORT MANATEE, FL",159,Port Manatee
+1901,"MOBILE, AL",106,Mobile
+1902,"GULFPORT, MS",104,Gulfport
+2002,"NEW ORLEANS, LA",78,New Orleans
+2501,"SAN DIEGO, CA",10,San Diego
+2704,"LOS ANGELES, CA",6,Los Angeles / Long Beach / Port Hueneme
+2709,"LONG BEACH, CA",6,Los Angeles / Long Beach / Port Hueneme
+2713,"PORT HUENEME, CA",6,Los Angeles / Long Beach / Port Hueneme
+2811,"OAKLAND, CA",1,Oakland
+3001,"SEATTLE, WA",9,Everett / Seattle
+3006,"EVERETT, WA",9,Everett / Seattle
+5201,"MIAMI, FL",193,Miami / Port Everglades / West Palm Beach
+5203,"PORT EVERGLADES, FL",193,Miami / Port Everglades / West Palm Beach
+5204,"WEST PALM BEACH, FL",193,Miami / Port Everglades / West Palm Beach
+5301,"HOUSTON, TX",55,Freeport / Houston
+5311,"FREEPORT, TX",55,Freeport / Houston

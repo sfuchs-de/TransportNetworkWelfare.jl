@@ -3,6 +3,8 @@ Manifest.toml
 docs/build/
 output/
 replication/rsue/staging/
+replication/rsue/census_ports/cache/
+replication/rsue/.public_cache/
 *.cov
 *.jl.cov
 *.jl.*.cov

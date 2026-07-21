@@ -15,6 +15,8 @@ end
 
 function scaled_congestion(spec::AbstractCongestionSpecification, edge_scale::Real,
                            terminal_scale_factor::Real)
+    all(value -> isfinite(value) && value >= 0, (edge_scale, terminal_scale_factor)) ||
+        throw(ArgumentError("congestion scale factors must be finite and nonnegative"))
     edge = Dict(mode => lambda*edge_scale for (mode, lambda) in edge_lambdas(spec))
     terminal = Dict(mode => lambda*terminal_scale_factor for
                     (mode, lambda) in terminal_lambdas(spec))
@@ -26,7 +28,8 @@ function scaled_congestion(spec::AbstractCongestionSpecification, edge_scale::Re
 end
 
 function replace_lambda(spec::AbstractCongestionSpecification, channel::Symbol, value::Real)
-    value >= 0 || throw(ArgumentError("congestion elasticity must be nonnegative"))
+    isfinite(value) && value >= 0 ||
+        throw(ArgumentError("congestion elasticity must be finite and nonnegative"))
     edge = copy(edge_lambdas(spec))
     terminal = copy(terminal_lambdas(spec))
     if channel == :lambda_road
@@ -110,8 +113,10 @@ function evaluate_sensitivity_point(model::TransportModel, project::Project)
     closure = build_transport_closure(project, data, point_basis, B)
     J = J0+closure.Jc
     condition_J = cond(J)
-    condition_J <= project.condition_limit ||
+    condition_within_limit(condition_J, project.condition_limit) ||
         error("sensitivity equilibrium exceeds the condition-number gate")
+    condition_within_limit(closure.condition, project.condition_limit) ||
+        error("sensitivity transport system exceeds the condition-number gate")
     q = AdjointRSUE.welfare_gradient(data.omega, c)
     adjoint = permutedims(J) \ q
 
@@ -133,10 +138,14 @@ function evaluate_sensitivity_point(model::TransportModel, project::Project)
     end
     mean_directed = dot(adjoint, B*aggregate_cost)
     solve_residual = norm(permutedims(J)*adjoint-q, Inf)/max(norm(q, Inf), eps())
-    verified = maximum((solve_residual, transport_residual)) <= project.tolerance
+    finite_outputs = all(isfinite, (
+        mean_directed, condition_J, closure.condition, solve_residual, transport_residual,
+    ))
+    verified = finite_outputs &&
+        maximum((solve_residual, transport_residual)) <= project.tolerance
     return (;
         mean_directed_elasticity=mean_directed,
-        mean_physical_elasticity=project.policy.unit == :directed_arc ? NaN : 2mean_directed,
+        mean_physical_elasticity=project.policy.unit == :directed_arc ? missing : 2mean_directed,
         e=c.e, rho=c.ρ, condition_F=condition_J,
         condition_transport_F=closure.condition,
         solve_residual, transport_residual, verified,
@@ -149,6 +158,8 @@ function sensitivity_path(model::TransportModel, parameter::Symbol, values)
     for value in Float64.(values)
         project = project_at(model.project, parameter, value)
         result = evaluate_sensitivity_point(model, project)
+        result.verified || error(
+            "sensitivity point $(parameter)=$(value) failed its numerical verification gate")
         push!(rows, (;
             parameter=String(parameter), value,
             result.mean_directed_elasticity,
@@ -170,6 +181,67 @@ function all_sensitivity_paths(model::TransportModel)
     rows = NamedTuple[]
     for parameter in sort!(collect(keys(model.project.sensitivity)); by=String)
         append!(rows, sensitivity_path(model, parameter, model.project.sensitivity[parameter]))
+    end
+    return rows
+end
+
+function average_ranks(values::AbstractVector{<:Real})
+    all(isfinite, values) || throw(ArgumentError("rank inputs must be finite"))
+    order = sortperm(values)
+    ranks = zeros(Float64, length(values))
+    first_index = 1
+    while first_index <= length(order)
+        last_index = first_index
+        while last_index < length(order) &&
+              values[order[last_index+1]] == values[order[first_index]]
+            last_index += 1
+        end
+        rank = (first_index+last_index)/2
+        for position in first_index:last_index
+            ranks[order[position]] = rank
+        end
+        first_index = last_index+1
+    end
+    return ranks
+end
+
+function spearman_correlation(left::AbstractVector{<:Real},
+                              right::AbstractVector{<:Real})
+    length(left) == length(right) ||
+        throw(ArgumentError("rank-correlation inputs must have equal length"))
+    length(left) > 1 || throw(ArgumentError("rank correlation requires at least two values"))
+    left_rank, right_rank = average_ranks(left), average_ranks(right)
+    left_centered = left_rank .- mean(left_rank)
+    right_centered = right_rank .- mean(right_rank)
+    denominator = norm(left_centered)*norm(right_centered)
+    denominator > 0 || throw(ArgumentError("rank correlation is undefined for a constant input"))
+    return dot(left_centered, right_centered)/denominator
+end
+
+function physical_primitive_vector(model::TransportModel)
+    rows, _ = decomposition_rows(model)
+    physical = aggregate_physical(rows, model.closures.c.ρ)
+    sort!(physical; by=row -> row.physical_link_id)
+    return [row.primitive_F for row in physical]
+end
+
+"Trace mean physical-link effects and rank stability relative to the supplied baseline."
+function sensitivity_rank_path(model::TransportModel, parameter::Symbol, values)
+    baseline = physical_primitive_vector(model)
+    rows = NamedTuple[]
+    for value in Float64.(values)
+        project = project_at(model.project, parameter, value)
+        candidate = model_at(model, project; enforce_branch=true)
+        effects = physical_primitive_vector(candidate)
+        push!(rows, (;
+            parameter=String(parameter), value,
+            mean_physical_elasticity=mean(effects),
+            mean_physical_gain_pct=100*project.policy.shock_fraction*mean(effects),
+            spearman_vs_baseline=spearman_correlation(baseline, effects),
+            minimum_physical_elasticity=minimum(effects),
+            maximum_physical_elasticity=maximum(effects),
+            verified=true,
+        ))
     end
     return rows
 end

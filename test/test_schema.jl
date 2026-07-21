@@ -56,7 +56,48 @@ end
 
     directory, path = isolated_project(identity, identity,
         config -> replace(config, "beta = -0.30" => "beta = -0.2375"))
-    @test_throws AssertionError validate(load_project(path))
+    @test_throws ArgumentError validate(load_project(path))
+
+    directory, path = isolated_project(identity, identity,
+        config -> replace(config, "alpha = 0.10" => "alpha = inf"))
+    @test_throws ArgumentError load_project(path)
+
+    directory, path = isolated_project(identity, identity,
+        config -> replace(config, "condition_limit = 1.0e12" =>
+                                  "condition_limit = inf"))
+    @test_throws ArgumentError load_project(path)
+
+    directory, path = isolated_project(identity, identity,
+        config -> replace(config, "tolerance = 1.0e-10" => "tolerance = nan"))
+    @test_throws ArgumentError load_project(path)
+
+    directory, path = isolated_project(identity, identity,
+        config -> replace(config, "eta = [0.70, 0.90, 1.099, 1.30, 1.50]" =>
+                                  "eta = [0.70, inf]"))
+    @test_throws ArgumentError load_project(path)
+
+    directory, path = isolated_project(identity, identity,
+        config -> replace(config, "eta = [0.70, 0.90, 1.099, 1.30, 1.50]" =>
+                                  "eta = 1.099"))
+    @test_throws ArgumentError load_project(path)
+
+    directory, path = isolated_project(identity, identity,
+        config -> replace(config, "eta = [0.70, 0.90, 1.099, 1.30, 1.50]" =>
+                                  "eta = []"))
+    @test_throws ArgumentError load_project(path)
+
+    directory, path = isolated_project(identity, identity,
+        config -> replace(config, "mode_order = [\"road\", \"rail\"]" =>
+                                  "mode_order = \"road\""))
+    @test_throws ArgumentError validate(load_project(path))
+end
+
+@testset "Typed specifications reject nonfinite values" begin
+    @test_throws ArgumentError ChoiceLogsum(Inf)
+    @test_throws ArgumentError ComponentCES(NaN)
+    @test_throws ArgumentError EdgeCongestion(Dict(:road => Inf))
+    @test_throws ArgumentError EndpointTerminalCongestion(Dict(:rail => NaN))
+    @test_throws ArgumentError EndpointTerminalCongestion(Dict(:rail => 0.1), Inf)
 end
 
 @testset "Missing external RSUE data has an actionable error" begin

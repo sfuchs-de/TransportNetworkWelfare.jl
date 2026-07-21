@@ -60,22 +60,30 @@ def edge_costs(z, alpha, beta, gam, kbar_loc=None, tol=1e-15):
     km = np.where(np.isfinite(kb), kb, np.inf).copy()
     for _ in range(800):
         with np.errstate(over='ignore', invalid='ignore'):
-            ke = (np.nansum(np.where(np.isfinite(km), km**eta, 0.0), axis=2))**(1/eta)
+            powers = np.where(np.isfinite(km), km**eta, 0.0)
+            ke = np.nansum(powers, axis=2)**(1/eta)
         ke[~np.isfinite(km).any(axis=2)] = np.inf
-        with np.errstate(over='ignore', invalid='ignore'):
-            s = np.where(np.isfinite(km), km**eta / np.where(ke[:, :, None] > 0, ke[:, :, None]**eta, 1), 0.0)
+        denominator = ke[:, :, None]**eta
+        s = np.zeros_like(km)
+        np.divide(powers, denominator, out=s,
+                  where=np.isfinite(km) & np.isfinite(denominator) & (denominator > 0))
         Xi = np.where(np.isfinite(ke), ke**(1-sigma) * R, 0.0)
         Xim = s * Xi[:, :, None]
         new = np.where(np.isfinite(kb), kb * np.where(Xim > 0, Xim, 1.0)**gam[None, None, :], np.inf)
-        with np.errstate(invalid='ignore'):
-            distance = np.nanmax(np.abs(np.where(np.isfinite(new), new - km, 0.0)))
+        difference = np.zeros_like(new)
+        np.subtract(new, km, out=difference, where=np.isfinite(new) & np.isfinite(km))
+        distance = np.max(np.abs(difference))
         if distance < tol:
             km = new; break
         km = 0.5*km + 0.5*new if np.isfinite(km).any() else new
-    with np.errstate(over='ignore'):
-        ke = (np.nansum(np.where(np.isfinite(km), km**eta, 0.0), axis=2))**(1/eta)
+    with np.errstate(over='ignore', invalid='ignore'):
+        powers = np.where(np.isfinite(km), km**eta, 0.0)
+        ke = np.nansum(powers, axis=2)**(1/eta)
     ke[~np.isfinite(km).any(axis=2)] = np.inf
-    s = np.where(np.isfinite(km), km**eta / np.where(np.isfinite(ke[:, :, None]), ke[:, :, None]**eta, 1), 0.0)
+    denominator = ke[:, :, None]**eta
+    s = np.zeros_like(km)
+    np.divide(powers, denominator, out=s,
+              where=np.isfinite(km) & np.isfinite(denominator) & (denominator > 0))
     return ke, km, s, R
 
 def residual_pieces(z, alpha, beta, gam, kbar_loc=None):

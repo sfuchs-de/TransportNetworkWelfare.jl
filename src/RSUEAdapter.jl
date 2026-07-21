@@ -6,7 +6,7 @@ function rsue_input_directory(project::Project)
     nested = joinpath(root, "Input", "node_labor_income_interstate.csv")
     isfile(direct) && return root
     isfile(nested) && return joinpath(root, "Input")
-    throw(ArgumentError("RSUE inputs were not found below $root; set RSUE_DATA_ROOT to the directory containing the six audited CSV files or its parent"))
+    throw(ArgumentError("RSUE inputs were not found below $root; set RSUE_DATA_ROOT to the directory containing the audited RSUE CSV files or its parent"))
 end
 
 function verify_rsue_manifest(project::Project, input_dir::AbstractString)
@@ -45,6 +45,21 @@ function require_rsue_transformations(project::Project)
     return ["$key=$(expected[key])" for key in sort!(collect(keys(expected)))]
 end
 
+function require_rsue_census_transformations(project::Project)
+    raw = get(project.input, "transformations", Dict{String,Any}())
+    expected = Dict{String,Any}(
+        "foreign_port_symmetrize" => false,
+        "foreign_port_balance" => "ras_common_normalized_port_and_region_margins",
+        "foreign_port_measure" => "CNT_VAL_MO",
+        "foreign_port_period" => "2017-01:2017-12",
+    )
+    for (key, value) in expected
+        get(raw, key, nothing) == value ||
+            throw(ArgumentError("RSUE Census adapter requires input.transformations.$key=$(repr(value))"))
+    end
+    return ["$key=$(expected[key])" for key in sort!(collect(keys(expected)))]
+end
+
 function rsue_triplets(table, value_column::Int, n::Int)
     origins = Int.(@view table[:, 1])
     destinations = Int.(@view table[:, 2])
@@ -63,13 +78,81 @@ function rsue_normalize!(matrix)
     return matrix
 end
 
-"Load the frozen 234-node calibration while recording every legacy transformation."
+function rsue_census_port_matrix(project::Project, n::Int, n_domestic::Int)
+    path = input_path(project, "census_port_overlay")
+    expected_hash = lowercase(String(get(project.input, "census_port_overlay_sha256", "")))
+    isempty(expected_hash) &&
+        throw(ArgumentError("RSUE Census adapter requires input.census_port_overlay_sha256"))
+    actual_hash = file_sha256(path)
+    actual_hash == expected_hash || throw(ArgumentError(
+        "RSUE Census port-overlay hash mismatch; expected $expected_hash, got $actual_hash"))
+
+    table = CSV.File(path; normalizenames=false)
+    require_columns(path, propertynames(table), [
+        "origin_node", "destination_node", "domestic_node", "foreign_node",
+        "direction", "model_share",
+    ])
+    origins = Int[]
+    destinations = Int[]
+    shares = Float64[]
+    seen = Set{Tuple{Int,Int}}()
+    node_balance = zeros(n)
+    for (row_number, row) in enumerate(table)
+        origin_value = cell_float(getproperty(row, :origin_node), path, "origin_node", row_number)
+        destination_value = cell_float(getproperty(row, :destination_node), path, "destination_node", row_number)
+        domestic_value = cell_float(getproperty(row, :domestic_node), path, "domestic_node", row_number)
+        foreign_value = cell_float(getproperty(row, :foreign_node), path, "foreign_node", row_number)
+        all(isinteger, (origin_value, destination_value, domestic_value, foreign_value)) ||
+            throw(ArgumentError("$path row $row_number has a noninteger node identifier"))
+        origin, destination = Int(origin_value), Int(destination_value)
+        domestic, foreign = Int(domestic_value), Int(foreign_value)
+        1 <= domestic <= n_domestic ||
+            throw(ArgumentError("$path row $row_number has invalid domestic_node=$domestic"))
+        n_domestic < foreign <= n ||
+            throw(ArgumentError("$path row $row_number has invalid foreign_node=$foreign"))
+        direction = cell_string(getproperty(row, :direction))
+        expected_pair = if direction == "domestic_to_foreign"
+            (domestic, foreign)
+        elseif direction == "foreign_to_domestic"
+            (foreign, domestic)
+        else
+            throw(ArgumentError("$path row $row_number has invalid direction=$(repr(direction))"))
+        end
+        (origin, destination) == expected_pair || throw(ArgumentError(
+            "$path row $row_number has endpoints inconsistent with $direction"))
+        pair = (origin, destination)
+        pair in seen && throw(ArgumentError("$path contains duplicate directed pair $pair"))
+        push!(seen, pair)
+        share = cell_float(getproperty(row, :model_share), path, "model_share", row_number)
+        share > 0 || throw(ArgumentError("$path row $row_number has nonpositive model_share"))
+        push!(origins, origin)
+        push!(destinations, destination)
+        push!(shares, share)
+        node_balance[origin] += share
+        node_balance[destination] -= share
+    end
+    isempty(shares) && throw(ArgumentError("RSUE Census port overlay is empty: $path"))
+    abs(sum(shares) - 1) <= 10 * project.tolerance || throw(ArgumentError(
+        "RSUE Census port-overlay shares sum to $(sum(shares)), not one"))
+    balance_residual = maximum(abs, node_balance)
+    balance_residual <= 10 * project.tolerance || throw(ArgumentError(
+        "RSUE Census port overlay violates the balanced-flow identity by $balance_residual"))
+    return sparse(origins, destinations, shares, n, n), actual_hash,
+        length(shares), balance_residual
+end
+
+"Load a declared 234-node RSUE calibration while recording every transformation."
 function load_rsue_network(project::Project)
     project.policy.mode == :road ||
-        throw(ArgumentError("the frozen RSUE adapter currently supports road policy shocks only"))
+        throw(ArgumentError("the RSUE adapters currently support road policy shocks only"))
+    adapter = lowercase(String(get(project.input, "adapter", "")))
+    census_ports = adapter == "rsue_census_ports_2017_v1"
+    adapter in ("rsue_frozen_2026_07_12", "rsue_census_ports_2017_v1") ||
+        throw(ArgumentError("unsupported RSUE adapter: $adapter"))
     input_dir = rsue_input_directory(project)
     input_hashes = verify_rsue_manifest(project, input_dir)
     transformations = require_rsue_transformations(project)
+    census_ports && append!(transformations, require_rsue_census_transformations(project))
     readcsv(name) = readdlm(joinpath(input_dir, name), ',', Float64)
 
     N_dom, N = 228, 234
@@ -77,7 +160,7 @@ function load_rsue_network(project::Project)
     road_table = readcsv("sparse_adjmat_interstate.csv")
     rail_table = readcsv("bilateral_rail_sparse.csv")
     barge_table = readcsv("bilateral_barges_sparse.csv")
-    port_table = readcsv("bilateral_port_sparse.csv")
+    port_table = census_ports ? nothing : readcsv("bilateral_port_sparse.csv")
     terminal_count = vec(readcsv("terminals_count.csv"))
     nodes = readcsv("node_labor_income_interstate.csv")
 
@@ -95,7 +178,13 @@ function load_rsue_network(project::Project)
     road = rsue_triplets(road_table, 3, N)
     rail = rsue_triplets(rail_table, 4, N)
     barge = rsue_triplets(barge_table, 8, N)
-    port = rsue_triplets(vcat(port_table, port_table[:, [2, 1, 3]]), 3, N)
+    port, census_overlay_rows, census_balance_residual = if census_ports
+        matrix, digest, rows, residual = rsue_census_port_matrix(project, N, N_dom)
+        input_hashes[basename(input_path(project, "census_port_overlay"))] = digest
+        matrix, rows, residual
+    else
+        rsue_triplets(vcat(port_table, port_table[:, [2, 1, 3]]), 3, N), 0, 0.0
+    end
     for i in 1:min(N_dom, length(terminal_count))
         if terminal_count[i] == 0
             rail[i, :] .= 0
@@ -114,7 +203,11 @@ function load_rsue_network(project::Project)
     mode_weights = tradable_adjustment .* aggregates ./ sum(aggregates)
     mode_flows = [road, rail, barge, port]
     for m in eachindex(mode_flows)
-        mode_flows[m] = rsue_normalize!(rsue_symmetrize(mode_flows[m]))
+        mode_flows[m] = if census_ports && m == 4
+            rsue_normalize!(mode_flows[m])
+        else
+            rsue_normalize!(rsue_symmetrize(mode_flows[m]))
+        end
         mode_flows[m] .*= mode_weights[m]
     end
     road, rail, barge, port = mode_flows
@@ -180,6 +273,12 @@ function load_rsue_network(project::Project)
         "mode_weights=$formatted_weights",
         "tradable_adjustment=$(@sprintf("%.17g", tradable_adjustment))",
     ])
+    if census_ports
+        append!(transformations, [
+            "census_port_overlay_rows=$census_overlay_rows",
+            "census_port_balance_residual=$(@sprintf("%.17g", census_balance_residual))",
+        ])
+    end
     return NetworkData(
         N, node_ids, Dict(id => i for (i, id) in enumerate(node_ids)),
         longitude, latitude, modes, omega, nu, mode_flows, Xi,

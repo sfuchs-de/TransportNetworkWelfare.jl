@@ -11,7 +11,19 @@ function by_edge(rows)
     return Dict(row.edge_id => row for row in rows)
 end
 
+function replace_diagnostics(project; condition_limit=project.condition_limit,
+                             tolerance=project.tolerance)
+    return Project(
+        project.config_path, project.root, project.name, project.schema_version,
+        project.input, project.parameters, project.modal, project.congestion,
+        project.policy, project.output_dir, project.sensitivity,
+        condition_limit, tolerance, project.raw,
+    )
+end
+
 @testset "Typed API and closure ladder" begin
+    @test_throws ArgumentError TNW.run_command("unknown", "missing.toml")
+    @test TNW.json_escape("a\b\f\x01") == "\"a\\b\\f\\u0001\""
     project = load_project(CONFIG)
     report = validate(project)
     @test report.valid
@@ -24,6 +36,8 @@ end
     @test length(welfare.physical) == 3
     @test length(decomposition.directed) == 6
     @test decomposition.diagnostics["verified"]
+    @test decomposition.diagnostics["input_hashes"] == model.data.input_hashes
+    @test decomposition.diagnostics["transformations"] == model.data.transformations
     @test maximum(abs(row.identity_residual_edge) for row in decomposition.directed) < 1e-12
     @test maximum(abs(row.identity_residual_terminal) for row in decomposition.directed) < 1e-12
     @test maximum(abs(row.identity_residual_mode) for row in decomposition.directed) < 1e-12
@@ -61,13 +75,28 @@ end
     @test length(rows) == length(values)
     @test all(row.verified for row in rows)
     @test all(isfinite(row.mean_directed_elasticity) for row in rows)
+
+    rank_rows = TNW.sensitivity_rank_path(model, :eta, values[1:2])
+    @test length(rank_rows) == 2
+    @test all(isfinite(row.spearman_vs_baseline) for row in rank_rows)
+    @test all(-1 <= row.spearman_vs_baseline <= 1 for row in rank_rows)
     baseline = only(row for row in rows if row.value == project.modal.eta)
     full_mean = sum(row.primitive_F for row in decompose_welfare(model).directed) /
         length(model.basis.policy_pairs)
     @test baseline.mean_directed_elasticity ≈ full_mean atol=1e-12 rtol=0
     @test_throws ArgumentError sensitivity_path(model, :alpha, [0.18])
+    @test_throws ArgumentError sensitivity_path(model, :eta, [Inf])
+    @test !TNW.condition_within_limit(Inf, 1e12)
+    @test !TNW.condition_within_limit(1.0, Inf)
 
-    result = TNW.enrich_diagnostics!(decompose_welfare(model), model)
+    bad_condition = replace_diagnostics(project; condition_limit=Inf)
+    @test_throws ArgumentError validate(bad_condition)
+    @test_throws ArgumentError build_model(bad_condition)
+    bad_tolerance = replace_diagnostics(project; tolerance=NaN)
+    @test_throws ArgumentError validate(bad_tolerance)
+    @test_throws ArgumentError build_model(bad_tolerance)
+
+    result = decompose_welfare(model)
     mktempdir() do first_dir
         mktempdir() do second_dir
             first_paths = write_results(result, first_dir; project)
@@ -77,6 +106,30 @@ end
             @test length(first_csv) == length(second_csv)
             @test TNW.file_sha256.(first_csv) == TNW.file_sha256.(second_csv)
         end
+    end
+
+    mktempdir() do directory
+        mkpath(joinpath(directory, "data"))
+        cp(joinpath(ROOT, "examples", "toy", "data", "nodes.csv"),
+           joinpath(directory, "data", "nodes.csv"))
+        cp(joinpath(ROOT, "examples", "toy", "data", "edge_modes.csv"),
+           joinpath(directory, "data", "edge_modes.csv"))
+        source = read(CONFIG, String)
+        compact = split(source, "[sensitivity]"; limit=2)[1] *
+                  "[sensitivity]\neta = [1.099]\n"
+        config = joinpath(directory, "config.toml")
+        write(config, compact)
+        @test TNW.run_command("sensitivity", config) == 0
+        sensitivity = joinpath(directory, "output", "sensitivity.csv")
+        manifest = joinpath(directory, "output", "run_manifest.json")
+        @test isfile(sensitivity)
+        @test isfile(manifest)
+        manifest_text = read(manifest, String)
+        @test occursin("\"sensitivity.csv\":\"$(TNW.file_sha256(sensitivity))\"", manifest_text)
+        @test occursin("\"package_version\":\"$(TNW.package_version())\"", manifest_text)
+        @test occursin(r"\"git_dirty\":(?:true|false)", manifest_text)
+        @test occursin("\"config_path\":\"config.toml\"", manifest_text)
+        @test !occursin(directory, manifest_text)
     end
 end
 

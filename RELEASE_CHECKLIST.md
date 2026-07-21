@@ -15,6 +15,8 @@
 
 - [x] Hash-verified external-data adapter.
 - [x] Legacy audited and candidate choice configurations.
+- [x] Directional Census port-trade candidate with explicit crosswalks,
+  deterministic public-data build, and balanced-flow validation.
 - [x] Aggregate expected metrics and non-sensitive source hashes.
 - [x] Local full-network reproduction against the frozen July 12 outputs.
 - [ ] Coauthor decision on the paper-facing modal and congestion specification.

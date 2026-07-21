@@ -2,7 +2,7 @@
 
 `TransportNetworkWelfare.jl` computes local welfare effects of transport-cost changes in spatial equilibrium. It provides a typed Julia API, a TOML-driven command line interface, route and modal adjustment, modular congestion channels, and an exact closure decomposition.
 
-The repository is private and pre-release. The default `ChoiceLogsum` specification uses a negative-power mode-choice index. `ComponentCES` preserves the positive-power convention in the audited July 2026 RSUE package. The candidate choice configuration is not the paper specification unless the theory and coauthor gates are completed.
+The repository is private and pre-release. The default `ChoiceLogsum` specification uses a negative-power mode-choice index. `ComponentCES` preserves the positive-power convention in the audited July 2026 RSUE package. The current paper specification uses `ChoiceLogsum`; the legacy convention remains available for provenance and reconciliation.
 
 ## Five-minute example
 
@@ -29,7 +29,7 @@ model = build_model(project)
 welfare = welfare_effects(model)
 components = decompose_welfare(model)
 sensitivity = sensitivity_path(model, :alpha, [0.06, 0.10, 0.14])
-write_results(welfare, "output/")
+write_results(welfare, "output/"; project)
 ```
 
 ## Command line interface
@@ -51,7 +51,9 @@ export RSUE_DATA_ROOT=/absolute/path/to/rsue/Input
 julia --project=. bin/tnw.jl replicate-rsue replication/rsue/rsue_legacy_audited.toml
 ```
 
-The legacy configuration reproduces the frozen July 12 directed welfare elasticities to numerical precision. `rsue_candidate_choice.toml` is an explicitly labeled research candidate and is not paper-facing.
+The legacy configuration reproduces the frozen July 12 directed welfare elasticities to numerical precision. Run `replication/rsue/verify_legacy.jl` with both `RSUE_DATA_ROOT` and `RSUE_FROZEN_RESULTS_ROOT` to check the archived artifact hashes and the full directed table. Restricted-data tests are explicitly skipped in public CI when those paths are unavailable.
+
+The legacy foreign-water matrix appears to use 2017 container-import geography and then symmetrizes it. The paper configuration instead uses separate Census port-level imports and exports, projected onto common margins so that the current balanced-trade theory remains valid. The credential-safe downloader, explicit crosswalks, derived overlay, diagnostics, and limitations are documented in [`replication/rsue/census_ports/README.md`](replication/rsue/census_ports/README.md). Build the paper artifact set with `julia --project=. replication/rsue/build_paper_artifacts.jl` after setting `RSUE_DATA_ROOT`.
 
 ## Documentation
 

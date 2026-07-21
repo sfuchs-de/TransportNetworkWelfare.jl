@@ -1,0 +1,7 @@
+foreign_region,rsue_node_id,schedule_c_min,schedule_c_max
+North America,233,1000,1999
+South and Central America,234,2000,3999
+Europe,232,4000,4999
+Asia,230,5000,5999
+Australia and Oceania,231,6000,6999
+Africa,229,7000,7999

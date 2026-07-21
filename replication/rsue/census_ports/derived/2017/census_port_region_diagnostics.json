@@ -1,0 +1,145 @@
+{
+  "balance_method": "ras_common_normalized_port_and_region_margins",
+  "common_foreign_region_margins": {
+    "Africa": 0.018208655453368503,
+    "Asia": 0.5913571356430986,
+    "Australia and Oceania": 0.02843116065929909,
+    "Europe": 0.23066919730591678,
+    "North America": 0.00017043962122801135,
+    "South and Central America": 0.13116341131708906
+  },
+  "common_port_margins": {
+    "1": 0.05029464774842308,
+    "10": 0.000505019826001744,
+    "104": 0.0030159710520965438,
+    "106": 0.007203543272123764,
+    "158": 0.0007388615479315715,
+    "159": 0.00023414893630008873,
+    "164": 0.011556248418755372,
+    "167": 0.08289148870965063,
+    "180": 0.061317953519091216,
+    "193": 0.05465626434080741,
+    "200": 0.024202672313534113,
+    "203": 0.009530388668409525,
+    "208": 0.07440941818060684,
+    "209": 0.0201045786382346,
+    "212": 0.154744962324634,
+    "224": 0.004809074744701454,
+    "55": 0.07948367793933872,
+    "6": 0.321859574065924,
+    "78": 0.015093118291101154,
+    "9": 0.02334838746233415
+  },
+  "direction_mapping": {
+    "exports": "us_port_to_foreign_region",
+    "imports": "foreign_region_to_us_port"
+  },
+  "domestic_nodes": [
+    1,
+    6,
+    9,
+    10,
+    55,
+    78,
+    104,
+    106,
+    158,
+    159,
+    164,
+    167,
+    180,
+    193,
+    200,
+    203,
+    208,
+    209,
+    212,
+    224
+  ],
+  "foreign_nodes": [
+    229,
+    230,
+    231,
+    232,
+    233,
+    234
+  ],
+  "max_node_balance_residual": 5.017505508297937e-13,
+  "measure": "CNT_VAL_MO",
+  "model_share_total": 1.0,
+  "output_file": "census_port_region_overlay.csv",
+  "output_rows": 210,
+  "output_sha256": "49bd1c9dc1aa1531933a4171cd884fa6e76cc1044b0301027307b2c562918520",
+  "period": {
+    "end": "2017-12",
+    "months": 12,
+    "start": "2017-01"
+  },
+  "ras": {
+    "exports": {
+      "iterations": 27,
+      "max_margin_error": 4.413136522884997e-13,
+      "total_variation_from_raw_direction_share": 0.13411678101240757
+    },
+    "imports": {
+      "iterations": 23,
+      "max_margin_error": 5.621059173677168e-13,
+      "total_variation_from_raw_direction_share": 0.13700579423257048
+    }
+  },
+  "raw_totals_usd": {
+    "exports": 264942174541,
+    "imports": 752950235418
+  },
+  "schema_version": 1,
+  "selected_port_coverage": {
+    "exports": 0.9362495211935907,
+    "imports": 0.9378837259596109
+  },
+  "selected_port_totals_usd": {
+    "exports": 248051984058,
+    "imports": 706179772256
+  },
+  "source": "U.S. Census International Trade porths API",
+  "source_endpoints": {
+    "exports": "https://api.census.gov/data/timeseries/intltrade/exports/porths",
+    "imports": "https://api.census.gov/data/timeseries/intltrade/imports/porths"
+  },
+  "source_hashes": {
+    "census_exports_port_country_2017-01.csv.gz": "d04b12fddb684466346641dcf0b187925bf2c93fde7b877c038bf807a298d1e7",
+    "census_exports_port_country_2017-02.csv.gz": "44d9d90028b73af04143e55a9b92a26280a66f83900c3f8f53874fa17af8c443",
+    "census_exports_port_country_2017-03.csv.gz": "81e50b55d7fd03a9215222b6614c6e65bae10c6b8a835b81da73cf9245178e5c",
+    "census_exports_port_country_2017-04.csv.gz": "a6b08952b260cf8bfc58369660d8264c0a3e3a09d3f5823d5e4e214a2c35ea80",
+    "census_exports_port_country_2017-05.csv.gz": "0bdaea3191699e3b94bf6523544df8e51173cb6386982849d3b52b1fa77fc165",
+    "census_exports_port_country_2017-06.csv.gz": "237b25ab3872b01cf91d9af09ed829c953fcbdbdf97ec08da664a04e5d62cb93",
+    "census_exports_port_country_2017-07.csv.gz": "2bf22c74fc31e50d1c403943211b243c65a86ba83ea81a219267a1e90d5cd7c8",
+    "census_exports_port_country_2017-08.csv.gz": "74c87d4b64a745e869838cfb34893eda34f88aff25db93d2c3ed189135471dc9",
+    "census_exports_port_country_2017-09.csv.gz": "3f21665c17bcab803abd378b0cd62d728170a8987ff81d9bf4ab05727def05ff",
+    "census_exports_port_country_2017-10.csv.gz": "0ba2b00463d646d6061e3727107cecd9d778fd6249ff14dc6a01687eb69a1fb7",
+    "census_exports_port_country_2017-11.csv.gz": "c066c689a8479c468557b7500968aa604a399b1d7411a8fb5e01fdf7cb8e5565",
+    "census_exports_port_country_2017-12.csv.gz": "5d7e3da3b7b14e8c47ca53fb9193f3b5fa7e706556ae850425f06c93560e5ef5",
+    "census_imports_port_country_2017-01.csv.gz": "13df36e805e9ca8dd113df01890df5fddfe6d83f33b874d4b90737face1a2c20",
+    "census_imports_port_country_2017-02.csv.gz": "a937c9650b123d4f06cd5e572509020941b4d8e7ea1b6c2f1b33ffeba1bc0eee",
+    "census_imports_port_country_2017-03.csv.gz": "6b6249b2c77c5bed443a5f0b04f63d1777160cc49594fa3bf22ef3e124299b58",
+    "census_imports_port_country_2017-04.csv.gz": "67eb391c4a4fc50a08da94e8970c981cb0373757c78fa9725859050c69e35cff",
+    "census_imports_port_country_2017-05.csv.gz": "ef73c15fe963decffea9f99200819ab61eed9faf0b3ef652870d81c20ef1c8e1",
+    "census_imports_port_country_2017-06.csv.gz": "92f9754e17f1d0a0779c04fa66ee185f066eb88486cee546345f324dfff0c9bb",
+    "census_imports_port_country_2017-07.csv.gz": "64a97cdbe7b4c24344d623eed0fa68b8a95ddaa7b7fc742b16cf30d8292d9286",
+    "census_imports_port_country_2017-08.csv.gz": "0720426f333f4241ba63359b9ee59156f74b7232f52a3aa3642dd1e76e819afb",
+    "census_imports_port_country_2017-09.csv.gz": "0da230082a462db3c004991302a8713b81e1c28469b24fae5ac8fb5efb464383",
+    "census_imports_port_country_2017-10.csv.gz": "87e25a5f04298ed9458eb6f40e6180635b2fd626625e3171cd2477ccd5584d1f",
+    "census_imports_port_country_2017-11.csv.gz": "8d8acfa46bce43221ae5ec16415af2857fbf766620d0ebe40933578cb8f3d19c",
+    "census_imports_port_country_2017-12.csv.gz": "6f85c061629c33f397ec58f044afcd8439684dad439892aa91d13f6b83c5b367",
+    "foreign_regions.csv": "abadb4abe89bc09f1598e28b9e58a1c6c093844f0a471f15e2973afa5e26dddb",
+    "port_crosswalk.csv": "bbdf3b62b029f4e633ad1b12a5502437c2a67c457349f49406754d681784da2f"
+  },
+  "transformations": [
+    "select explicit Schedule D ports from port_crosswalk.csv",
+    "map Schedule C codes 1000:7999 into six declared foreign regions",
+    "aggregate CNT_VAL_MO over the requested months",
+    "normalize imports and exports separately",
+    "set common port and region margins to the mean directional margins",
+    "RAS-project each direction without adding support",
+    "assign one half of foreign-water mode mass to each direction"
+  ]
+}

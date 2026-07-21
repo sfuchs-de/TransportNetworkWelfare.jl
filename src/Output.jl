@@ -20,9 +20,31 @@ function write_table(path::AbstractString, rows::Vector{<:NamedTuple})
 end
 
 function json_escape(value::AbstractString)
-    value = replace(value, '\\' => "\\\\", '"' => "\\\"", '\n' => "\\n",
-                    '\r' => "\\r", '\t' => "\\t")
-    return "\"$value\""
+    io = IOBuffer()
+    print(io, '"')
+    for character in value
+        if character == '"'
+            print(io, "\\\"")
+        elseif character == '\\'
+            print(io, "\\\\")
+        elseif character == '\b'
+            print(io, "\\b")
+        elseif character == '\f'
+            print(io, "\\f")
+        elseif character == '\n'
+            print(io, "\\n")
+        elseif character == '\r'
+            print(io, "\\r")
+        elseif character == '\t'
+            print(io, "\\t")
+        elseif Int(character) < 0x20
+            @printf(io, "\\u%04x", Int(character))
+        else
+            print(io, character)
+        end
+    end
+    print(io, '"')
+    return String(take!(io))
 end
 
 function json_value(value)
@@ -42,29 +64,44 @@ function json_value(value)
     return json_escape(string(value))
 end
 
-function package_commit()
+function package_git_state()
     root = normpath(joinpath(@__DIR__, ".."))
     try
-        return readchomp(pipeline(`git -C $root rev-parse HEAD`; stderr=devnull))
+        commit = readchomp(pipeline(`git -C $root rev-parse HEAD`; stderr=devnull))
+        status = readchomp(pipeline(
+            `git -C $root status --porcelain --untracked-files=normal`; stderr=devnull))
+        return (; commit, dirty=!isempty(status))
     catch
-        return "uncommitted"
+        return (; commit="uncommitted", dirty=true)
     end
 end
 
-function run_manifest(project::Project, result, outputs; command="api")
-    package_root = normpath(joinpath(@__DIR__, ".."))
+function package_version()
+    root = normpath(joinpath(@__DIR__, ".."))
+    metadata = TOML.parsefile(joinpath(root, "Project.toml"))
+    return String(metadata["version"])
+end
+
+function run_manifest(project::Project, diagnostics::AbstractDict, outputs; command="api")
+    git = package_git_state()
+    output_paths = String.(collect(outputs))
+    all(isfile, output_paths) || throw(ArgumentError("every manifest output must exist"))
+    output_names = basename.(output_paths)
+    length(unique(output_names)) == length(output_names) ||
+        throw(ArgumentError("manifest output basenames must be unique"))
     return Dict{String,Any}(
         "schema_version" => 1,
         "created_at_utc" => string(now(UTC)),
         "package" => "TransportNetworkWelfare",
-        "package_version" => "0.1.0",
-        "git_commit" => package_commit(),
+        "package_version" => package_version(),
+        "git_commit" => git.commit,
+        "git_dirty" => git.dirty,
         "julia_version" => string(VERSION),
         "command" => command,
-        "config_path" => relpath(project.config_path, package_root),
+        "config_path" => relpath(project.config_path, project.root),
         "config_sha256" => file_sha256(project.config_path),
-        "input_hashes" => result.diagnostics["input_hashes"],
-        "transformations" => result.diagnostics["transformations"],
+        "input_hashes" => diagnostics["input_hashes"],
+        "transformations" => diagnostics["transformations"],
         "model_variant" => Dict(
             "modal" => modal_name(project.modal),
             "congestion" => string(nameof(typeof(project.congestion))),
@@ -80,26 +117,33 @@ function run_manifest(project::Project, result, outputs; command="api")
             "terminal_congestion" => Dict(string(k) => v for (k, v) in terminal_lambdas(project.congestion)),
             "terminal_endpoint_scale" => terminal_scale(project.congestion),
         ),
-        "condition_numbers" => Dict(k => v for (k, v) in result.diagnostics if startswith(k, "condition_")),
-        "verification_status" => result.diagnostics["verified"] ? "passed" : "failed",
-        "diagnostics" => result.diagnostics,
-        "output_hashes" => Dict(basename(path) => file_sha256(path) for path in outputs),
+        "condition_numbers" => Dict(k => v for (k, v) in diagnostics if startswith(k, "condition_")),
+        "verification_status" => diagnostics["verified"] ? "passed" : "failed",
+        "diagnostics" => diagnostics,
+        "output_hashes" => Dict(basename(path) => file_sha256(path) for path in output_paths),
     )
 end
 
-function enrich_diagnostics!(result, model::TransportModel)
-    result.diagnostics["input_hashes"] = model.data.input_hashes
-    result.diagnostics["transformations"] = model.data.transformations
-    result.diagnostics["shock_fraction"] = model.project.policy.shock_fraction
-    result.diagnostics["one_percent_gain_scale"] = 100*model.project.policy.shock_fraction
-    return result
+run_manifest(project::Project, result, outputs; command="api") =
+    run_manifest(project, result.diagnostics, outputs; command)
+
+function write_run_manifest(project::Project, diagnostics::AbstractDict, outputs,
+                            output_dir::AbstractString; command::AbstractString="api")
+    mkpath(output_dir)
+    manifest = run_manifest(project, diagnostics, outputs; command)
+    manifest_path = joinpath(output_dir, "run_manifest.json")
+    open(manifest_path, "w") do io
+        println(io, json_value(manifest))
+    end
+    return manifest_path
 end
 
 "Write result CSVs, diagnostics, and an optional run manifest."
 function write_results(result::Union{WelfareResults,DecompositionResults},
                        output_dir::AbstractString;
                        project::Union{Nothing,Project}=nothing,
-                       command::AbstractString="api")
+                       command::AbstractString="api",
+                       extra_outputs::Vector{String}=String[])
     mkpath(output_dir)
     prefix = result isa DecompositionResults ? "decomposition" : "welfare"
     outputs = String[]
@@ -111,12 +155,10 @@ function write_results(result::Union{WelfareResults,DecompositionResults},
         println(io, json_value(result.diagnostics))
     end
     push!(outputs, diagnostics_path)
+    append!(outputs, extra_outputs)
     if project !== nothing
-        manifest = run_manifest(project, result, outputs; command)
-        manifest_path = joinpath(output_dir, "run_manifest.json")
-        open(manifest_path, "w") do io
-            println(io, json_value(manifest))
-        end
+        manifest_path = write_run_manifest(
+            project, result.diagnostics, outputs, output_dir; command)
         push!(outputs, manifest_path)
     end
     return outputs

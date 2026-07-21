@@ -66,8 +66,13 @@ end
 function parse_sensitivity(raw::AbstractDict)
     paths = Dict{Symbol,Vector{Float64}}()
     for (name, values) in raw
-        values isa AbstractVector || continue
-        paths[Symbol(name)] = Float64.(values)
+        values isa AbstractVector ||
+            throw(ArgumentError("sensitivity path '$name' must be an array"))
+        parsed = Float64.(values)
+        isempty(parsed) && throw(ArgumentError("sensitivity path '$name' must not be empty"))
+        all(isfinite, parsed) ||
+            throw(ArgumentError("sensitivity path '$name' contains a nonfinite value"))
+        paths[Symbol(name)] = parsed
     end
     return paths
 end
@@ -104,8 +109,10 @@ function load_project(config_path::AbstractString)
     diagnostics = get(raw, "diagnostics", Dict{String,Any}())
     condition_limit = Float64(get(diagnostics, "condition_limit", 1e12))
     tolerance = Float64(get(diagnostics, "tolerance", 1e-10))
-    condition_limit > 1 || throw(ArgumentError("condition_limit must exceed one"))
-    tolerance > 0 || throw(ArgumentError("diagnostic tolerance must be positive"))
+    isfinite(condition_limit) && 1 < condition_limit <= 1e12 ||
+        throw(ArgumentError("condition_limit must be finite and lie in (1, 1e12]"))
+    isfinite(tolerance) && tolerance > 0 ||
+        throw(ArgumentError("diagnostic tolerance must be finite and positive"))
 
     return Project(
         path,

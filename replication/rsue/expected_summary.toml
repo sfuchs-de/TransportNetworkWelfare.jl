@@ -22,3 +22,20 @@ sigma = 9.0
 eta = 1.099
 lambda_road = 0.092
 lambda_terminal = 0.096
+
+[paper_choice_edge_census_2017]
+status = "accepted; restricted domestic data required"
+config_sha256 = "5e3967148aa585f0adc32a64c65a3140f8d574bbe401002f32924f3012c1206a"
+census_overlay_sha256 = "49bd1c9dc1aa1531933a4171cd884fa6e76cc1044b0301027307b2c562918520"
+nodes = 234
+directed_policy_arcs = 704
+physical_policy_links = 352
+mean_physical_primitive_elasticity = 0.00022309500106787019
+median_physical_primitive_elasticity = 0.00018070218508596498
+maximum_physical_primitive_elasticity = 0.00087187496977841699
+pearson_hulten = 0.94743771468634275
+spearman_hulten = 0.95919211723853237
+directed_output_sha256 = "9808b6fcdeec4ddc0c002e103dec8ffd462d81c2131b4789da348a6dc23570a4"
+physical_output_sha256 = "8c0a3799eaed418026b1d34b4bde5734191c875c8639ea486daeeea1d1c14a88"
+claims_sha256 = "1a43c97699ad095ea28495cb57e9f96d2a31bbcfb8d12a94c331bce2fa9c52f4"
+numeric_comparison_tolerance = 1.0e-10

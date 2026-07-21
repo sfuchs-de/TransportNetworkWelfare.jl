@@ -8,7 +8,7 @@ Each analysis records:
 - condition numbers for `NC`, `NT`, `F`, `FM`, and `FR` and their transport systems;
 - transport solve residuals;
 - closure-ladder, inverse-gap, and Hulten-accounting residuals;
-- package, configuration, input, and output hashes.
+- package version and commit, tracked/untracked dirty state, configuration and input hashes, and hashes for every output, including sensitivity output when generated.
 
 The default condition-number ceiling is ``10^{12}`` and the identity tolerance is ``10^{-10}``. A failed factorization or condition gate stops the run. There is no ridge fallback.
 
