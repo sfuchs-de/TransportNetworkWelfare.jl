@@ -334,6 +334,7 @@ function load_network(project::Project)
     adapter = lowercase(String(get(project.input, "adapter", "generic_csv_v1")))
     adapter == "generic_csv_v1" && return load_generic_network(project)
     adapter == "rsue_frozen_2026_07_12" && return load_rsue_network(project)
+    adapter == "rsue_census_ports_2017_v1" && return load_rsue_network(project)
     throw(ArgumentError("unknown input adapter: $adapter"))
 end
 

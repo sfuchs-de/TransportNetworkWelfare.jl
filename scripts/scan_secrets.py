@@ -11,6 +11,12 @@ PATTERNS = {
     "GitHub fine-grained token": re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}\b"),
     "Google API key": re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b"),
     "Google OAuth client secret": re.compile(r"\bGOCSPX-[0-9A-Za-z_-]{20,}\b"),
+    "Census API key assignment": re.compile(
+        r"(?im)^\s*(?:export\s+)?CENSUS_API_KEY\s*=\s*(?!\.\.\.|<)[\"']?[0-9A-Za-z_-]{16,}"
+    ),
+    "Census API key in URL": re.compile(
+        r"https?://api\.census\.gov/[^\s\"']*[?&]key=[0-9A-Za-z_-]{16,}"
+    ),
     "Dropbox access token": re.compile(r"\bsl\.[0-9A-Za-z_-]{20,}\b"),
     "AWS access key": re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b"),
     "private key": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),

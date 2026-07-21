@@ -1,0 +1,41 @@
+schema_version = 1
+status = "candidate; restricted domestic data required"
+overlay_sha256 = "49bd1c9dc1aa1531933a4171cd884fa6e76cc1044b0301027307b2c562918520"
+
+[source]
+period = "2017-01:2017-12"
+measure = "CNT_VAL_MO"
+selected_port_import_coverage = 0.9378837259596109
+selected_port_export_coverage = 0.9362495211935907
+overlay_rows = 210
+max_node_balance_residual = 5.017505508297937e-13
+
+[network]
+nodes = 234
+directed_edges = 4712
+active_edge_mode_pairs = 5170
+directed_policy_arcs = 704
+physical_policy_links = 352
+
+[results]
+mean_directed_primitive_elasticity = 0.00010717009838353178
+median_directed_primitive_elasticity = 0.00008810122830859421
+directed_output_sha256 = "9742e74929aeceb66db8d675f63182b51ea62a0f30dcf1abbe6f13f0eac89ee7"
+physical_output_sha256 = "a98693c5d79bbd2654ffafb9d49efcca66453dc7eb008aae3ba7bedc796b6e9b"
+diagnostics_sha256 = "ed1ad078b436a8f1f8b8c9010c91906173afda32d4097b1c269625fb40fdd300"
+numeric_comparison_tolerance = 1.0e-10
+
+[same_specification_legacy_port_comparison]
+control_config = "../rsue_legacy_ports_all_modes_control.toml"
+control_mean_directed_primitive_elasticity = 0.00010716227429258058
+candidate_mean_percent_difference = 0.007301161722117477
+directed_primitive_correlation = 0.999994124377651
+maximum_absolute_directed_difference = 2.125924534174042e-6
+
+[parameters]
+alpha = 0.10
+beta = -0.30
+sigma = 9.0
+eta = 1.099
+lambda_road = 0.092
+lambda_terminal = 0.096

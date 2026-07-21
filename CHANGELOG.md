@@ -10,6 +10,8 @@ All notable changes are documented here. The project follows semantic versioning
 - Verify frozen RSUE artifact hashes and all mapped directed-result fields.
 - Pin CI actions and broaden repository secret scanning.
 - Reserve the choice-consistent RSUE configuration for theory and coauthor review.
+- Add a credential-safe Census port-trade pipeline and a separate balanced,
+  directional 2017 imports/exports candidate adapter.
 - Add external-data replication once redistribution and specification gates pass.
 
 ## [0.1.0] - 2026-07-17
