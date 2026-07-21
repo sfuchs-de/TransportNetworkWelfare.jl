@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -13,6 +14,8 @@ import numpy as np
 BLUE = "#0D66A6"
 ORANGE = "#C55A11"
 GRAY = "#666666"
+MAP_EXTENT = (-125.0, -66.0, 24.0, 50.0)
+MAP_ASSET_DIR = Path(__file__).resolve().parent / "assets"
 
 
 def read_rows(path: Path):
@@ -33,6 +36,59 @@ def save_figure(figure, base: Path):
     plt.close(figure)
 
 
+def geometry_rings(geometry):
+    if geometry["type"] == "Polygon":
+        yield from geometry["coordinates"]
+    elif geometry["type"] == "MultiPolygon":
+        for polygon in geometry["coordinates"]:
+            yield from polygon
+    else:
+        raise ValueError(f"Unsupported basemap geometry: {geometry['type']}")
+
+
+def add_us_context(axis):
+    relief_path = MAP_ASSET_DIR / "conus_relief_50m.jpg"
+    states_path = MAP_ASSET_DIR / "conus_states_2018.geojson"
+    if not relief_path.is_file() or not states_path.is_file():
+        raise FileNotFoundError(
+            "The pinned CONUS map assets are missing from plots/assets/."
+        )
+
+    relief = plt.imread(relief_path)
+    axis.imshow(
+        relief, extent=MAP_EXTENT, origin="upper", interpolation="bilinear",
+        alpha=0.72, zorder=0,
+    )
+
+    with states_path.open(encoding="utf-8") as handle:
+        states = json.load(handle)
+    boundaries = [
+        ring
+        for feature in states["features"]
+        for ring in geometry_rings(feature["geometry"])
+    ]
+    axis.add_collection(LineCollection(
+        boundaries, colors="#4F5B63", linewidths=0.38, alpha=0.62,
+        zorder=2,
+    ))
+
+    west, east, south, north = MAP_EXTENT
+    axis.set_xlim(west, east)
+    axis.set_ylim(south, north)
+    axis.set_aspect(1.0 / np.cos(np.deg2rad((south + north) / 2.0)))
+    axis.set_xticks([-120, -110, -100, -90, -80, -70])
+    axis.set_yticks([25, 30, 35, 40, 45, 50])
+    axis.set_xticklabels([r"120$^{\circ}$W", r"110$^{\circ}$W", r"100$^{\circ}$W",
+                          r"90$^{\circ}$W", r"80$^{\circ}$W", r"70$^{\circ}$W"])
+    axis.set_yticklabels([r"25$^{\circ}$N", r"30$^{\circ}$N", r"35$^{\circ}$N",
+                          r"40$^{\circ}$N", r"45$^{\circ}$N", r"50$^{\circ}$N"])
+    axis.tick_params(axis="both", length=0, pad=3, labelsize=7,
+                     colors="#4F5B63")
+    axis.grid(color="#4F5B63", linewidth=0.35, alpha=0.20, zorder=1)
+    for spine in axis.spines.values():
+        spine.set_visible(False)
+
+
 def map_figure(rows, field, label, output):
     segments, values = [], []
     for row in rows:
@@ -45,20 +101,30 @@ def map_figure(rows, field, label, output):
         values.append(float(row[field]))
     values = np.asarray(values)
     lower, upper = np.quantile(values, [0.02, 0.98])
+    if upper <= lower:
+        upper = lower + max(abs(lower), 1.0) * np.finfo(float).eps
     norm = Normalize(lower, upper, clip=True)
     widths = 0.35 + 2.4*np.sqrt(np.clip((values-lower)/(upper-lower), 0, 1))
-    figure, axis = plt.subplots(figsize=(8.0, 4.4))
+    figure, axis = plt.subplots(figsize=(9.0, 5.2))
+    add_us_context(axis)
+    axis.add_collection(LineCollection(
+        segments, colors="white", linewidths=widths + 1.0, alpha=0.72,
+        zorder=3,
+    ))
     collection = LineCollection(
-        segments, array=values, cmap="viridis", norm=norm, linewidths=widths,
-        alpha=0.88,
+        segments, array=values, cmap="turbo", norm=norm, linewidths=widths,
+        alpha=0.96, zorder=4,
     )
     axis.add_collection(collection)
-    axis.autoscale()
-    axis.set_aspect("equal", adjustable="box")
-    axis.set_axis_off()
-    colorbar = figure.colorbar(collection, ax=axis, fraction=0.028, pad=0.015)
+    nodes = sorted({point for segment in segments for point in segment})
+    axis.scatter(
+        [point[0] for point in nodes], [point[1] for point in nodes],
+        s=4.0, color="#20272B", linewidths=0, alpha=0.78, zorder=5,
+    )
+    colorbar = figure.colorbar(collection, ax=axis, fraction=0.024, pad=0.018)
     colorbar.set_label(label, fontsize=8)
     colorbar.ax.tick_params(labelsize=7)
+    colorbar.outline.set_linewidth(0.5)
     save_figure(figure, output)
 
 
