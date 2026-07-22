@@ -19,8 +19,8 @@ class NetworkExamplePlotTests(unittest.TestCase):
         self.edges = self.root / "edges.csv"
         self.results = self.root / "results.csv"
         self.nodes.write_text(
-            "node_id,labor,income,longitude,latitude\n"
-            "A,1,2,0,0\nB,1,1,1,1\nC,1,1,2,0\n",
+            "node_id,labor,income,longitude,latitude,elevation\n"
+            "A,1,2,0,0,-0.5\nB,1,1,1,1,0.5\nC,1,1,2,0,0\n",
             encoding="utf-8",
         )
         self.edges.write_text(
@@ -49,6 +49,20 @@ class NetworkExamplePlotTests(unittest.TestCase):
                 self.nodes, self.edges, self.results, duplicate,
                 label_top=1, transparent=True,
             )
+            self.assertTrue(output.is_file())
+            self.assertGreater(output.stat().st_size, 1000)
+            self.assertEqual(output.read_bytes(), duplicate.read_bytes())
+
+    def test_deterministic_three_dimensional_cow_render(self):
+        for extension in ("png", "pdf"):
+            output = self.root / f"cow-3d-a.{extension}"
+            duplicate = self.root / f"cow-3d-b.{extension}"
+            for path in (output, duplicate):
+                network_example.plot_network(
+                    self.nodes, self.edges, self.results, path,
+                    label_top=0, transparent=True, three_dimensional=True,
+                    cow_surface=True, elevation_angle=14.0, azimuth=-70.0,
+                )
             self.assertTrue(output.is_file())
             self.assertGreater(output.stat().st_size, 1000)
             self.assertEqual(output.read_bytes(), duplicate.read_bytes())

@@ -7,7 +7,7 @@ same public API and TOML schema.
 | --- | --- | ---: | --- | --- |
 | `toy` | Fast API, modal, terminal, and decomposition smoke test | 3 nodes, 6 directed edges | `decompose examples/toy/config.toml` | None |
 | `braess` | Flexible- versus fixed-route comparison | 4 nodes, 10 directed edges | `decompose examples/braess/config.toml` | None |
-| `cow` | Mechanism-rich synthetic geography and ranking comparison | 30 nodes, 72 directed edges | `decompose examples/cow/config.toml` | None |
+| `cow` | Mechanism-rich 3D synthetic geography and ranking comparison | 30 nodes, 72 directed edges | `decompose examples/cow/config.toml` | None |
 | `sioux_falls` | Standard traffic-network adaptation with heterogeneous BPR elasticities | 24 nodes, 76 directed edges | `decompose examples/sioux_falls/config_extended.toml` | On-demand academic-use files |
 
 Replace `decompose ...` above with
@@ -44,10 +44,12 @@ original Wardrop problem.
 
 ## Cow network
 
-The cow-shaped example is original deterministic geometry. Alternative neck
-routes connect a high-activity head and body. Its traffic-only and extended
-top-five rankings differ, and the exact route and congestion channels explain
-the change. The shape is data, not a copied image or mesh.
+The cow-shaped example uses original deterministic three-dimensional node
+geometry. Alternative neck routes connect a high-activity head and body. Its
+traffic-only and extended top-five rankings differ, and the exact route and
+congestion channels explain the change. The plotting script can add an original
+procedural surface behind the network; neither the coordinates nor the surface
+copy an image or mesh.
 
 Render any example from validated CSV outputs:
 
@@ -55,11 +57,12 @@ Render any example from validated CSV outputs:
 python plots/network_example.py \
   examples/cow/data/nodes.csv examples/cow/data/edge_modes.csv \
   examples/cow/output/decomposition_physical.csv examples/cow/output/cow.pdf \
-  --metric primitive_F --label-top 5 --transparent
+  --metric primitive_F --label-top 5 --transparent \
+  --three-dimensional --cow-surface --elevation-angle 14 --azimuth -70
 ```
 
 The plotting script writes PDF or transparent PNG output and adds no title or
-subtitle.
+subtitle. `elevation` is plotting metadata and does not enter the model.
 
 ## Why Seattle is deferred
 

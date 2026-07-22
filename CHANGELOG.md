@@ -6,7 +6,7 @@ All notable changes are documented here. The project follows semantic versioning
 
 - Support edge-mode-specific congestion elasticities supplied by a validated
   input column, including common-scale sensitivity and manifest diagnostics.
-- Add self-contained Braess-style and cow networks, plus a pinned, on-demand
+- Add self-contained Braess-style and three-dimensional cow networks, plus a pinned, on-demand
   Sioux Falls adaptation with local BPR elasticities.
 - Add deterministic generic network plotting and an examples guide that marks
   the Seattle urban-model extension as out of scope.

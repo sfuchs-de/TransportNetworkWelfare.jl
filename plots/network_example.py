@@ -10,6 +10,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 import numpy as np
 
 
@@ -26,10 +27,11 @@ def read_nodes(path: Path):
             raise ValueError(f"invalid or duplicate node_id {identifier!r}")
         longitude = float(row["longitude"])
         latitude = float(row["latitude"])
+        elevation = float(row.get("elevation") or 0.0)
         income = float(row["income"])
-        if not np.isfinite([longitude, latitude, income]).all() or income <= 0:
+        if not np.isfinite([longitude, latitude, elevation, income]).all() or income <= 0:
             raise ValueError(f"node {identifier} has invalid coordinates or income")
-        nodes[identifier] = (longitude, latitude, income)
+        nodes[identifier] = (longitude, latitude, elevation, income)
     return nodes
 
 
@@ -78,14 +80,74 @@ def read_results(path: Path, metric: str, links):
     return values
 
 
+def add_cow_surface(axis):
+    """Add an original low-detail cow assembled from analytic primitives."""
+    surface_color = "#B8BDC4"
+
+    def ellipsoid(center, radii, alpha=0.13):
+        u = np.linspace(0, 2*np.pi, 36)
+        v = np.linspace(0, np.pi, 22)
+        x = center[0]+radii[0]*np.outer(np.cos(u), np.sin(v))
+        depth = center[1]+radii[1]*np.outer(np.sin(u), np.sin(v))
+        height = center[2]+radii[2]*np.outer(np.ones_like(u), np.cos(v))
+        axis.plot_surface(
+            x, depth, height, color=surface_color, alpha=alpha,
+            linewidth=0, antialiased=True, shade=True, zorder=0,
+        )
+
+    def leg(center_x, center_depth, top, bottom, radius=0.16):
+        theta = np.linspace(0, 2*np.pi, 24)
+        height = np.linspace(bottom, top, 8)
+        x = center_x+radius*np.outer(np.cos(theta), np.ones_like(height))
+        depth = center_depth+radius*np.outer(np.sin(theta), np.ones_like(height))
+        z = np.outer(np.ones_like(theta), height)
+        axis.plot_surface(
+            x, depth, z, color=surface_color, alpha=0.14,
+            linewidth=0, antialiased=True, shade=True, zorder=0,
+        )
+
+    ellipsoid((3.0, 0.0, 2.0), (3.0, 0.88, 1.32), alpha=0.11)
+    ellipsoid((6.45, 0.0, 2.5), (0.72, 0.62, 0.88), alpha=0.12)
+    ellipsoid((7.65, 0.0, 2.62), (0.98, 0.72, 0.76), alpha=0.14)
+    ellipsoid((8.42, 0.0, 2.30), (0.68, 0.56, 0.46), alpha=0.15)
+    ellipsoid((7.20, -0.72, 3.15), (0.42, 0.18, 0.20), alpha=0.16)
+    ellipsoid((8.10, 0.72, 3.12), (0.42, 0.18, 0.20), alpha=0.16)
+    for center_x, center_depth, top, bottom in (
+        (1.4, -0.58, 0.75, -1.42),
+        (2.6, 0.58, 0.72, -1.50),
+        (4.0, -0.58, 0.72, -1.50),
+        (5.1, 0.58, 0.82, -1.35),
+    ):
+        leg(center_x, center_depth, top, bottom)
+    axis.plot(
+        [0.1, -0.5, -1.2], [0.0, 0.2, 0.55], [2.2, 2.7, 3.2],
+        color="#777777", linewidth=3.0, alpha=0.45, zorder=0,
+    )
+    axis.plot(
+        [7.25, 7.15], [-0.48, -0.70], [3.20, 3.92],
+        color="#777777", linewidth=3.0, alpha=0.45, zorder=0,
+    )
+    axis.plot(
+        [8.15, 8.30], [0.48, 0.68], [3.20, 3.82],
+        color="#777777", linewidth=3.0, alpha=0.45, zorder=0,
+    )
+
+
 def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
                  output_path: Path, *, metric="primitive_F", label_top=0,
-                 transparent=False, dpi=240):
+                 transparent=False, three_dimensional=False,
+                 cow_surface=False, elevation_angle=18.0,
+                 azimuth=-62.0, dpi=240):
     nodes = read_nodes(nodes_path)
     links = read_physical_edges(edges_path, nodes)
     values = read_results(results_path, metric, links)
     ordered = sorted(links)
-    segments = [[nodes[links[link][0]][:2], nodes[links[link][1]][:2]]
+    def plotted_coordinate(node):
+        x, y, depth, _ = nodes[node]
+        return (x, depth, y) if three_dimensional else (x, y)
+
+    segments = [[plotted_coordinate(links[link][0]),
+                 plotted_coordinate(links[link][1])]
                 for link in ordered]
     weights = np.array([values[link] for link in ordered])
     absolute = np.abs(weights)
@@ -100,27 +162,51 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
         normalization = Normalize(lower, upper if upper > lower else lower+1)
         color_map = "viridis"
 
-    figure, axis = plt.subplots(figsize=(7.2, 4.8))
-    collection = LineCollection(
+    if three_dimensional:
+        figure = plt.figure(figsize=(8.0, 5.2))
+        axis = figure.add_subplot(111, projection="3d", proj_type="ortho")
+        collection_class = Line3DCollection
+        if cow_surface:
+            add_cow_surface(axis)
+    else:
+        figure, axis = plt.subplots(figsize=(7.2, 4.8))
+        collection_class = LineCollection
+    collection = collection_class(
         segments, array=weights, cmap=color_map, norm=normalization,
         linewidths=widths, alpha=0.86, zorder=1,
     )
     axis.add_collection(collection)
-    coordinates = np.array([nodes[node][:2] for node in sorted(nodes)])
-    incomes = np.array([nodes[node][2] for node in sorted(nodes)])
+    coordinates = np.array([plotted_coordinate(node) for node in sorted(nodes)])
+    incomes = np.array([nodes[node][3] for node in sorted(nodes)])
     sizes = 18+115*incomes/incomes.max()
-    axis.scatter(
-        coordinates[:, 0], coordinates[:, 1], s=sizes,
-        facecolor="white", edgecolor="#222222", linewidth=0.65, zorder=2,
-    )
+    if three_dimensional:
+        axis.scatter(
+            coordinates[:, 0], coordinates[:, 1], coordinates[:, 2], s=sizes,
+            facecolor="white", edgecolor="#222222", linewidth=0.65,
+            depthshade=False, zorder=2,
+        )
+    else:
+        axis.scatter(
+            coordinates[:, 0], coordinates[:, 1], s=sizes,
+            facecolor="white", edgecolor="#222222", linewidth=0.65, zorder=2,
+        )
     for link in sorted(ordered, key=lambda key: abs(values[key]), reverse=True)[:label_top]:
         origin, destination = links[link]
         x = (nodes[origin][0]+nodes[destination][0])/2
         y = (nodes[origin][1]+nodes[destination][1])/2
-        axis.annotate(link, (x, y), xytext=(3, 3), textcoords="offset points",
-                      fontsize=7, color="#222222", zorder=3)
+        if three_dimensional:
+            depth = (nodes[origin][2]+nodes[destination][2])/2
+            axis.text(x, depth, y, link, fontsize=7, color="#222222", zorder=3)
+        else:
+            axis.annotate(link, (x, y), xytext=(3, 3), textcoords="offset points",
+                          fontsize=7, color="#222222", zorder=3)
     axis.autoscale()
-    axis.set_aspect("equal", adjustable="datalim")
+    if three_dimensional:
+        spans = np.ptp(coordinates, axis=0)
+        axis.set_box_aspect((spans[0], spans[1], max(spans[2], 0.25*spans[1])))
+        axis.view_init(elev=elevation_angle, azim=azimuth)
+    else:
+        axis.set_aspect("equal", adjustable="datalim")
     axis.axis("off")
     figure.colorbar(collection, ax=axis, fraction=0.035, pad=0.02, label=metric)
     figure.tight_layout(pad=0.25)
@@ -143,12 +229,21 @@ def main():
     parser.add_argument("--metric", default="primitive_F")
     parser.add_argument("--label-top", type=int, default=0)
     parser.add_argument("--transparent", action="store_true")
+    parser.add_argument("--three-dimensional", action="store_true")
+    parser.add_argument("--cow-surface", action="store_true")
+    parser.add_argument("--elevation-angle", type=float, default=18.0)
+    parser.add_argument("--azimuth", type=float, default=-62.0)
     args = parser.parse_args()
     if args.label_top < 0:
         parser.error("--label-top must be nonnegative")
+    if args.cow_surface and not args.three_dimensional:
+        parser.error("--cow-surface requires --three-dimensional")
     plot_network(
         args.nodes, args.edge_modes, args.results, args.output,
         metric=args.metric, label_top=args.label_top, transparent=args.transparent,
+        three_dimensional=args.three_dimensional,
+        cow_surface=args.cow_surface,
+        elevation_angle=args.elevation_angle, azimuth=args.azimuth,
     )
 
 

@@ -22,6 +22,14 @@ end
     report = validate(project)
     @test report.valid
     @test report.nodes == 30
+    node_lines = readlines(joinpath(ROOT, "examples", "cow", "data", "nodes.csv"))
+    header = split(first(node_lines), ',')
+    elevation_column = findfirst(==("elevation"), header)
+    @test elevation_column !== nothing
+    elevations = [parse(Float64, split(line, ',')[elevation_column]) for line in node_lines[2:end]]
+    @test all(isfinite, elevations)
+    @test minimum(elevations) < 0 < maximum(elevations)
+    @test maximum(elevations)-minimum(elevations) > 1.0
     result = decompose_welfare(project)
     @test length(result.directed) == 72
     @test length(result.physical) == 36

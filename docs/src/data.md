@@ -10,7 +10,9 @@ Required columns:
 | `labor` | Positive labor level |
 | `income` | Positive income level |
 
-Optional columns are `longitude` and `latitude`. The loader normalizes labor and income only when the TOML file declares those transformations.
+Optional plotting columns are `longitude`, `latitude`, and `elevation`. They do
+not enter the economic model. The loader normalizes labor and income only when
+the TOML file declares those transformations.
 
 ## `edge_modes.csv`
 
