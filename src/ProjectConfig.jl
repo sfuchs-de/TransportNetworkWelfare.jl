@@ -42,12 +42,28 @@ function parse_congestion(raw::AbstractDict)
     edge_values = get(raw, "edge", Dict{String,Any}())
     terminal_values = get(raw, "terminal", Dict{String,Any}())
     endpoint_scale = Float64(get(raw, "endpoint_scale", 1.0))
+    edge_source = lowercase(String(get(raw, "source", "mode")))
+    edge_column = String(get(raw, "column", "congestion_elasticity"))
+    edge_scale = Float64(get(raw, "scale", 1.0))
+    edge_source in ("mode", "input_column") ||
+        throw(ArgumentError("edge-congestion source must be mode or input_column"))
+    edge_enabled = name in ("edge", "composite")
+    edge_source == "input_column" && !edge_enabled && throw(ArgumentError(
+        "source=input_column requires edge or composite congestion"))
+    edge_source == "mode" && haskey(raw, "column") && throw(ArgumentError(
+        "congestion.column is only valid with source=input_column"))
+    edge_source == "mode" && haskey(raw, "scale") && throw(ArgumentError(
+        "congestion.scale is only valid with source=input_column"))
+    edge_specification() = edge_source == "mode" ? EdgeCongestion(edge_values) :
+        EdgeCongestion(; input_column=edge_column, scale=edge_scale)
+    edge_source == "input_column" && !isempty(edge_values) && throw(ArgumentError(
+        "edge congestion cannot mix [congestion.edge] values with source=input_column"))
     name == "none" && return NoCongestion()
-    name == "edge" && return EdgeCongestion(edge_values)
+    name == "edge" && return edge_specification()
     name == "endpoint_terminal" &&
         return EndpointTerminalCongestion(terminal_values, endpoint_scale)
     name == "composite" && return CompositeCongestion(
-        EdgeCongestion(edge_values),
+        edge_specification(),
         EndpointTerminalCongestion(terminal_values, endpoint_scale),
     )
     throw(ArgumentError("unknown congestion specification: $name"))

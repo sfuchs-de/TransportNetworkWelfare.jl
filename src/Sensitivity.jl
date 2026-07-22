@@ -20,11 +20,16 @@ function scaled_congestion(spec::AbstractCongestionSpecification, edge_scale::Re
     edge = Dict(mode => lambda*edge_scale for (mode, lambda) in edge_lambdas(spec))
     terminal = Dict(mode => lambda*terminal_scale_factor for
                     (mode, lambda) in terminal_lambdas(spec))
-    isempty(edge) && isempty(terminal) && return NoCongestion()
-    isempty(terminal) && return EdgeCongestion(edge)
-    isempty(edge) && return EndpointTerminalCongestion(terminal, terminal_scale(spec))
+    column = edge_input_column(spec)
+    edge_spec = column === nothing ? EdgeCongestion(edge) :
+        EdgeCongestion(; input_column=column,
+                       scale=edge_congestion_scale(spec)*edge_scale)
+    has_edge = column !== nothing || !isempty(edge)
+    !has_edge && isempty(terminal) && return NoCongestion()
+    isempty(terminal) && return edge_spec
+    !has_edge && return EndpointTerminalCongestion(terminal, terminal_scale(spec))
     return CompositeCongestion(
-        EdgeCongestion(edge), EndpointTerminalCongestion(terminal, terminal_scale(spec)))
+        edge_spec, EndpointTerminalCongestion(terminal, terminal_scale(spec)))
 end
 
 function replace_lambda(spec::AbstractCongestionSpecification, channel::Symbol, value::Real)
@@ -33,6 +38,8 @@ function replace_lambda(spec::AbstractCongestionSpecification, channel::Symbol, 
     edge = copy(edge_lambdas(spec))
     terminal = copy(terminal_lambdas(spec))
     if channel == :lambda_road
+        edge_input_column(spec) === nothing || throw(ArgumentError(
+            "lambda_road is unavailable for input-column edge congestion; use edge_congestion_scale"))
         haskey(edge, :road) || throw(ArgumentError("the congestion specification has no road edge channel"))
         edge[:road] = Float64(value)
     elseif channel == :lambda_terminal
@@ -43,10 +50,27 @@ function replace_lambda(spec::AbstractCongestionSpecification, channel::Symbol, 
     else
         throw(ArgumentError("unknown congestion sensitivity channel: $channel"))
     end
-    isempty(terminal) && return EdgeCongestion(edge)
-    isempty(edge) && return EndpointTerminalCongestion(terminal, terminal_scale(spec))
+    column = edge_input_column(spec)
+    edge_spec = column === nothing ? EdgeCongestion(edge) :
+        EdgeCongestion(; input_column=column, scale=edge_congestion_scale(spec))
+    has_edge = column !== nothing || !isempty(edge)
+    isempty(terminal) && return edge_spec
+    !has_edge && return EndpointTerminalCongestion(terminal, terminal_scale(spec))
     return CompositeCongestion(
-        EdgeCongestion(edge), EndpointTerminalCongestion(terminal, terminal_scale(spec)))
+        edge_spec, EndpointTerminalCongestion(terminal, terminal_scale(spec)))
+end
+
+function replace_edge_congestion_scale(spec::AbstractCongestionSpecification, value::Real)
+    isfinite(value) && value >= 0 ||
+        throw(ArgumentError("edge-congestion scale must be finite and nonnegative"))
+    column = edge_input_column(spec)
+    column === nothing && throw(ArgumentError(
+        "edge_congestion_scale requires input-column edge congestion"))
+    edge = EdgeCongestion(; input_column=column, scale=value)
+    terminal = terminal_lambdas(spec)
+    isempty(terminal) && return edge
+    return CompositeCongestion(
+        edge, EndpointTerminalCongestion(terminal, terminal_scale(spec)))
 end
 
 function project_at(project::Project, parameter::Symbol, value::Real)
@@ -61,6 +85,9 @@ function project_at(project::Project, parameter::Symbol, value::Real)
         return replace_project(project; modal)
     elseif parameter == :common_congestion
         return replace_project(project; congestion=scaled_congestion(project.congestion, value, value))
+    elseif parameter == :edge_congestion_scale
+        return replace_project(project;
+            congestion=replace_edge_congestion_scale(project.congestion, value))
     elseif parameter in (:lambda_road, :lambda_terminal)
         return replace_project(project; congestion=replace_lambda(project.congestion, parameter, value))
     end

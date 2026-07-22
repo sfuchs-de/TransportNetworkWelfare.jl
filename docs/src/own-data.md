@@ -38,7 +38,23 @@ Together with node income, this identity gives the same market-access exposure s
 
 ## Configure congestion and policy units
 
-Edge congestion elasticities are keyed by mode. Endpoint-terminal congestion additionally requires `origin_terminal_id` and `destination_terminal_id` on every affected mode row. Modes absent from a congestion table have zero congestion in that channel.
+Edge congestion elasticities can be keyed by mode or read from a complete
+edge-mode input column. The column specification is useful for local BPR
+elasticities and other heterogeneous baselines:
+
+```toml
+[congestion]
+specification = "edge"
+source = "input_column"
+column = "congestion_elasticity"
+scale = 1.0
+```
+
+The selected column must be finite and nonnegative for every active row. It
+cannot be combined with `[congestion.edge]`. Endpoint-terminal congestion
+additionally requires `origin_terminal_id` and `destination_terminal_id` on
+every affected mode row. Modes absent from a mode-level congestion table have
+zero congestion in that channel.
 
 For `policy.unit = "directed_arc"`, the package writes only directed-policy results. `physical_link` writes only bidirectional physical-link results, and `both` writes both files. A physical link must contain exactly two opposite policy-mode edges; its elasticity sums the simultaneous directional derivatives before normalizing the link multiplier.
 
@@ -54,5 +70,10 @@ julia --project=/path/to/TransportNetworkWelfare.jl \
 ```
 
 Validation checks schemas, identifiers, congestion-mode names, units, flow accounting, modal interiority, route contraction, policy pairing, and basic model regularity. It reports the approximate memory required by the dense fixed-route incidence object. `analyze` builds only the flexible full-model welfare closure. `decompose` additionally constructs the fixed-mode and fixed-route closures and is intended for moderate networks; its route-incidence memory grows as ``8N^2E`` bytes. The output directory is resolved relative to `config.toml`.
+
+Validation and run manifests report whether edge congestion comes from a mode
+table or an input column, together with the column name, scale, count, and
+elasticity distribution. Use `edge_congestion_scale` for sensitivity analysis
+when column-based values are active.
 
 The generic CSV adapter covers applications that already fit this contract. A raw-data source with special balancing, geographic matching, or unit conversion should use a separate preprocessing script or adapter so every transformation remains explicit and reproducible.

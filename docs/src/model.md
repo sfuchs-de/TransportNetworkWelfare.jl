@@ -13,11 +13,16 @@ The two types change one signed modal-power term throughout the transport linear
 ## Congestion specifications
 
 - `NoCongestion()` removes all congestion feedback.
-- `EdgeCongestion(lambda_by_mode)` makes realized edge-mode costs respond to traffic on that edge-mode.
+- `EdgeCongestion(lambda_by_mode)` makes realized edge-mode costs respond to traffic on that edge-mode with elasticities keyed by mode.
+- `EdgeCongestion(; input_column, scale)` uses a complete edge-mode-specific elasticity column and a common multiplicative scale.
 - `EndpointTerminalCongestion(lambda_by_mode)` makes a mode's cost respond to total traffic at both declared endpoint terminals.
 - `CompositeCongestion(edge, terminal)` combines the two channels.
 
-Congestion elasticities are nonnegative and mode-specific. A terminal-congested edge-mode must identify both endpoint terminals in the input.
+Congestion elasticities are nonnegative. Edge values can be mode-specific or
+edge-mode-specific, but the two sources cannot be mixed. The analytical
+congestion matrix resolves the relevant value for each active edge-mode before
+constructing the closure Jacobian. A terminal-congested edge-mode must identify
+both endpoint terminals in the input.
 
 ## Maintained conditions
 

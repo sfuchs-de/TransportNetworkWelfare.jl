@@ -38,13 +38,29 @@ struct NoCongestion <: AbstractCongestionSpecification end
 
 struct EdgeCongestion <: AbstractCongestionSpecification
     lambda_by_mode::Dict{Symbol,Float64}
-    function EdgeCongestion(raw::AbstractDict)
+    input_column::Union{Nothing,String}
+    scale::Float64
+    function EdgeCongestion(raw::AbstractDict,
+                            input_column::Union{Nothing,AbstractString}=nothing,
+                            scale::Real=1.0)
         lambdas = Dict(Symbol(k) => Float64(v) for (k, v) in raw)
         all(v -> isfinite(v) && v >= 0, Base.values(lambdas)) ||
             throw(ArgumentError("edge-congestion elasticities must be finite and nonnegative"))
-        new(lambdas)
+        column = input_column === nothing ? nothing : strip(String(input_column))
+        column !== nothing && isempty(column) &&
+            throw(ArgumentError("edge-congestion input column must be nonempty"))
+        column !== nothing && !isempty(lambdas) && throw(ArgumentError(
+            "edge congestion cannot mix mode-level values with an input column"))
+        isfinite(scale) && scale >= 0 ||
+            throw(ArgumentError("edge-congestion scale must be finite and nonnegative"))
+        column === nothing && scale != 1 && throw(ArgumentError(
+            "edge-congestion scale is only valid with an input column"))
+        new(lambdas, column, Float64(scale))
     end
 end
+
+EdgeCongestion(; input_column::AbstractString, scale::Real=1.0) =
+    EdgeCongestion(Dict{Symbol,Float64}(), input_column, scale)
 
 struct EndpointTerminalCongestion <: AbstractCongestionSpecification
     lambda_by_mode::Dict{Symbol,Float64}
@@ -68,6 +84,20 @@ edge_lambdas(::NoCongestion) = Dict{Symbol,Float64}()
 edge_lambdas(spec::EdgeCongestion) = spec.lambda_by_mode
 edge_lambdas(::EndpointTerminalCongestion) = Dict{Symbol,Float64}()
 edge_lambdas(spec::CompositeCongestion) = spec.edge.lambda_by_mode
+
+edge_input_column(::NoCongestion) = nothing
+edge_input_column(spec::EdgeCongestion) = spec.input_column
+edge_input_column(::EndpointTerminalCongestion) = nothing
+edge_input_column(spec::CompositeCongestion) = spec.edge.input_column
+
+edge_congestion_scale(::NoCongestion) = 0.0
+edge_congestion_scale(spec::EdgeCongestion) = spec.scale
+edge_congestion_scale(::EndpointTerminalCongestion) = 0.0
+edge_congestion_scale(spec::CompositeCongestion) = spec.edge.scale
+
+edge_congestion_source(spec::AbstractCongestionSpecification) =
+    edge_input_column(spec) === nothing ?
+        (isempty(edge_lambdas(spec)) ? "none" : "mode") : "input_column"
 
 terminal_lambdas(::NoCongestion) = Dict{Symbol,Float64}()
 terminal_lambdas(::EdgeCongestion) = Dict{Symbol,Float64}()

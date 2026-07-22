@@ -7,6 +7,7 @@ struct EdgeModeRow
     flow::Float64
     origin_terminal_id::Union{Nothing,String}
     destination_terminal_id::Union{Nothing,String}
+    congestion_elasticity::Union{Nothing,Float64}
 end
 
 struct NetworkData
@@ -38,6 +39,7 @@ struct NetworkData
     policy_physical_link_ids::Vector{String}
     pair_origin_terminal::Dict{Tuple{Int,Int},String}
     pair_destination_terminal::Dict{Tuple{Int,Int},String}
+    pair_edge_congestion::Dict{Tuple{Int,Int},Float64}
     transformations::Vector{String}
     input_hashes::Dict{String,String}
     stock_disagreement::Float64
@@ -52,7 +54,7 @@ function require_columns(path::AbstractString, columns, required)
         throw(ArgumentError("$path is missing required columns: $(join(missing, ", "))"))
 end
 
-cell_string(value) = value === missing ? "" : strip(String(value))
+cell_string(value) = value === missing ? "" : strip(string(value))
 
 function cell_float(value, path, column, row)
     value === missing && throw(ArgumentError("$path row $row has missing $column"))
@@ -104,12 +106,20 @@ function optional_terminal(row, name::Symbol)
     return isempty(value) ? nothing : value
 end
 
-function read_edge_modes(path::AbstractString)
+function read_edge_modes(path::AbstractString; congestion_column::Union{Nothing,String}=nothing)
     isfile(path) || throw(ArgumentError("edge-modes file not found: $path"))
     table = CSV.File(path; normalizenames=false)
     require_columns(path, propertynames(table), [
         "edge_id", "physical_link_id", "origin", "destination", "mode", "flow",
     ])
+    congestion_column !== nothing && congestion_column in (
+        "edge_id", "physical_link_id", "origin", "destination", "mode", "flow",
+        "origin_terminal_id", "destination_terminal_id",
+    ) && throw(ArgumentError(
+        "edge-congestion input column must not reuse a reserved edge_modes column"))
+    column_symbol = congestion_column === nothing ? nothing : Symbol(congestion_column)
+    column_symbol !== nothing && !(column_symbol in propertynames(table)) &&
+        throw(ArgumentError("$path is missing configured edge-congestion column: $congestion_column"))
     rows = EdgeModeRow[]
     for (row_number, row) in enumerate(table)
         values = Dict(name => cell_string(getproperty(row, Symbol(name))) for name in
@@ -119,11 +129,16 @@ function read_edge_modes(path::AbstractString)
         end
         flow = cell_float(getproperty(row, :flow), path, "flow", row_number)
         flow > 0 || throw(ArgumentError("$path row $row_number has nonpositive flow; active edge-modes must be interior"))
+        congestion_elasticity = column_symbol === nothing ? nothing :
+            cell_float(getproperty(row, column_symbol), path, congestion_column, row_number)
+        congestion_elasticity !== nothing && congestion_elasticity < 0 &&
+            throw(ArgumentError("$path row $row_number has negative $congestion_column"))
         push!(rows, EdgeModeRow(
             values["edge_id"], values["physical_link_id"], values["origin"],
             values["destination"], Symbol(values["mode"]), flow,
             optional_terminal(row, :origin_terminal_id),
             optional_terminal(row, :destination_terminal_id),
+            congestion_elasticity,
         ))
     end
     isempty(rows) && throw(ArgumentError("edge-modes file is empty: $path"))
@@ -238,6 +253,7 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
     normalized_rows = [EdgeModeRow(
         row.edge_id, row.physical_link_id, row.origin, row.destination, row.mode,
         row.flow / scale, row.origin_terminal_id, row.destination_terminal_id,
+        row.congestion_elasticity,
     ) for row in rows]
 
     N = length(nodes.ids)
@@ -294,6 +310,8 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
     shares = Dict{Tuple{Int,Int},Vector{Float64}}()
     terminal_origin = Dict{Tuple{Int,Int},String}()
     terminal_destination = Dict{Tuple{Int,Int},String}()
+    pair_edge_congestion = Dict{Tuple{Int,Int},Float64}()
+    active_modes = configured_active_modes(project, modes)
     for (t, edge) in enumerate(edges)
         i, j = edge
         values = [flow[i, j] for flow in mode_flows] ./ Xi[i, j]
@@ -304,6 +322,12 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
             pkey = (t, m)
             row.origin_terminal_id !== nothing && (terminal_origin[pkey] = row.origin_terminal_id)
             row.destination_terminal_id !== nothing && (terminal_destination[pkey] = row.destination_terminal_id)
+            if row.congestion_elasticity !== nothing
+                row.congestion_elasticity > 0 && !(row.mode in active_modes) &&
+                    throw(ArgumentError(
+                        "edge congestion is positive for inactive mode '$(row.mode)'"))
+                pair_edge_congestion[pkey] = row.congestion_elasticity
+            end
         end
     end
 
@@ -318,7 +342,7 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
         omega, nu, mode_flows, Xi, out_neighbors, in_neighbors, Tnode, sx, sy,
         mu, lam, edges, edge_ids, physical_ids, edge_index, s_edges, shares,
         policy_edges, policy_edge_ids, policy_physical_ids,
-        terminal_origin, terminal_destination, transforms.ledger,
+        terminal_origin, terminal_destination, pair_edge_congestion, transforms.ledger,
         Dict{String,String}(input_hashes), stock_disagreement,
     )
 end
@@ -327,10 +351,41 @@ function load_generic_network(project::Project)
     nodes_path = input_path(project, "nodes")
     edges_path = input_path(project, "edge_modes")
     nodes = read_nodes(nodes_path)
-    rows = read_edge_modes(edges_path)
+    rows = read_edge_modes(edges_path; congestion_column=edge_input_column(project.congestion))
     hashes = Dict(basename(nodes_path) => file_sha256(nodes_path),
                   basename(edges_path) => file_sha256(edges_path))
     return build_network(project, nodes, rows; input_hashes=hashes)
+end
+
+function edge_congestion_metadata(project::Project, data::NetworkData)
+    source = edge_congestion_source(project.congestion)
+    column = edge_input_column(project.congestion)
+    scale = edge_congestion_scale(project.congestion)
+    active_modes = configured_active_modes(project, data.modes)
+    values = if source == "input_column"
+        [value*scale for ((_, m), value) in data.pair_edge_congestion
+         if data.modes[m] in active_modes]
+    elseif source == "mode"
+        [get(edge_lambdas(project.congestion), data.modes[m], 0.0)
+         for m in eachindex(data.modes) if data.modes[m] in active_modes
+         for _ in 1:nnz(data.mode_flows[m])]
+    else
+        Float64[]
+    end
+    summary = Dict{String,Any}(
+        "source" => source,
+        "input_column" => column === nothing ? missing : column,
+        "scale" => scale,
+        "count" => length(values),
+        "positive_count" => count(>(0), values),
+    )
+    if !isempty(values)
+        summary["minimum"] = minimum(values)
+        summary["median"] = median(values)
+        summary["mean"] = mean(values)
+        summary["maximum"] = maximum(values)
+    end
+    return summary
 end
 
 function load_network(project::Project)
@@ -368,6 +423,7 @@ function validate(project::Project)
         stock_disagreement=data.stock_disagreement,
         transformations=data.transformations,
         input_hashes=data.input_hashes,
+        edge_congestion=edge_congestion_metadata(project, data),
         decomposition_incidence_gib=data.N^2*length(data.edges)*sizeof(Float64)/2.0^30,
     )
 end

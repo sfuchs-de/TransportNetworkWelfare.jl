@@ -185,11 +185,30 @@ function route_state_matrix(data::NetworkData, basis, c::AdjointRSUE.Coef;
     return dense * inverse_state_map(data.N, data.omega, c)
 end
 
+function edge_congestion_value(project::Project, data::NetworkData,
+                               edge_index::Int, mode_index::Int)
+    column = edge_input_column(project.congestion)
+    if column !== nothing
+        key = (edge_index, mode_index)
+        haskey(data.pair_edge_congestion, key) || throw(ArgumentError(
+            "configured edge-congestion column '$column' is missing an active edge-mode value"))
+        return edge_congestion_scale(project.congestion) * data.pair_edge_congestion[key]
+    end
+    return get(edge_lambdas(project.congestion), data.modes[mode_index], 0.0)
+end
+
 function congestion_matrices(project::Project, data::NetworkData, basis;
                              include_edge::Bool=true, include_terminal::Bool=true)
-    edge_lambda = include_edge ? edge_lambdas(project.congestion) : Dict{Symbol,Float64}()
     terminal_lambda = include_terminal ? terminal_lambdas(project.congestion) : Dict{Symbol,Float64}()
     scale = terminal_scale(project.congestion)
+    edge_pair_lambda = zeros(basis.P)
+    if include_edge
+        for p in 1:basis.P
+            tglobal = basis.active_edges[basis.pair_edge[p]]
+            edge_pair_lambda[p] = edge_congestion_value(
+                project, data, tglobal, basis.pair_mode[p])
+        end
+    end
     qkeys = Any[]
     qindex = Dict{Any,Int}()
     edge_q = Dict{Int,Int}()
@@ -197,8 +216,7 @@ function congestion_matrices(project::Project, data::NetworkData, basis;
     terminal_for_pair = Dict{Tuple{Int,Symbol},Int}()
 
     for p in 1:basis.P
-        mode = data.modes[basis.pair_mode[p]]
-        get(edge_lambda, mode, 0.0) > 0 || continue
+        edge_pair_lambda[p] > 0 || continue
         key = (:edge, p)
         push!(qkeys, key)
         edge_q[p] = length(qkeys)
@@ -239,7 +257,7 @@ function congestion_matrices(project::Project, data::NetworkData, basis;
     grows = Int[]; gcols = Int[]; gvals = Float64[]
     for p in 1:basis.P
         mode = data.modes[basis.pair_mode[p]]
-        lambda_edge = get(edge_lambda, mode, 0.0)
+        lambda_edge = edge_pair_lambda[p]
         if lambda_edge > 0
             push!(grows, p); push!(gcols, edge_q[p]); push!(gvals, lambda_edge)
         end
@@ -254,7 +272,7 @@ function congestion_matrices(project::Project, data::NetworkData, basis;
         end
     end
     G = sparse(grows, gcols, gvals, basis.P, Q)
-    return (; A, G, Q, qkeys, edge_states=length(edge_q),
+    return (; A, G, Q, qkeys, edge_pair_lambda, edge_states=length(edge_q),
             terminal_states=length(terminal_groups))
 end
 

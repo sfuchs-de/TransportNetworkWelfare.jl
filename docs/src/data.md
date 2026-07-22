@@ -24,7 +24,7 @@ Required columns:
 | `mode` | Mode name listed in `mode_order` |
 | `flow` | Strictly positive active edge-mode flow |
 
-`origin_terminal_id` and `destination_terminal_id` are required when that mode has endpoint-terminal congestion. `(edge_id, mode)` must be unique. The current route representation does not admit two edge IDs with identical endpoints; represent parallel paths with explicit intermediate route nodes.
+`origin_terminal_id` and `destination_terminal_id` are required when that mode has endpoint-terminal congestion. An optional finite, nonnegative congestion-elasticity column can supply edge-mode-specific values. `(edge_id, mode)` must be unique. The current route representation does not admit two edge IDs with identical endpoints; represent parallel paths with explicit intermediate route nodes.
 
 A missing `(edge_id, mode)` row means that mode is unavailable on the edge. Every listed active edge-mode must have strictly positive flow because the current derivative is evaluated at an interior baseline.
 
@@ -86,5 +86,20 @@ mode = "road"
 unit = "both"
 shock_fraction = 0.01
 ```
+
+For heterogeneous edge-mode congestion, replace `[congestion.edge]` with:
+
+```toml
+[congestion]
+specification = "edge"
+source = "input_column"
+column = "congestion_elasticity"
+scale = 1.0
+```
+
+Every active edge-mode row must then have a finite, nonnegative value in the
+configured column. Input-column and mode-level edge elasticities cannot be
+mixed. `edge_congestion_scale` is the corresponding sensitivity parameter;
+mode-specific paths such as `lambda_road` are rejected for this specification.
 
 To add a mode, add rows to `edge_modes.csv`, add its name to `mode_order`, and optionally assign an edge or terminal congestion elasticity. To add a node, add its node row and all explicit directed edge-mode rows. No Julia changes are required.

@@ -9,6 +9,7 @@ Each analysis records:
 - transport solve residuals;
 - closure-ladder, inverse-gap, and Hulten-accounting residuals;
 - package version and commit, tracked/untracked dirty state, configuration and input hashes, and hashes for every output, including sensitivity output when generated.
+- edge-congestion source, input column and scale, and the distribution of active edge-mode elasticities.
 
 The default condition-number ceiling is ``10^{12}`` and the identity tolerance is ``10^{-10}``. A failed factorization or condition gate stops the run. There is no ridge fallback.
 
@@ -20,3 +21,5 @@ Common failures are actionable:
 - `missing ... terminal_id`: terminal congestion is active without a declared endpoint;
 - `leaves the baseline regular branch`: a sensitivity path crosses ``e=0``;
 - `RSUE input hash mismatch`: the external file is not the audited vintage.
+- `missing configured edge-congestion column`: column-based congestion was requested but the input does not provide complete values;
+- `lambda_road is unavailable for input-column edge congestion`: use the common `edge_congestion_scale` path instead.

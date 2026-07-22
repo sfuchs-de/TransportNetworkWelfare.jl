@@ -1,6 +1,8 @@
 function enrich_diagnostics!(result, model::TransportModel)
     result.diagnostics["input_hashes"] = model.data.input_hashes
     result.diagnostics["transformations"] = model.data.transformations
+    result.diagnostics["edge_congestion"] =
+        edge_congestion_metadata(model.project, model.data)
     result.diagnostics["shock_fraction"] = model.project.policy.shock_fraction
     result.diagnostics["one_percent_gain_scale"] = 100*model.project.policy.shock_fraction
     return result
