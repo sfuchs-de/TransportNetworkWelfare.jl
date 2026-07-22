@@ -19,8 +19,8 @@
   deterministic public-data build, and balanced-flow validation.
 - [x] Aggregate expected metrics and non-sensitive source hashes.
 - [x] Local full-network reproduction against the frozen July 12 outputs.
-- [ ] Coauthor decision on the paper-facing modal and congestion specification.
-- [ ] Independent nonlinear finite differences for the choice-consistent RSUE candidate.
+- [x] Paper-facing choice-logsum and edge-local congestion specification recorded.
+- [x] Independent nonlinear finite differences for traffic-stratified choice-consistent RSUE arcs.
 - [ ] Stable data-location and redistribution documentation.
 
 ## v1.0.0: public release

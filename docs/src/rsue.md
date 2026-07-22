@@ -37,10 +37,21 @@ Build the complete paper result vintage, claim ledger, TeX macros, CBSA labels, 
 
 ```bash
 export RSUE_DATA_ROOT=/absolute/path/to/rsue/Input
-julia --project=. replication/rsue/build_paper_artifacts.jl
+julia --project=replication/rsue/environment -e 'using Pkg; Pkg.instantiate()'
+julia --project=replication/rsue/environment replication/rsue/build_paper_artifacts.jl
 ```
 
-The builder requires the official 2018 Census CBSA shapefile and `ogr2ogr` for the point-in-polygon location crosswalk. It writes no corridor name that cannot be assigned from the public polygon file. The generated maps and scatterplots have no internal title and are saved as PDF and transparent PNG.
+The tracked replication manifest fixes the Julia package environment. The artifact manifest also records the Julia and BLAS configuration, Python version, GDAL version, lockfile hashes, input hashes, and source hashes.
+
+The builder requires an accepted report from the independent nonlinear choice-logsum finite-difference harness. The report is bound to the paper configuration, restricted inputs, and derivative source files. Regenerate it after any of those change:
+
+```bash
+export RSUE_DATA_ROOT=/absolute/path/to/rsue/Input
+julia --project=replication/rsue/environment \
+  replication/rsue/verify_choice_logsum_fd.jl
+```
+
+The builder uses the official 2018 Census CBSA archive with a pinned SHA-256. With both the verified archive and its derived GeoJSON in the cache, it can run offline without GDAL. A fresh conversion requires `ogr2ogr`, whose version is recorded. No corridor name is written unless the public polygon file assigns it. Generated maps and scatterplots have no internal title and are saved as PDF and transparent PNG.
 
 Legacy acceptance values and frozen output hashes are in `expected_summary.toml`; the corresponding Census-candidate targets are in `census_ports/expected_summary.toml`. The full result comparisons run only when the external data are present:
 

@@ -6,11 +6,13 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 import urllib.request
 from pathlib import Path
 
 
 CBSA_URL = "https://www2.census.gov/geo/tiger/TIGER2018/CBSA/tl_2018_us_cbsa.zip"
+CBSA_SHA256 = "810b5a1d81a4c0e4bbea65c721ad7c42c578a4034d44049b783e253e0686d086"
 
 
 def sha256(path: Path) -> str:
@@ -70,14 +72,25 @@ def cbsa_features(cache_dir: Path):
     geojson = cache_dir / "tl_2018_us_cbsa.geojson"
     if not archive.exists():
         urllib.request.urlretrieve(CBSA_URL, archive)
+    actual_hash = sha256(archive)
+    if actual_hash != CBSA_SHA256:
+        raise RuntimeError(
+            f"Census CBSA archive hash mismatch: expected {CBSA_SHA256}, got {actual_hash}")
+    executable = shutil.which("ogr2ogr")
     if not geojson.exists():
-        executable = shutil.which("ogr2ogr")
         if executable is None:
-            raise RuntimeError("ogr2ogr is required to build the CBSA crosswalk")
+            raise RuntimeError(
+                "ogr2ogr is required to build the CBSA crosswalk; install GDAL or provide "
+                "the hash-verified cached GeoJSON")
         subprocess.run(
             [executable, "-f", "GeoJSON", str(geojson), f"/vsizip/{archive}"],
             check=True,
         )
+    gdal_version = "not_available_cached_geojson"
+    if executable is not None:
+        gdal_version = subprocess.run(
+            [executable, "--version"], check=True, capture_output=True, text=True,
+        ).stdout.strip()
     with geojson.open() as handle:
         collection = json.load(handle)
     features = []
@@ -88,7 +101,7 @@ def cbsa_features(cache_dir: Path):
             str(feature["properties"]["GEOID"]),
             str(feature["properties"]["NAME"]),
         ))
-    return features, archive
+    return features, archive, geojson, gdal_version
 
 
 def assign(features, longitude, latitude):
@@ -114,7 +127,7 @@ def link_label(name_a, name_b):
 def compact_cbsa_name(name):
     if not name:
         return ""
-    return name.split(",", 1)[0].split("-", 1)[0]
+    return name.split(",", 1)[0]
 
 
 def compact_link_label(name_a, name_b):
@@ -206,7 +219,7 @@ def write_top_link_outputs(comparison, label_rows, csv_path, tex_path):
         r"\end{tabularx}",
         r"\smallskip",
         r"\begin{minipage}{0.97\textwidth}",
-        r"\footnotesize \textbf{Notes:} The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. Panel A ranks links by the sum of the two directed traffic shares. Panel B ranks them by the corresponding extended primitive-cost welfare elasticity. ``Other rank'' gives the link's rank under the other statistic. Metropolitan labels are assigned by point-in-polygon using the public 2018 Census CBSA crosswalk and shortened to the first principal city in each CBSA name. Elasticities are multiplied by $10^4$.",
+        r"\footnotesize \textbf{Notes:} The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. Panel A ranks links by the sum of the two directed traffic shares. Panel B ranks them by the corresponding extended primitive-cost welfare elasticity. ``Other rank'' gives the link's rank under the other statistic. Metropolitan labels are assigned by point-in-polygon using the public 2018 Census CBSA crosswalk; state suffixes are omitted. Elasticities are multiplied by $10^4$.",
         r"\end{minipage}",
         r"\end{table}",
         r"\end{revblock}",
@@ -224,7 +237,7 @@ def main():
     parser.add_argument("--top-links-csv", type=Path)
     parser.add_argument("--top-links-tex", type=Path)
     args = parser.parse_args()
-    features, archive = cbsa_features(args.cache_dir)
+    features, archive, geojson, gdal_version = cbsa_features(args.cache_dir)
     with args.geometry.open(newline="") as handle:
         rows = list(csv.DictReader(handle))
     output_rows = []
@@ -268,6 +281,10 @@ def main():
     claims["cbsa_crosswalk"] = {
         "source_url": CBSA_URL,
         "source_sha256": sha256(archive),
+        "expected_source_sha256": CBSA_SHA256,
+        "geojson_sha256": sha256(geojson),
+        "gdal_version": gdal_version,
+        "python_version": sys.version.split()[0],
         "vintage": 2018,
         "assignment": "point_in_polygon_only",
         "labeled_physical_links": sum(bool(value) for value in labels.values()),

@@ -24,7 +24,7 @@ class PaperArtifactTests(unittest.TestCase):
                 "Los Angeles-Long Beach-Anaheim, CA",
                 "Riverside-San Bernardino-Ontario, CA",
             ),
-            "Los Angeles--Riverside",
+            "Los Angeles-Long Beach-Anaheim--Riverside-San Bernardino-Ontario",
         )
 
     def test_tex_escape(self):
@@ -99,7 +99,7 @@ class PaperArtifactTests(unittest.TestCase):
             self.assertIn(r"\caption{\rev{Top-ranked", tex)
             self.assertIn("Panel A. Ranked by the traditional", tex)
             self.assertIn("Panel B. Ranked by the extended", tex)
-            self.assertIn("Alpha--Beta", tex)
+            self.assertIn("Alpha-One--Beta-Two", tex)
 
 
 if __name__ == "__main__":

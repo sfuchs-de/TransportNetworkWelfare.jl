@@ -1,0 +1,95 @@
+absolute_error_tolerance = 1.0e-6
+config_sha256 = "5e3967148aa585f0adc32a64c65a3140f8d574bbe401002f32924f3012c1206a"
+finite_difference_step = 1.0e-5
+max_absolute_error = 1.5163109483296022e-15
+max_relative_error = 1.993432742143941e-10
+max_solve_residual = 2.1427608257434335e-16
+modal_specification = "choice_logsum"
+schema_version = 1
+solve_residual_tolerance = 1.0e-10
+verification_status = "accepted"
+
+[input_hashes]
+"bilateral_barges_sparse.csv" = "bfecd7d4227834a7cc7257dfa035195472e705e21886dec5b545f34054f149d3"
+"bilateral_rail_sparse.csv" = "bd1a84618fe6cdb3983c5a4c951555d50699455d1b70bef76df99756e260d6a7"
+"census_port_region_overlay.csv" = "49bd1c9dc1aa1531933a4171cd884fa6e76cc1044b0301027307b2c562918520"
+"node_labor_income_interstate.csv" = "c4c914e5a4c5ea263283def3c3d09c8d5cc67b149a1726214239df3334b97b1f"
+"sparse_adjmat_interstate.csv" = "43d0dfb228742f87c64f7f0bec0214a068a84a01e36549887e58e5b014ff0edd"
+"terminals_count.csv" = "decd7c1733ccc9377e18e9c30fbf0beb40e8e1ea3ce44cd1b0be4c44aa78dcf3"
+
+[[samples]]
+absolute_error = 1.4591616353783546e-15
+analytic = 7.3198438278335055e-6
+edge_id = "27_28"
+finite_difference = 7.319843826374344e-6
+maximum_solve_residual = 1.9302886100520848e-16
+minus_iterations = 2
+plus_iterations = 2
+relative_error = 1.993432742143941e-10
+traffic = 1.937451103275037e-5
+[[samples]]
+absolute_error = 2.1194797219376005e-16
+analytic = 6.0307252955668467e-5
+edge_id = "43_41"
+finite_difference = 6.0307252955880414e-5
+maximum_solve_residual = 1.9612988222931886e-16
+minus_iterations = 2
+plus_iterations = 2
+relative_error = 3.514469019996017e-12
+traffic = 8.627931352307498e-5
+[[samples]]
+absolute_error = 3.0228234195253667e-16
+analytic = 5.9449704727952724e-5
+edge_id = "152_156"
+finite_difference = 5.9449704728255006e-5
+maximum_solve_residual = 2.118725903198093e-16
+minus_iterations = 2
+plus_iterations = 2
+relative_error = 5.084673562901755e-12
+traffic = 0.0001268300057249427
+[[samples]]
+absolute_error = 1.1926901523698352e-15
+analytic = 9.692487028700703e-5
+edge_id = "149_144"
+finite_difference = 9.692487028819972e-5
+maximum_solve_residual = 2.1427608257434335e-16
+minus_iterations = 2
+plus_iterations = 2
+relative_error = 1.2305305633508985e-11
+traffic = 0.0001541966808828404
+[[samples]]
+absolute_error = 4.850720519700147e-16
+analytic = 0.00014457939738710582
+edge_id = "22_17"
+finite_difference = 0.0001445793973875909
+maximum_solve_residual = 2.129882519028996e-16
+minus_iterations = 2
+plus_iterations = 2
+relative_error = 3.355056534585303e-12
+traffic = 0.0002084274467832984
+[[samples]]
+absolute_error = 1.5163109483296022e-15
+analytic = 0.00020533511996883644
+edge_id = "55_69"
+finite_difference = 0.00020533511997035276
+maximum_solve_residual = 2.105287647683227e-16
+minus_iterations = 2
+plus_iterations = 2
+relative_error = 7.384566987662567e-12
+traffic = 0.0002874694146882695
+[[samples]]
+absolute_error = 1.8854275779522922e-16
+analytic = 0.00044348186412073576
+edge_id = "10_6"
+finite_difference = 0.0004434818641205472
+maximum_solve_residual = 2.0511400449619395e-16
+minus_iterations = 2
+plus_iterations = 2
+relative_error = 4.25141979974855e-13
+traffic = 0.0009363981831675498
+
+[source_hashes]
+"replication/rsue/verify_choice_logsum_fd.jl" = "1e9422d2f26252e44a30d367aaa51d8fb1c4421ec51eb4dba6dde8aad85aa070"
+"src/CompleteEngine.jl" = "303d605fbae97df34449b9acb167a5eff50fd42ddafc1368be74f60ec7bf4df3"
+"src/kernels/AdjointRSUE.jl" = "c4bc25027fad2e16a950fbf7a0c7395a424c1f207bedcc056b87834d4c2fb5fb"
+"src/kernels/IFTDecomposition.jl" = "555117aee0b462d362a9f0549bbe3774c27bb4647714b8b6a3b093ea7e7425d5"

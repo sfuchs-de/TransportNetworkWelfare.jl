@@ -1,0 +1,5 @@
+[deps]
+TransportNetworkWelfare = "dbfb5db5-415a-4388-9e6f-1250c40a4d1d"
+
+[compat]
+julia = "1.10"
