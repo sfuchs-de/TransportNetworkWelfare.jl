@@ -4,6 +4,12 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+- Support edge-mode-specific congestion elasticities supplied by a validated
+  input column, including common-scale sensitivity and manifest diagnostics.
+- Add self-contained Braess-style and cow networks, plus a pinned, on-demand
+  Sioux Falls adaptation with local BPR elasticities.
+- Add deterministic generic network plotting and an examples guide that marks
+  the Seattle urban-model extension as out of scope.
 - Validate congestion keys, inactive modes, terminal identifiers, and the RSUE
   matrix mode order before model construction.
 - Give `directed_arc`, `physical_link`, and `both` policy units distinct output

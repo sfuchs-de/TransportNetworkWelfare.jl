@@ -1,0 +1,39 @@
+schema_version = 1
+name = "sioux-falls-efficient"
+
+[input]
+adapter = "generic_csv_v1"
+nodes = "generated/nodes.csv"
+edge_modes = "generated/edge_modes.csv"
+mode_order = ["road"]
+
+[input.transformations]
+normalize_labor = true
+normalize_income = true
+flow_conversion = "none"
+symmetrize = false
+pad_nodes = 0
+modal_rescale = false
+
+[model]
+alpha = 0.0
+beta = 0.0
+sigma = 5.0
+eta = 1.099
+modal_specification = "choice_logsum"
+route_curvature = "theorem"
+
+[congestion]
+specification = "none"
+
+[policy]
+mode = "road"
+unit = "both"
+shock_fraction = 0.01
+
+[output]
+directory = "output-efficient"
+
+[diagnostics]
+tolerance = 1.0e-10
+condition_limit = 1.0e12

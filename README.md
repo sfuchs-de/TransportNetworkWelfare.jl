@@ -18,6 +18,19 @@ julia --project=. bin/tnw.jl sensitivity examples/toy/config.toml
 
 The example is self-contained. It does not require Dropbox, credentials, Python, or source edits. Generated files are written below `examples/toy/output/` and include a run manifest with input, configuration, code, parameter, diagnostic, and output hashes.
 
+## Canonical examples
+
+Three additional applications exercise distinct parts of the package:
+
+- `examples/braess/`: a four-location routing example with a verified nonzero route wedge;
+- `examples/sioux_falls/`: an on-demand adaptation of the standard 24-node benchmark using heterogeneous local BPR elasticities;
+- `examples/cow/`: an original 30-node synthetic geography whose traffic-only and extended rankings differ.
+
+The first and third are fully self-contained. Sioux Falls downloads pinned,
+hash-verified academic-use source files and records its balancing conversion.
+See [Examples](docs/src/examples.md) for assumptions, commands, plotting, and
+the reason a separate Seattle urban solver is deferred.
+
 ## Use your own data
 
 Create a portable project outside the package repository:

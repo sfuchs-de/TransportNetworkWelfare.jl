@@ -35,6 +35,11 @@ jobs:
         run: julia --project=. -e 'using Pkg; Pkg.test()'
       - name: CLI smoke test
         run: julia --project=. bin/tnw.jl decompose examples/toy/config.toml
+      - name: Canonical example smoke tests
+        if: matrix.os == 'ubuntu-latest' && matrix.julia-version == '1.10'
+        run: |
+          julia --project=. bin/tnw.jl decompose examples/braess/config.toml
+          julia --project=. bin/tnw.jl decompose examples/cow/config.toml
       - name: Independent choice-logsum nonlinear check
         if: matrix.os == 'ubuntu-latest' && matrix.julia-version == '1.10'
         run: julia --project=. replication/rsue/verify_choice_logsum_fd.jl examples/toy/config.toml /tmp/choice-logsum-fd.toml
@@ -93,10 +98,12 @@ jobs:
           cache-dependency-path: plots/requirements.txt
       - run: julia --project=. -e 'using Pkg; Pkg.instantiate()'
       - run: julia --project=. bin/tnw.jl decompose examples/toy/config.toml
+      - run: julia --project=. bin/tnw.jl decompose examples/cow/config.toml
       - run: python -m pip install -r plots/requirements.txt
       - run: python -m unittest discover -s plots -p 'test_*.py'
       - run: python plots/hulten_vs_welfare.py examples/toy/output/decomposition_directed.csv /tmp/hulten.png
       - run: python plots/decomposition_components.py examples/toy/output/decomposition_directed.csv /tmp/components.png
+      - run: python plots/network_example.py examples/cow/data/nodes.csv examples/cow/data/edge_modes.csv examples/cow/output/decomposition_physical.csv /tmp/cow.png --metric primitive_F --transparent
 
   security:
     runs-on: ubuntu-latest
