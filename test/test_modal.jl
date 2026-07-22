@@ -131,4 +131,52 @@ end
     end
 end
 
+@testset "Heterogeneous edge congestion matches nonlinear finite differences" begin
+    source = normpath(joinpath(@__DIR__, "..", "examples", "toy"))
+    mktempdir() do directory
+        mkpath(joinpath(directory, "data"))
+        cp(joinpath(source, "data", "nodes.csv"), joinpath(directory, "data", "nodes.csv"))
+        lines = split(chomp(read(joinpath(source, "data", "edge_modes.csv"), String)), '\n')
+        output = [lines[1]*",congestion_elasticity"]
+        road_values = Dict("AB" => 0.02, "BA" => 0.03, "AC" => 0.04,
+                           "CA" => 0.05, "BC" => 0.06, "CB" => 0.07)
+        for line in lines[2:end]
+            cells = split(line, ','; keepempty=true)
+            value = cells[5] == "road" ? road_values[cells[1]] : 0.0
+            push!(output, line*","*string(value))
+        end
+        write(joinpath(directory, "data", "edge_modes.csv"), join(output, '\n')*"\n")
+        config = read(joinpath(source, "config.toml"), String)
+        old = """[congestion]
+specification = "composite"
+endpoint_scale = 1.0
+
+[congestion.edge]
+road = 0.05
+
+[congestion.terminal]
+rail = 0.03
+"""
+        new = """[congestion]
+specification = "edge"
+source = "input_column"
+column = "congestion_elasticity"
+scale = 1.0
+"""
+        write(joinpath(directory, "config.toml"), replace(config, old => new))
+        model = build_model(load_project(joinpath(directory, "config.toml")))
+        result = decompose_welfare(model)
+        welfare_row = TNW.AdjointRSUE.welfare_gradient(
+            model.data.omega, model.closures.c)
+        shock = 1e-5
+        for pair in eachindex(model.basis.policy_pairs)
+            plus = solve_full_closure(model, pair, shock)
+            minus = solve_full_closure(model, pair, -shock)
+            n = size(model.closures.J0, 1)
+            finite_difference = -dot(welfare_row, plus[1:n]-minus[1:n])/(2shock)
+            @test finite_difference ≈ result.directed[pair].primitive_F atol=1e-8 rtol=1e-6
+        end
+    end
+end
+
 end # module

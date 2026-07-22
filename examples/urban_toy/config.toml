@@ -1,0 +1,39 @@
+schema_version = 1
+name = "three-location-urban-commuting"
+
+[input]
+adapter = "generic_csv_v1"
+nodes = "data/nodes.csv"
+edge_modes = "data/edge_modes.csv"
+mode_order = ["road"]
+
+[input.transformations]
+normalize_residents = true
+normalize_employment = true
+flow_conversion = "none"
+symmetrize = false
+pad_nodes = 0
+modal_rescale = false
+
+[model]
+spatial_specification = "urban_commuting"
+alpha = -0.12
+beta = -0.10
+theta = 6.83
+lambda = 0.07144948755490483
+route_curvature = "theorem"
+
+[congestion]
+specification = "none"
+
+[policy]
+mode = "road"
+unit = "both"
+shock_fraction = 0.01
+
+[output]
+directory = "output"
+
+[diagnostics]
+tolerance = 1.0e-10
+condition_limit = 1.0e12

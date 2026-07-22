@@ -43,3 +43,13 @@ The package implementation adds stricter cache checks, sanitized metadata, deter
 The raw monthly API cache is not tracked. It can be reconstructed with `CENSUS_API_KEY`; the key is read only from the environment and is never written to URLs, metadata, or logs. The derived diagnostics record the API endpoints, query fields, monthly source hashes, coverage, balancing method, and output hashes.
 
 The Census candidate is intentionally separate from the legacy audited RSUE configuration. The legacy matrix appears to contain 2017 containerized import values and is symmetrized. The candidate preserves observed import and export direction before projecting both matrices onto common normalized port and region margins required by the balanced-flow model. This projection is a model adapter, not a claim that raw port-level imports equal exports.
+
+## Canonical benchmark examples
+
+The Braess-style and cow networks are original synthetic inputs created for
+this package. The Sioux Falls builder retrieves four files from
+`bstabler/TransportationNetworks` at commit
+`977ee75c6906337c0c7d229a1336107c7cdb533e`. Their URLs and SHA-256 hashes are
+recorded in `examples/sioux_falls/sources.toml` and verified before parsing.
+Neither the source files nor generated derivatives are tracked because the
+upstream terms call for academic research use and citation.

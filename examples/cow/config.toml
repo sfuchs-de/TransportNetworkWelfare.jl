@@ -1,0 +1,46 @@
+schema_version = 1
+name = "cow-network"
+
+[input]
+adapter = "generic_csv_v1"
+nodes = "data/nodes.csv"
+edge_modes = "data/edge_modes.csv"
+mode_order = ["road"]
+
+[input.transformations]
+normalize_labor = true
+normalize_income = true
+flow_conversion = "none"
+symmetrize = false
+pad_nodes = 0
+modal_rescale = false
+
+[model]
+alpha = 0.08
+beta = -0.12
+sigma = 5.0
+eta = 1.099
+modal_specification = "choice_logsum"
+route_curvature = "theorem"
+
+[congestion]
+specification = "edge"
+
+[congestion.edge]
+road = 0.12
+
+[policy]
+mode = "road"
+unit = "both"
+shock_fraction = 0.01
+
+[output]
+directory = "output"
+
+[diagnostics]
+tolerance = 1.0e-10
+condition_limit = 1.0e12
+
+[sensitivity]
+alpha = [0.02, 0.05, 0.08, 0.11]
+lambda_road = [0.0, 0.06, 0.12, 0.18]

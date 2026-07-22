@@ -18,6 +18,22 @@ julia --project=. bin/tnw.jl sensitivity examples/toy/config.toml
 
 The example is self-contained. It does not require Dropbox, credentials, Python, or source edits. Generated files are written below `examples/toy/output/` and include a run manifest with input, configuration, code, parameter, diagnostic, and output hashes.
 
+## Canonical examples
+
+Six additional applications exercise distinct parts of the package:
+
+- `examples/braess/`: a four-location routing example with a verified nonzero route wedge;
+- `examples/sioux_falls/`: an on-demand adaptation of the standard 24-node benchmark using heterogeneous local BPR elasticities;
+- `examples/cow/`: a 30-node mechanism example plus an optional sparse equilibrium with one location at each of 2,903 cow-mesh vertices;
+- `examples/urban_toy/`: a self-contained Allen-Arkolakis residence-workplace model with nonlinear exact-hat checks;
+- `examples/seattle_urban/`: a hash-verified adapter for the published 217-location Seattle application; and
+- `examples/westeros_urban/`: an on-demand synthetic commuting application built from hash-pinned public ArcGIS geography.
+
+Braess, cow, and the urban toy are fully self-contained. Sioux Falls downloads
+pinned, hash-verified academic-use source files and records its balancing conversion.
+See [Examples](docs/src/examples.md) for assumptions, commands, plotting, and
+the urban model's separate data and decomposition boundary.
+
 ## Use your own data
 
 Create a portable project outside the package repository:
@@ -53,6 +69,7 @@ write_results(welfare, "output/"; project)
 julia --project=. bin/tnw.jl init /path/to/my-network
 julia --project=. bin/tnw.jl validate config.toml
 julia --project=. bin/tnw.jl analyze config.toml
+julia --project=. bin/tnw.jl analyze-edge-local config.toml
 julia --project=. bin/tnw.jl decompose config.toml
 julia --project=. bin/tnw.jl sensitivity config.toml
 julia --project=. bin/tnw.jl replicate-rsue replication/rsue/rsue_legacy_audited.toml

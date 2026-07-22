@@ -1,0 +1,11 @@
+edge_id,physical_link_id,origin,destination,mode,flow,origin_terminal_id,destination_terminal_id
+AB,AB,A,B,road,0.080,,
+BA,AB,B,A,road,0.080,,
+AC,AC,A,C,road,0.050,,
+CA,AC,C,A,road,0.050,,
+BD,BD,B,D,road,0.080,,
+DB,BD,D,B,road,0.080,,
+CD,CD,C,D,road,0.050,,
+DC,CD,D,C,road,0.050,,
+BC,BC,B,C,road,0.020,,
+CB,BC,C,B,road,0.020,,

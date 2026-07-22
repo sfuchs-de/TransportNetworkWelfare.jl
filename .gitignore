@@ -12,3 +12,15 @@ replication/rsue/.public_cache/
 plots/.venv/
 plots/__pycache__/
 *.pyc
+examples/braess/output/
+examples/cow/output/
+examples/cow/assets/
+examples/cow/mesh_data/
+examples/cow/mesh_output/
+examples/sioux_falls/raw/
+examples/sioux_falls/generated/
+examples/sioux_falls/output-efficient/
+examples/sioux_falls/output-extended/
+examples/seattle_urban/generated/
+examples/westeros_urban/generated/
+examples/urban_toy/output/

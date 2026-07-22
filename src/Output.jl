@@ -135,6 +135,10 @@ function run_manifest(project::Project, diagnostics::AbstractDict, outputs; comm
             "sigma" => project.parameters.sigma,
             "eta" => project.modal.eta,
             "edge_congestion" => Dict(string(k) => v for (k, v) in edge_lambdas(project.congestion)),
+            "edge_congestion_source" => edge_congestion_source(project.congestion),
+            "edge_congestion_input_column" => something(
+                edge_input_column(project.congestion), missing),
+            "edge_congestion_scale" => edge_congestion_scale(project.congestion),
             "terminal_congestion" => Dict(string(k) => v for (k, v) in terminal_lambdas(project.congestion)),
             "terminal_endpoint_scale" => terminal_scale(project.congestion),
         ),

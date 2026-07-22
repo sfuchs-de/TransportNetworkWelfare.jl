@@ -2,7 +2,7 @@ function usage(io::IO=stdout)
     println(io, "Usage:")
     println(io, "  julia --project=. bin/tnw.jl init DIRECTORY")
     println(io, "  julia --project=. bin/tnw.jl COMMAND CONFIG")
-    println(io, "Commands: init, validate, analyze, decompose, sensitivity, replicate-rsue")
+    println(io, "Commands: init, validate, analyze, analyze-edge-local, decompose, sensitivity, replicate-rsue")
 end
 
 function print_summary(value)
@@ -49,7 +49,7 @@ function initialize_project(destination::AbstractString)
 end
 
 function run_command(command::String, config::String)
-    command in ("init", "validate", "analyze", "decompose", "sensitivity", "replicate-rsue") ||
+    command in ("init", "validate", "analyze", "analyze-edge-local", "decompose", "sensitivity", "replicate-rsue") ||
         throw(ArgumentError("unknown command: $command"))
     if command == "init"
         print_summary(initialize_project(config))
@@ -66,6 +66,11 @@ function run_command(command::String, config::String)
         result = require_verified(welfare_effects(project))
         paths = write_results(result, project.output_dir; project,
             command="analyze $config_label")
+        print_summary(Dict("status" => "ok", "outputs" => paths))
+    elseif command == "analyze-edge-local"
+        result = require_verified(edge_local_welfare_effects(project))
+        paths = write_results(result, project.output_dir; project,
+            command="analyze-edge-local $config_label")
         print_summary(Dict("status" => "ok", "outputs" => paths))
     elseif command == "decompose"
         model = build_model(project)
