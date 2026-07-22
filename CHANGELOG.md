@@ -9,9 +9,14 @@ All notable changes are documented here. The project follows semantic versioning
 - Add self-contained Braess-style and three-dimensional cow networks, plus a pinned, on-demand
   Sioux Falls adaptation with local BPR elasticities.
 - Add deterministic generic network plotting and an examples guide that marks
-  the Seattle urban-model extension as out of scope.
+  the Seattle urban-model extension as a separate model boundary.
 - Add an ASCII PLY surface renderer and a hash-pinned, on-demand cow mesh with
   explicit third-party licensing metadata.
+- Add a separate Allen--Arkolakis urban commuting closure with residence and
+  workplace distributions, an analytic adjoint, nonlinear exact-hat checks,
+  a self-contained toy example, and a hash-pinned Seattle replication adapter.
+- Add an on-demand Westeros example that converts hash-pinned public ArcGIS
+  geography into a transparent synthetic commuting baseline.
 - Add a sparse edge-local adjoint solver and an all-vertex cow-mesh builder for
   networks whose exact fixed-route decomposition is too large to construct.
 - Validate congestion keys, inactive modes, terminal identifiers, and the RSUE

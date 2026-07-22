@@ -21,3 +21,6 @@ examples/sioux_falls/raw/
 examples/sioux_falls/generated/
 examples/sioux_falls/output-efficient/
 examples/sioux_falls/output-extended/
+examples/seattle_urban/generated/
+examples/westeros_urban/generated/
+examples/urban_toy/output/

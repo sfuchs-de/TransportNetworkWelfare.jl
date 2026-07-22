@@ -1,0 +1,22 @@
+[arcgis_web_map]
+item_id = "43d03779288048bfb5d3c46e4bc4ccb0"
+item_url = "https://www.arcgis.com/home/item.html?id=43d03779288048bfb5d3c46e4bc4ccb0"
+title = "Game of Thrones Map"
+owner = "CreativeCarto"
+access = "public"
+license_status = "No license was listed in the ArcGIS item metadata on 2026-07-22; source features are downloaded on demand and are not redistributed."
+
+[locations]
+url = "https://services8.arcgis.com/bq7onQo4vkjSA8x6/arcgis/rest/services/GameofThronesMapDataLayers_WFL1/FeatureServer/0/query?where=1%3D1&outFields=*&returnGeometry=true&outSR=4326&f=geojson"
+sha256 = "2c5794dc82d1c497141c3e5ddd9864a717b167ca4d3d4a141cd3e64bdc4e3394"
+expected_features = 319
+
+[roads]
+url = "https://services8.arcgis.com/bq7onQo4vkjSA8x6/arcgis/rest/services/GameofThronesMapDataLayers_WFL1/FeatureServer/2/query?where=continent%3D%27Westeros%27&outFields=*&returnGeometry=true&outSR=4326&f=geojson"
+sha256 = "a7d732f9f0254513d8bb558c1c261a413bffb6bf5ca3b10921124936f5208720"
+expected_features = 169
+
+[continent]
+url = "https://services8.arcgis.com/bq7onQo4vkjSA8x6/arcgis/rest/services/GameofThronesMapDataLayers_WFL1/FeatureServer/7/query?where=name%3D%27Westeros%27&outFields=*&returnGeometry=true&outSR=4326&f=geojson"
+sha256 = "9b4f9be357d6ce76cc22c591121a763bdd34533563b06b6d94be9a0cac05d4f9"
+expected_features = 1

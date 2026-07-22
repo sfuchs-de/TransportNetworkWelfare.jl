@@ -1,6 +1,13 @@
 # Examples
 
-The repository includes four examples with different purposes. All use the
+## Urban commuting
+
+`examples/urban_toy` is a self-contained Allen-Arkolakis commuting application
+with separate residence and workplace masses. `examples/seattle_urban` converts
+the published 217-location Seattle inputs after verifying their hashes. The
+Seattle source archive remains external to Git.
+
+The repository includes seven examples with different purposes. All use the
 same public API and TOML schema.
 
 | Example | Purpose | Size | Typical command | External data |
@@ -9,6 +16,9 @@ same public API and TOML schema.
 | `braess` | Flexible- versus fixed-route comparison | 4 nodes, 10 directed edges | `decompose examples/braess/config.toml` | None |
 | `cow` | Mechanism-rich 3D synthetic geography and ranking comparison | 30 nodes, 72 directed edges | `decompose examples/cow/config.toml` | None |
 | `sioux_falls` | Standard traffic-network adaptation with heterogeneous BPR elasticities | 24 nodes, 76 directed edges | `decompose examples/sioux_falls/config_extended.toml` | On-demand academic-use files |
+| `urban_toy` | Allen-Arkolakis residence-workplace IFT and exact-hat checks | 3 nodes, 6 directed edges | `analyze examples/urban_toy/config.toml` | None |
+| `seattle_urban` | Published urban commuting application | 217 nodes, 1,384 directed edges | `analyze examples/seattle_urban/generated/config.toml` | External replication archive |
+| `westeros_urban` | Synthetic urban application on fictional geography | Generated on demand | `analyze examples/westeros_urban/generated/config.toml` | Public ArcGIS queries |
 
 Replace `decompose ...` above with
 `julia --project=. bin/tnw.jl decompose ...` at the repository root. The
@@ -90,12 +100,33 @@ incidence matrix would occupy about 1.09 TiB. The generated baseline is a
 calibrated sufficient-statistic equilibrium rather than a global level solution
 from exogenous productivity and amenity primitives.
 
-## Why Seattle is deferred
+## Seattle urban commuting
 
 The 217-location Seattle replication for [Allen and
 Arkolakis](https://academic.oup.com/restud/article-abstract/89/6/2911/6519332)
-uses a different urban closure with separate residential and workplace labor
-allocations and commuting flows. Those objects are not inputs to the current
-economic-geography model. A faithful Seattle example therefore requires an
-urban solver and a separate schema; the 458 MB replication archive is neither
-downloaded nor bundled here.
+uses the package's separate urban closure with residential and workplace
+distributions. Run `examples/seattle_urban/prepare.jl` after setting
+`AA_REPLICATION_ROOT`. The adapter verifies the published hashes and does not
+commit or download the 458 MB source archive. See [Urban commuting
+model](urban.md) for the derivation and model boundary.
+
+## Westeros urban commuting
+
+The Westeros example uses CreativeCarto's public ArcGIS locations, roads, and
+continent polygon. Those layers identify geography but do not provide
+population, employment, or traffic. The example therefore constructs a fully
+disclosed synthetic baseline: location types determine residence and workplace
+weights, a doubly constrained gravity model balances commuting flows, and
+shortest paths assign nonlocal commuters to a reduced road graph.
+
+```bash
+python3 examples/westeros_urban/prepare.py
+julia --project=. bin/tnw.jl validate examples/westeros_urban/generated/config.toml
+julia --project=. bin/tnw.jl analyze examples/westeros_urban/generated/config.toml
+python3 examples/westeros_urban/plot.py
+```
+
+The source responses are hash-pinned but remain outside Git because the ArcGIS
+item does not list a reuse license. The generated summary records every network,
+gravity, and economic-mass assumption. Results illustrate the urban model and
+are not empirical claims about the fictional economy.

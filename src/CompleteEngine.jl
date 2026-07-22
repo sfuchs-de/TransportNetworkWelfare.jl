@@ -405,6 +405,7 @@ end
 
 "Load project data and build the common route-modal-congestion closure system."
 function build_model(project::Project)
+    project.spatial isa UrbanCommuting && return build_urban_welfare_model(project)
     isfinite(project.condition_limit) && 1 < project.condition_limit <= 1e12 ||
         throw(ArgumentError("condition_limit must be finite and lie in (1, 1e12]"))
     isfinite(project.tolerance) && project.tolerance > 0 ||
@@ -416,6 +417,7 @@ function build_model(project::Project)
 end
 
 function build_welfare_model(project::Project)
+    project.spatial isa UrbanCommuting && return build_urban_welfare_model(project)
     isfinite(project.condition_limit) && 1 < project.condition_limit <= 1e12 ||
         throw(ArgumentError("condition_limit must be finite and lie in (1, 1e12]"))
     data = load_network(project)

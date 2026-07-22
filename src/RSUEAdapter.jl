@@ -292,6 +292,6 @@ function load_rsue_network(project::Project)
         edge_ids, physical_ids, edge_index, s_edges, shares, road_edges,
         policy_edge_ids, policy_physical_ids, terminal_origin, terminal_destination,
         Dict{Tuple{Int,Int},Float64}(),
-        transformations, input_hashes, stock_disagreement,
+        transformations, input_hashes, stock_disagreement, nothing, nothing,
     )
 end

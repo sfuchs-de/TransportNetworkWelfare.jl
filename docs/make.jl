@@ -15,6 +15,7 @@ makedocs(
         "Examples" => "examples.md",
         "Use your own data" => "own-data.md",
         "Model" => "model.md",
+        "Urban commuting model" => "urban.md",
         "Data and configuration" => "data.md",
         "Outputs" => "outputs.md",
         "Welfare decomposition" => "decomposition.md",

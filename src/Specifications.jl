@@ -1,3 +1,21 @@
+abstract type AbstractSpatialSpecification end
+
+"Economic-geography model with mobile labor and trade in differentiated goods."
+struct EconomicGeography <: AbstractSpatialSpecification end
+
+"Allen-Arkolakis urban model with separate residence and workplace choices."
+struct UrbanCommuting <: AbstractSpatialSpecification
+    congestion_elasticity::Float64
+    function UrbanCommuting(congestion_elasticity::Real)
+        isfinite(congestion_elasticity) && congestion_elasticity >= 0 ||
+            throw(ArgumentError("urban congestion elasticity must be finite and nonnegative"))
+        new(Float64(congestion_elasticity))
+    end
+end
+
+spatial_name(::EconomicGeography) = "economic_geography"
+spatial_name(::UrbanCommuting) = "urban_commuting"
+
 abstract type AbstractModalSpecification end
 
 "Economically standard negative-power mode-choice logsum."
@@ -115,20 +133,26 @@ struct StructuralParameters
     sigma::Float64
     route_curvature::AbstractRouteCurvature
     function StructuralParameters(alpha::Real, beta::Real, sigma::Real,
-                                  route_curvature::AbstractRouteCurvature)
+                                  route_curvature::AbstractRouteCurvature;
+                                  check_trade_regularity::Bool=true)
         all(isfinite, (alpha, beta, sigma)) ||
             throw(ArgumentError("alpha, beta, and sigma must be finite"))
         sigma > 1 || throw(ArgumentError("sigma must exceed one"))
         route_curvature isa TheoremRouteCurvature ||
             throw(ArgumentError("independent route curvature is reserved but not supported by the current theorem"))
-        e = 1 + beta*(sigma-1) + alpha*sigma
-        abs(e) > 1e-10 ||
-            throw(ArgumentError("regularity violated: e is too close to zero"))
-        abs(1 + alpha + beta) > 1e-10 ||
-            throw(ArgumentError("regularity violated: 1+alpha+beta is too close to zero"))
+        if check_trade_regularity
+            e = 1 + beta*(sigma-1) + alpha*sigma
+            abs(e) > 1e-10 ||
+                throw(ArgumentError("regularity violated: e is too close to zero"))
+            abs(1 + alpha + beta) > 1e-10 ||
+                throw(ArgumentError("regularity violated: 1+alpha+beta is too close to zero"))
+        end
         new(Float64(alpha), Float64(beta), Float64(sigma), route_curvature)
     end
 end
+
+"Allen-Arkolakis route/commuting heterogeneity parameter."
+commuting_theta(parameters::StructuralParameters) = parameters.sigma - 1
 
 struct PolicySpecification
     mode::Symbol

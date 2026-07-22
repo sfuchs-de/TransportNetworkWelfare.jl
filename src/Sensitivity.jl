@@ -7,7 +7,7 @@ function replace_project(project::Project;
         alpha, beta, project.parameters.sigma, project.parameters.route_curvature)
     return Project(
         project.config_path, project.root, project.name, project.schema_version,
-        project.input, parameters, modal, congestion, project.policy,
+        project.input, project.spatial, parameters, modal, congestion, project.policy,
         project.output_dir, project.sensitivity, project.condition_limit,
         project.tolerance, project.raw,
     )
@@ -205,6 +205,8 @@ end
 
 "Trace the mean local welfare effect while changing one declared parameter."
 function sensitivity_path(model::TransportModel, parameter::Symbol, values)
+    model.project.spatial isa UrbanCommuting && throw(ArgumentError(
+        "urban sensitivity paths require a separate residence-workplace branch audit"))
     rows = NamedTuple[]
     for value in Float64.(values)
         project = project_at(model.project, parameter, value)

@@ -1,0 +1,8 @@
+[allen_arkolakis_replication]
+url = "https://dl.dropbox.com/s/mmux9ys035xi6iu/RESTUD26454_Replication.zip"
+archive_sha256 = "87c43d59be197c38c657625aca53cd3b5cfba19ec7177b8bcd3813e10b3429e1"
+nodes_sha256 = "be2e30db8e32890e939a7f1e6fe5f6f893e7140ecac74fd2ddec41d83684796f"
+adjacency_sha256 = "c8264f6e94c9a87084313cca19f297ebafc7253bb1b3ed054c7f6c079ffc47d7"
+expected_nodes = 217
+expected_directed_edges = 1384
+expected_physical_links = 692

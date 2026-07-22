@@ -43,6 +43,8 @@ struct NetworkData
     transformations::Vector{String}
     input_hashes::Dict{String,String}
     stock_disagreement::Float64
+    residence::Union{Nothing,Vector{Float64}}
+    workplace::Union{Nothing,Vector{Float64}}
 end
 
 file_sha256(path::AbstractString) = bytes2hex(open(SHA.sha256, path))
@@ -98,6 +100,37 @@ function read_nodes(path::AbstractString)
     all(>(0), labor) || throw(ArgumentError("labor must be strictly positive"))
     all(>(0), income) || throw(ArgumentError("income must be strictly positive"))
     return (; ids, labor, income, longitude, latitude)
+end
+
+function read_urban_nodes(path::AbstractString)
+    isfile(path) || throw(ArgumentError("nodes file not found: $path"))
+    table = CSV.File(path; normalizenames=false)
+    require_columns(path, propertynames(table), ["node_id", "residents", "employment"])
+    ids = String[]
+    residents = Float64[]
+    employment = Float64[]
+    longitude = Union{Missing,Float64}[]
+    latitude = Union{Missing,Float64}[]
+    has_lon = :longitude in propertynames(table)
+    has_lat = :latitude in propertynames(table)
+    for (row_number, row) in enumerate(table)
+        id = cell_string(getproperty(row, :node_id))
+        isempty(id) && throw(ArgumentError("$path row $row_number has an empty node_id"))
+        push!(ids, id)
+        push!(residents,
+              cell_float(getproperty(row, :residents), path, "residents", row_number))
+        push!(employment,
+              cell_float(getproperty(row, :employment), path, "employment", row_number))
+        push!(longitude, has_lon && getproperty(row, :longitude) !== missing ?
+              cell_float(getproperty(row, :longitude), path, "longitude", row_number) : missing)
+        push!(latitude, has_lat && getproperty(row, :latitude) !== missing ?
+              cell_float(getproperty(row, :latitude), path, "latitude", row_number) : missing)
+    end
+    isempty(ids) && throw(ArgumentError("nodes file is empty: $path"))
+    length(unique(ids)) == length(ids) || throw(ArgumentError("node_id values must be unique"))
+    all(>(0), residents) || throw(ArgumentError("residents must be strictly positive"))
+    all(>(0), employment) || throw(ArgumentError("employment must be strictly positive"))
+    return (; ids, residents, employment, longitude, latitude)
 end
 
 function optional_terminal(row, name::Symbol)
@@ -165,6 +198,31 @@ function declared_transformations(project::Project)
             ledger=String[
                 "normalize_labor=$normalize_labor",
                 "normalize_income=$normalize_income",
+                "flow_conversion=$flow_conversion",
+                "symmetrize=false",
+                "pad_nodes=0",
+                "modal_rescale=false",
+            ])
+end
+
+function declared_urban_transformations(project::Project)
+    raw = get(project.input, "transformations", Dict{String,Any}())
+    normalize_residents = Bool(get(raw, "normalize_residents", false))
+    normalize_employment = Bool(get(raw, "normalize_employment", false))
+    flow_conversion = lowercase(String(get(raw, "flow_conversion", "none")))
+    symmetrize = Bool(get(raw, "symmetrize", false))
+    pad_nodes = Int(get(raw, "pad_nodes", 0))
+    modal_rescale = Bool(get(raw, "modal_rescale", false))
+    symmetrize && throw(ArgumentError(
+        "generic urban inputs are never symmetrized internally; supply both directions explicitly"))
+    pad_nodes == 0 || throw(ArgumentError("generic urban inputs do not permit node padding"))
+    !modal_rescale || throw(ArgumentError("generic urban inputs do not permit modal rescaling"))
+    flow_conversion in ("none", "divide_by_total_commuters") || throw(ArgumentError(
+        "urban flow_conversion must be none or divide_by_total_commuters"))
+    return (; normalize_residents, normalize_employment, flow_conversion,
+            ledger=String[
+                "normalize_residents=$normalize_residents",
+                "normalize_employment=$normalize_employment",
                 "flow_conversion=$flow_conversion",
                 "symmetrize=false",
                 "pad_nodes=0",
@@ -343,7 +401,7 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
         mu, lam, edges, edge_ids, physical_ids, edge_index, s_edges, shares,
         policy_edges, policy_edge_ids, policy_physical_ids,
         terminal_origin, terminal_destination, pair_edge_congestion, transforms.ledger,
-        Dict{String,String}(input_hashes), stock_disagreement,
+        Dict{String,String}(input_hashes), stock_disagreement, nothing, nothing,
     )
 end
 
@@ -357,7 +415,113 @@ function load_generic_network(project::Project)
     return build_network(project, nodes, rows; input_hashes=hashes)
 end
 
-function edge_congestion_metadata(project::Project, data::NetworkData)
+function build_urban_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input_hashes)
+    project.spatial isa UrbanCommuting ||
+        throw(ArgumentError("urban network builder requires UrbanCommuting"))
+    project.congestion isa NoCongestion || throw(ArgumentError(
+        "urban_commuting includes Allen-Arkolakis congestion through model.lambda; " *
+        "the separate [congestion] block must use specification=none"))
+    transforms = declared_urban_transformations(project)
+    transforms.normalize_residents ||
+        throw(ArgumentError("set input.transformations.normalize_residents=true"))
+    transforms.normalize_employment ||
+        throw(ArgumentError("set input.transformations.normalize_employment=true"))
+    node_index = Dict(id => i for (i, id) in enumerate(nodes.ids))
+    validate_edge_metadata(rows, node_index)
+    physical_policy_check(project, rows)
+    modes = mode_order(project, rows)
+    length(modes) == 1 || throw(ArgumentError(
+        "the Allen-Arkolakis urban specification currently supports one transport mode"))
+    project.policy.mode == only(modes) ||
+        throw(ArgumentError("urban policy mode must equal the single observed mode"))
+
+    residence = nodes.residents ./ sum(nodes.residents)
+    workplace = nodes.employment ./ sum(nodes.employment)
+    commuter_total = (sum(nodes.residents) + sum(nodes.employment)) / 2
+    scale = transforms.flow_conversion == "divide_by_total_commuters" ? commuter_total : 1.0
+    normalized_rows = [EdgeModeRow(
+        row.edge_id, row.physical_link_id, row.origin, row.destination, row.mode,
+        row.flow / scale, row.origin_terminal_id, row.destination_terminal_id,
+        row.congestion_elasticity,
+    ) for row in rows]
+    any(row -> row.congestion_elasticity !== nothing, normalized_rows) && throw(ArgumentError(
+        "urban_commuting does not use edge-specific congestion_elasticity columns"))
+
+    N = length(nodes.ids)
+    Xi = spzeros(N, N)
+    edge_rows = Dict{Tuple{Int,Int},EdgeModeRow}()
+    for row in normalized_rows
+        edge = (node_index[row.origin], node_index[row.destination])
+        Xi[edge...] = row.flow
+        edge_rows[edge] = row
+    end
+    dropzeros!(Xi)
+    origins, destinations, _ = findnz(Xi)
+    edges = sort!(collect(zip(origins, destinations)))
+    edge_index = Dict(edge => t for (t, edge) in enumerate(edges))
+    edge_ids = [edge_rows[edge].edge_id for edge in edges]
+    physical_ids = [edge_rows[edge].physical_link_id for edge in edges]
+    mode_flows = [copy(Xi)]
+
+    out_neighbors = [Int[] for _ in 1:N]
+    in_neighbors = [Int[] for _ in 1:N]
+    for (i, j) in edges
+        push!(out_neighbors[i], j)
+        push!(in_neighbors[j], i)
+    end
+    foreach(sort!, out_neighbors)
+    foreach(sort!, in_neighbors)
+
+    # The two openness denominators need not coincide in empirical data because
+    # residence, workplace, and traffic moments are independently observed.
+    T_out = workplace .+ vec(sum(Xi; dims=2))
+    T_in = residence .+ vec(sum(Xi; dims=1))
+    sx = workplace ./ T_out
+    sy = residence ./ T_in
+    all((0 .< sx) .& (sx .<= 1)) ||
+        throw(ArgumentError("urban workplace-retention shares must lie in (0,1]"))
+    all((0 .< sy) .& (sy .<= 1)) ||
+        throw(ArgumentError("urban residence-retention shares must lie in (0,1]"))
+    mu = zeros(N, N)
+    lam = zeros(N, N)
+    for (i, j) in edges
+        mu[i, j] = Xi[i, j] / T_out[i]
+        lam[i, j] = Xi[i, j] / T_in[j]
+    end
+
+    s_edges = ones(length(edges), 1)
+    shares = Dict(edge => [1.0] for edge in edges)
+    policy_rows = [row for row in normalized_rows if row.mode == project.policy.mode]
+    policy_edges = sort!([(node_index[row.origin], node_index[row.destination]) for row in policy_rows])
+    policy_lookup = Dict((node_index[row.origin], node_index[row.destination]) => row
+                         for row in policy_rows)
+    policy_edge_ids = [policy_lookup[edge].edge_id for edge in policy_edges]
+    policy_physical_ids = [policy_lookup[edge].physical_link_id for edge in policy_edges]
+    stock_disagreement = maximum(abs.(T_out .- T_in))
+    ledger = vcat(transforms.ledger, ["commuter_total=$(commuter_total)"])
+
+    return NetworkData(
+        N, nodes.ids, node_index, nodes.longitude, nodes.latitude, modes,
+        residence, workplace, mode_flows, Xi, out_neighbors, in_neighbors,
+        (T_out .+ T_in) ./ 2, sx, sy, mu, lam, edges, edge_ids, physical_ids,
+        edge_index, s_edges, shares, policy_edges, policy_edge_ids,
+        policy_physical_ids, Dict{Tuple{Int,Int},String}(),
+        Dict{Tuple{Int,Int},String}(), Dict{Tuple{Int,Int},Float64}(), ledger,
+        Dict{String,String}(input_hashes), stock_disagreement, residence, workplace,
+    )
+end
+
+function load_generic_urban_network(project::Project)
+    nodes_path = input_path(project, "nodes")
+    edges_path = input_path(project, "edge_modes")
+    nodes = read_urban_nodes(nodes_path)
+    rows = read_edge_modes(edges_path)
+    hashes = Dict(basename(nodes_path) => file_sha256(nodes_path),
+                  basename(edges_path) => file_sha256(edges_path))
+    return build_urban_network(project, nodes, rows; input_hashes=hashes)
+end
+
+function edge_congestion_metadata(project::Project, data)
     source = edge_congestion_source(project.congestion)
     column = edge_input_column(project.congestion)
     scale = edge_congestion_scale(project.congestion)
@@ -390,7 +554,10 @@ end
 
 function load_network(project::Project)
     adapter = lowercase(String(get(project.input, "adapter", "generic_csv_v1")))
-    adapter == "generic_csv_v1" && return load_generic_network(project)
+    if adapter == "generic_csv_v1"
+        return project.spatial isa UrbanCommuting ?
+            load_generic_urban_network(project) : load_generic_network(project)
+    end
     adapter == "rsue_frozen_2026_07_12" && return load_rsue_network(project)
     adapter == "rsue_census_ports_2017_v1" && return load_rsue_network(project)
     throw(ArgumentError("unknown input adapter: $adapter"))
@@ -403,6 +570,32 @@ function validate(project::Project)
     isfinite(project.tolerance) && project.tolerance > 0 ||
         throw(ArgumentError("diagnostic tolerance must be finite and positive"))
     data = load_network(project)
+    if project.spatial isa UrbanCommuting
+        coefficient = UrbanCommutingIFT.coefficients(
+            project.parameters.alpha, project.parameters.beta,
+            commuting_theta(project.parameters), project.spatial.congestion_elasticity)
+        spectral_radius = maximum(abs, eigvals(data.mu))
+        isfinite(spectral_radius) && spectral_radius < 1 ||
+            throw(ArgumentError("urban route kernel is not contractive"))
+        J = UrbanCommutingIFT.jacobian(data.sx, data.sy, data.mu, data.lam,
+                                       data.residence, data.workplace, coefficient)
+        condition = cond(J)
+        condition_within_limit(condition, project.condition_limit) ||
+            throw(ArgumentError("urban equilibrium Jacobian exceeds the condition-number gate"))
+        return (;
+            valid=true, spatial_specification=spatial_name(project.spatial),
+            nodes=data.N, directed_edges=length(data.edges),
+            active_edge_modes=sum(nnz, data.mode_flows),
+            policy_arcs=length(data.policy_edges), modes=String.(data.modes),
+            theta=coefficient.theta, lambda=coefficient.lambda,
+            route_spectral_radius=spectral_radius,
+            stock_disagreement=data.stock_disagreement,
+            condition_urban=condition, transformations=data.transformations,
+            input_hashes=data.input_hashes,
+            edge_congestion=edge_congestion_metadata(project, data),
+            decomposition_incidence_gib=missing,
+        )
+    end
     c = AdjointRSUE.coefs(
         project.parameters.alpha, project.parameters.beta, project.parameters.sigma)
     spectral_radius = maximum(abs, eigvals(data.mu))
@@ -412,6 +605,7 @@ function validate(project::Project)
         throw(ArgumentError("model coefficients are nonfinite"))
     return (;
         valid=true,
+        spatial_specification=spatial_name(project.spatial),
         nodes=data.N,
         directed_edges=length(data.edges),
         active_edge_modes=sum(nnz, data.mode_flows),

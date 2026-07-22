@@ -157,6 +157,9 @@ friction forcing and the `FM`/`FR` closure ladder. It is intended for networks
 whose dense route-incidence objects are too large to construct.
 """
 function edge_local_welfare_effects(project::Project)
+    project.spatial isa UrbanCommuting && throw(ArgumentError(
+        "analyze-edge-local is the economic-geography Proposition-2 estimator; " *
+        "use analyze for urban_commuting"))
     isfinite(project.condition_limit) && 1 < project.condition_limit <= 1e12 ||
         throw(ArgumentError("condition_limit must be finite and lie in (1, 1e12]"))
     isfinite(project.tolerance) && project.tolerance > 0 ||

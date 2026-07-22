@@ -4,8 +4,47 @@ function enrich_diagnostics!(result, model::TransportModel)
     result.diagnostics["edge_congestion"] =
         edge_congestion_metadata(model.project, model.data)
     result.diagnostics["shock_fraction"] = model.project.policy.shock_fraction
+    result.diagnostics["spatial_specification"] = spatial_name(model.project.spatial)
     result.diagnostics["one_percent_gain_scale"] = 100*model.project.policy.shock_fraction
     return result
+end
+
+
+function urban_welfare_rows(model::TransportModel)
+    data, basis, closures = model.data, model.basis, model.closures
+    elasticities = vec(permutedims(closures.adjoint)*closures.B)
+    rows = NamedTuple[]
+    for index in eachindex(basis.policy_edges)
+        i, j = basis.policy_edges[index]
+        traffic = data.mode_flows[1][i, j]
+        elasticity = elasticities[index]
+        push!(rows, (;
+            edge_id=basis.policy_edge_ids[index],
+            physical_link_id=basis.policy_physical_ids[index],
+            origin=data.node_ids[i], destination=data.node_ids[j],
+            origin_index=i, destination_index=j,
+            mode=String(model.project.policy.mode), hulten=traffic,
+            realized_F=elasticity, primitive_F=elasticity,
+            chi_effective=1.0, primitive_pass_through=0.0,
+        ))
+    end
+    finite_rows = all(row -> all(value ->
+        !(value isa AbstractFloat) || isfinite(value), row), rows)
+    diagnostics = Dict{String,Any}(
+        "verified" => finite_rows && closures.solve_residual <= model.project.tolerance,
+        "finite_outputs" => finite_rows,
+        "closure_level" => "urban_welfare",
+        "nodes" => data.N,
+        "directed_edges" => length(data.edges),
+        "directed_policy_arcs" => length(rows),
+        "theta" => closures.c.theta,
+        "lambda" => closures.c.lambda,
+        "condition_F" => closures.conditions.F,
+        "adjoint_solve_residual" => closures.solve_residual,
+        "mean_directed_primitive_elasticity" => mean(row.primitive_F for row in rows),
+        "mean_directed_hulten_elasticity" => mean(row.hulten for row in rows),
+    )
+    return rows, diagnostics
 end
 
 
@@ -179,6 +218,13 @@ end
 
 "Compute directed-arc and physical-link welfare effects under the full closure."
 function welfare_effects(model::TransportModel)
+    if hasproperty(model.closures, :level) && model.closures.level == :urban_welfare
+        rows, diagnostics = urban_welfare_rows(model)
+        physical_rows = model.project.policy.unit == :directed_arc ? NamedTuple[] :
+                        aggregate_welfare_physical(rows)
+        directed = model.project.policy.unit == :physical_link ? NamedTuple[] : rows
+        return enrich_diagnostics!(WelfareResults(directed, physical_rows, diagnostics), model)
+    end
     if hasproperty(model.closures, :level) && model.closures.level == :welfare
         rows, primitive = welfare_rows(model)
         physical_rows = model.project.policy.unit == :directed_arc ? NamedTuple[] :
@@ -199,6 +245,9 @@ welfare_effects(project::Project) = welfare_effects(build_welfare_model(project)
 
 "Compute the exact closure ladder and analytical welfare decomposition."
 function decompose_welfare(model::TransportModel)
+    model.project.spatial isa UrbanCommuting && throw(ArgumentError(
+        "the exact NC/NT/F/FM/FR decomposition is not yet derived for urban_commuting; " *
+        "use welfare_effects or the analyze command"))
     rows, primitive = decomposition_rows(model)
     physical_rows = model.project.policy.unit == :directed_arc ? NamedTuple[] :
                     aggregate_physical(rows, model.closures.c.ρ)
