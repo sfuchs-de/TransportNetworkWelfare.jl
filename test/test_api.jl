@@ -67,6 +67,25 @@ end
     @test maximum(abs(row.realized_F-row.hulten) for row in efficient.directed) < 1e-10
 end
 
+@testset "External project initialization" begin
+    @test TNW.main(["--help"]) == 0
+    mktempdir() do parent
+        destination = joinpath(parent, "my-network")
+        @test TNW.run_command("init", destination) == 0
+        config = joinpath(destination, "config.toml")
+        @test isfile(config)
+        @test isfile(joinpath(destination, "README.md"))
+        @test isfile(joinpath(destination, "data", "nodes.csv"))
+        @test isfile(joinpath(destination, "data", "edge_modes.csv"))
+        @test validate(load_project(config)).valid
+        @test TNW.run_command("decompose", config) == 0
+        @test isfile(joinpath(destination, "output", "decomposition_directed.csv"))
+        @test isfile(joinpath(destination, "output", "decomposition_physical.csv"))
+        @test isfile(joinpath(destination, "output", "run_manifest.json"))
+        @test_throws ArgumentError initialize_project(destination)
+    end
+end
+
 @testset "Sensitivity and deterministic output" begin
     project = load_project(CONFIG)
     model = build_model(project)

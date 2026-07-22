@@ -26,11 +26,23 @@ Required columns:
 
 `origin_terminal_id` and `destination_terminal_id` are required when that mode has endpoint-terminal congestion. `(edge_id, mode)` must be unique. The current route representation does not admit two edge IDs with identical endpoints; represent parallel paths with explicit intermediate route nodes.
 
+A missing `(edge_id, mode)` row means that mode is unavailable on the edge. Every listed active edge-mode must have strictly positive flow because the current derivative is evaluated at an interior baseline.
+
 ## Units and transformations
 
 `flow_conversion="none"` treats flows as world-income shares. `flow_conversion="divide_by_world_income"` treats flows as currency levels and divides them by total node income. The configuration must also declare labor and income normalization.
 
+For each node $i$, baseline edge-mode traffic must satisfy
+
+```math
+\sum_{j,m}\Xi_{ij,m}=\sum_{j,m}\Xi_{ji,m}.
+```
+
+This is an equilibrium accounting identity, not a numerical tolerance for arbitrary traffic counts. Vehicle counts, tons, and unbalanced origin-destination records therefore require an application-specific conversion into value-flow shares before loading.
+
 The generic loader does not pad nodes, symmetrize edges, or rescale modes. Both policy directions must appear in the CSV. The RSUE legacy adapter is separate because it reproduces historical declared transformations and records each one in the manifest.
+
+See [Use your own data](own-data.md) for the complete input contract and [Outputs](outputs.md) for result interpretation.
 
 ## Configuration reference
 

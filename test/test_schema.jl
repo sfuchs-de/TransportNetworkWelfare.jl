@@ -54,6 +54,15 @@ end
         edges -> edges*"AB,AB,A,B,road,0.010,,\n")
     @test_throws ArgumentError validate(load_project(path))
 
+    directory, path = isolated_project(identity,
+        edges -> replace(edges, "AB,AB,A,B,road,0.010" =>
+                                "AB,AB,A,B,road,0.011"; count=1))
+    @test_throws ArgumentError validate(load_project(path))
+
+    directory, path = isolated_project(identity,
+        edges -> edges*"AB-alternative,AB-alternative,A,B,road,0.001,,\n")
+    @test_throws ArgumentError validate(load_project(path))
+
     directory, path = isolated_project(identity, identity,
         config -> replace(config, "beta = -0.30" => "beta = -0.2375"))
     @test_throws ArgumentError validate(load_project(path))

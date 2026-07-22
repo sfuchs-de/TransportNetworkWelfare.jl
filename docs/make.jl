@@ -12,8 +12,10 @@ makedocs(
     remotes=nothing,
     pages=[
         "Home" => "index.md",
+        "Use your own data" => "own-data.md",
         "Model" => "model.md",
         "Data and configuration" => "data.md",
+        "Outputs" => "outputs.md",
         "Welfare decomposition" => "decomposition.md",
         "RSUE replication" => "rsue.md",
         "Diagnostics" => "diagnostics.md",

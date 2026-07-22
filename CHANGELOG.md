@@ -4,6 +4,8 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+- Add `tnw init` for portable external CSV/TOML projects.
+- Document the own-data accounting contract and directed/physical output schema.
 - Reject nonfinite parameters, diagnostics, sensitivity values, and ill-conditioned transport closures.
 - Fail CLI runs when numerical verification fails and record sensitivity outputs in run manifests.
 - Record dynamic package/Git state without machine-specific configuration paths.

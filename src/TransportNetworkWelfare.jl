@@ -33,5 +33,6 @@ export AbstractRouteCurvature, TheoremRouteCurvature, IndependentRouteCurvature
 export Project, TransportModel, WelfareResults, DecompositionResults
 export load_project, validate, build_model, welfare_effects
 export decompose_welfare, sensitivity_path, write_results, main
+export initialize_project
 
 end

@@ -18,6 +18,21 @@ julia --project=. bin/tnw.jl sensitivity examples/toy/config.toml
 
 The example is self-contained. It does not require Dropbox, credentials, Python, or source edits. Generated files are written below `examples/toy/output/` and include a run manifest with input, configuration, code, parameter, diagnostic, and output hashes.
 
+## Use your own data
+
+Create a portable project outside the package repository:
+
+```bash
+julia --project=/path/to/TransportNetworkWelfare.jl \
+  /path/to/TransportNetworkWelfare.jl/bin/tnw.jl init /path/to/my-network
+julia --project=/path/to/TransportNetworkWelfare.jl \
+  /path/to/TransportNetworkWelfare.jl/bin/tnw.jl validate /path/to/my-network/config.toml
+julia --project=/path/to/TransportNetworkWelfare.jl \
+  /path/to/TransportNetworkWelfare.jl/bin/tnw.jl decompose /path/to/my-network/config.toml
+```
+
+The generated directory contains the two CSV inputs, a documented TOML configuration, and no package source. Replace the synthetic rows with your own model-ready network data and edit the configuration; no Julia changes or RSUE/private files are required. The generic adapter never silently balances flows, symmetrizes links, pads nodes, or rescales modes. See [Use your own data](docs/src/own-data.md) for the accounting, unit, and policy requirements.
+
 ## Julia API
 
 ```julia
@@ -35,6 +50,7 @@ write_results(welfare, "output/"; project)
 ## Command line interface
 
 ```bash
+julia --project=. bin/tnw.jl init /path/to/my-network
 julia --project=. bin/tnw.jl validate config.toml
 julia --project=. bin/tnw.jl analyze config.toml
 julia --project=. bin/tnw.jl decompose config.toml

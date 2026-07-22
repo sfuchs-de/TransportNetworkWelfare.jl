@@ -1,0 +1,58 @@
+# Use your own data
+
+The generic adapter lets an application supply a network through two CSV files and one TOML configuration. It expects model-ready value flows, not arbitrary traffic observations.
+
+## Initialize a project
+
+From the package repository, create a project anywhere on the filesystem:
+
+```bash
+julia --project=. bin/tnw.jl init /path/to/my-network
+```
+
+The command writes `config.toml`, `data/nodes.csv`, `data/edge_modes.csv`, and a short project README. It refuses to overwrite a nonempty directory. The new project is independent of the package source and can be versioned separately.
+
+## Define nodes
+
+Each `nodes.csv` row needs a unique `node_id`, positive labor, and positive income. Coordinates are optional metadata. The model uses the income values both for world-income normalization and for the domestic absorption shares.
+
+## Define edge-mode flows
+
+Each `edge_modes.csv` row is one active mode on one directed physical edge. `edge_id` identifies the direction and is repeated across modes. `physical_link_id` groups the two opposite policy directions. Missing mode rows mean that the mode is unavailable. Listed flows must be strictly positive.
+
+The route representation permits several modes on an ordered node pair, but not several physical edge IDs with the same origin and destination. Represent parallel physical routes using explicit intermediate route nodes.
+
+## Choose compatible units
+
+- `flow_conversion = "none"` means `flow` is already a share of world income.
+- `flow_conversion = "divide_by_world_income"` means `flow` and node `income` use the same currency and price basis; the loader divides flows by total income.
+- Vehicle counts, passenger trips, tons, and container counts are not value flows. Convert them outside the generic adapter using prices or values appropriate to the application and document that conversion.
+
+At every node, the supplied baseline must satisfy
+
+```math
+\sum_{j,m}\Xi_{ij,m}=\sum_{j,m}\Xi_{ji,m}.
+```
+
+Together with node income, this identity gives the same market-access exposure stock from outgoing and incoming traffic. The loader checks it and fails if it does not hold. It does not balance, symmetrize, pad, impute, or mode-rescale generic inputs.
+
+## Configure congestion and policy units
+
+Edge congestion elasticities are keyed by mode. Endpoint-terminal congestion additionally requires `origin_terminal_id` and `destination_terminal_id` on every affected mode row. Modes absent from a congestion table have zero congestion in that channel.
+
+For `policy.unit = "directed_arc"`, each directed policy edge is a separate experiment. For `policy.unit = "both"` or `"physical_link"`, each policy-mode physical link must contain exactly two opposite directed edges. The reported physical-link elasticity sums those two simultaneous primitive-cost derivatives before normalizing the link-level multiplier.
+
+## Validate and run
+
+Use absolute paths when the data project is outside the package checkout:
+
+```bash
+julia --project=/path/to/TransportNetworkWelfare.jl \
+  /path/to/TransportNetworkWelfare.jl/bin/tnw.jl validate /path/to/my-network/config.toml
+julia --project=/path/to/TransportNetworkWelfare.jl \
+  /path/to/TransportNetworkWelfare.jl/bin/tnw.jl decompose /path/to/my-network/config.toml
+```
+
+Validation checks schemas, identifiers, units, flow accounting, modal interiority, route contraction, policy pairing, and basic model regularity. Analysis then builds every requested transport and equilibrium closure and enforces the configured condition-number gate before writing results. The output directory is resolved relative to `config.toml`.
+
+The generic CSV adapter covers applications that already fit this contract. A raw-data source with special balancing, geographic matching, or unit conversion should use a separate preprocessing script or adapter so every transformation remains explicit and reproducible.

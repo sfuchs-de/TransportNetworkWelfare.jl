@@ -1,6 +1,8 @@
 function usage(io::IO=stdout)
-    println(io, "Usage: julia --project=. bin/tnw.jl COMMAND CONFIG")
-    println(io, "Commands: validate, analyze, decompose, sensitivity, replicate-rsue")
+    println(io, "Usage:")
+    println(io, "  julia --project=. bin/tnw.jl init DIRECTORY")
+    println(io, "  julia --project=. bin/tnw.jl COMMAND CONFIG")
+    println(io, "Commands: init, validate, analyze, decompose, sensitivity, replicate-rsue")
 end
 
 function print_summary(value)
@@ -13,9 +15,46 @@ function require_verified(result)
     return result
 end
 
+"Create a runnable generic CSV/TOML project from the bundled toy template."
+function initialize_project(destination::AbstractString)
+    target = abspath(destination)
+    if ispath(target)
+        isdir(target) || throw(ArgumentError("initialization target is not a directory: $target"))
+        isempty(readdir(target)) ||
+            throw(ArgumentError("initialization target must be absent or empty: $target"))
+    else
+        mkpath(target)
+    end
+
+    template = normpath(joinpath(@__DIR__, "..", "examples", "toy"))
+    files = (
+        "README.md",
+        "config.toml",
+        joinpath("data", "nodes.csv"),
+        joinpath("data", "edge_modes.csv"),
+    )
+    all(relative -> isfile(joinpath(template, relative)), files) ||
+        error("bundled project template is incomplete")
+    for relative in files
+        output = joinpath(target, relative)
+        mkpath(dirname(output))
+        cp(joinpath(template, relative), output)
+    end
+    return (;
+        status="ok",
+        project_root=target,
+        config=joinpath(target, "config.toml"),
+        files=collect(files),
+    )
+end
+
 function run_command(command::String, config::String)
-    command in ("validate", "analyze", "decompose", "sensitivity", "replicate-rsue") ||
+    command in ("init", "validate", "analyze", "decompose", "sensitivity", "replicate-rsue") ||
         throw(ArgumentError("unknown command: $command"))
+    if command == "init"
+        print_summary(initialize_project(config))
+        return 0
+    end
     project = load_project(config)
     config_label = relpath(project.config_path, project.root)
     if command == "validate"
@@ -72,6 +111,10 @@ function run_command(command::String, config::String)
 end
 
 function main(args=ARGS)
+    if length(args) == 1 && String(args[1]) in ("help", "--help", "-h")
+        usage()
+        return 0
+    end
     length(args) == 2 || (usage(stderr); return 2)
     try
         return run_command(String(args[1]), String(args[2]))
