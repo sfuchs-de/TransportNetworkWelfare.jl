@@ -47,14 +47,7 @@ function bilateral_state_rows(N::Int, c::AdjointRSUE.Coef)
 end
 
 function active_transport_modes(project::Project, data::NetworkData)
-    model = get(project.raw, "model", Dict{String,Any}())
-    configured = get(model, "active_transport_modes", String[])
-    modes = isempty(configured) ? copy(data.modes) : Symbol.(configured)
-    all(mode in data.modes for mode in modes) ||
-        throw(ArgumentError("active_transport_modes contains a mode absent from the data"))
-    project.policy.mode in modes ||
-        throw(ArgumentError("active_transport_modes must include the policy mode"))
-    return modes
+    return sort!(collect(configured_active_modes(project, data.modes)); by=String)
 end
 
 function build_pair_basis(project::Project, data::NetworkData)
@@ -119,7 +112,7 @@ function build_pair_basis(project::Project, data::NetworkData)
     )
 end
 
-function build_route_basis(project::Project, data::NetworkData)
+function build_route_basis(project::Project, data::NetworkData; include_fixed::Bool=true)
     c = AdjointRSUE.coefs(
         project.parameters.alpha, project.parameters.beta, project.parameters.sigma)
     pairs = build_pair_basis(project, data)
@@ -130,35 +123,38 @@ function build_route_basis(project::Project, data::NetworkData)
     soft = IFTDecomposition.soft_route_operators(
         route, pairs.active_network_edges, data.nu, data.sx, S, D, dlogY,
         project.parameters.sigma)
-    fixed = IFTDecomposition.fixed_route_operators(
-        route, pairs.active_network_edges, route.Xod, S, D, dlogY,
-        project.parameters.sigma)
     Vz = inverse_state_map(data.N, data.omega, c)
     Qz_soft = soft.Qz * Vz
-    Qz_fixed = fixed.Qz * Vz
     accepted = IFTDecomposition.response_rows(
         data.N, pairs.active_network_edges, data.omega, data.nu, c)
     edge_target = [data.Xi[i, j] for (i, j) in pairs.active_network_edges]
     soft_edge_error = maximum(abs.(soft.edge_traffic .- edge_target) ./ max.(edge_target, eps()))
-    fixed_edge_error = maximum(abs.(fixed.edge_traffic .- edge_target) ./ max.(edge_target, eps()))
-    max(soft_edge_error, fixed_edge_error) <= project.tolerance ||
+    soft_edge_error <= project.tolerance ||
         error("route traffic reconstruction exceeded tolerance")
+    fixed = include_fixed ? IFTDecomposition.fixed_route_operators(
+        route, pairs.active_network_edges, route.Xod, S, D, dlogY,
+        project.parameters.sigma) : nothing
+    Qz_fixed = include_fixed ? fixed.Qz * Vz : nothing
+    fixed_edge_error = include_fixed ? maximum(
+        abs.(fixed.edge_traffic .- edge_target) ./ max.(edge_target, eps())) : missing
+    include_fixed && fixed_edge_error > project.tolerance &&
+        error("fixed-route traffic reconstruction exceeded tolerance")
     return merge(pairs, (;
         sigma=project.parameters.sigma,
         route,
         Croute_soft=(1-project.parameters.sigma) .* soft.C,
-        Croute_fixed=(1-project.parameters.sigma) .* fixed.C,
+        Croute_fixed=include_fixed ? (1-project.parameters.sigma) .* fixed.C : nothing,
         Qz_soft,
         Qz_fixed,
-        fixed_source_weights=fixed.source_weights,
-        fixed_destination_weights=fixed.destination_weights,
+        fixed_source_weights=include_fixed ? fixed.source_weights : nothing,
+        fixed_destination_weights=include_fixed ? fixed.destination_weights : nothing,
         diagnostics=(;
             route.diagnostics...,
             soft_state_error=maximum(abs.(Qz_soft .- accepted)),
             soft_edge_relative_error=soft_edge_error,
             fixed_edge_relative_error=fixed_edge_error,
-            fixed_source_weight_error=fixed.source_weight_error,
-            fixed_destination_weight_error=fixed.destination_weight_error,
+            fixed_source_weight_error=include_fixed ? fixed.source_weight_error : missing,
+            fixed_destination_weight_error=include_fixed ? fixed.destination_weight_error : missing,
         ),
     ))
 end
@@ -287,6 +283,8 @@ function build_transport_closure(project::Project, data::NetworkData, basis,
         quantity_state = zeros(0, size(response.Xz, 2))
         edge_cost_state = zeros(basis.E, size(response.Xz, 2))
         Jc = zeros(size(B, 1), size(B, 1))
+        left = zeros(size(B, 1), 0)
+        right = zeros(0, size(B, 1))
         condition = 1.0
         solve_residual = 0.0
     else
@@ -295,14 +293,35 @@ function build_transport_closure(project::Project, data::NetworkData, basis,
         factor = lu(H; check=true)
         AQz = congestion.A * response.Xz
         quantity_state = factor \ Matrix(AQz)
+        right = Matrix(AQz)
+        left = B * basis.Sagg * congestion.G * (factor \ Matrix{Float64}(I, congestion.Q, congestion.Q))
         edge_cost_state = basis.Sagg * (congestion.G * quantity_state)
-        Jc = B * edge_cost_state
+        Jc = left * right
         solve_residual = norm(H*quantity_state-AQz, Inf) / max(norm(AQz, Inf), eps())
         condition = cond(H)
     end
     return (;
         route, fixed_modal, congestion..., response..., H, quantity_state,
-        edge_cost_state, Jc, solve_residual, condition,
+        edge_cost_state, Jc, left, right, solve_residual, condition,
+    )
+end
+
+zero_factor(n::Int) = (U=zeros(n, 0), V=zeros(0, n))
+transport_factor(closure) = (U=closure.left, V=closure.right)
+
+function difference_factor(a, b)
+    # Factor a.Jc-b.Jc without fitting or numerical rank reduction.
+    U = hcat(a.left, b.left)
+    V = vcat(a.right, -b.right)
+    return (; U, V)
+end
+
+function closure_block(name::Symbol, J, factors, road, terminal)
+    reconstruction = factors.D + factors.u*permutedims(factors.v) +
+                     road.U*road.V + terminal.U*terminal.V
+    return (;
+        name, J, D=factors.D, u=factors.u, v=factors.v, road, terminal,
+        reconstruction_residual=maximum(abs.(J-reconstruction)),
     )
 end
 
@@ -323,6 +342,10 @@ function build_closures(project::Project, data::NetworkData, basis)
     Ft = build_transport_closure(project, data, point_basis, B)
     FMt = build_transport_closure(project, data, point_basis, B; fixed_modal=true)
     FRt = build_transport_closure(project, data, point_basis, B; route=:fixed)
+    FMNTt = build_transport_closure(project, data, point_basis, B;
+        fixed_modal=true, include_terminal=false)
+    FRNTt = build_transport_closure(project, data, point_basis, B;
+        route=:fixed, include_terminal=false)
     J_NC, J_NT = J0+NCt.Jc, J0+NTt.Jc
     J_F, J_FM, J_FR = J0+Ft.Jc, J0+FMt.Jc, J0+FRt.Jc
     conditions = (NC=cond(J_NC), NT=cond(J_NT), F=cond(J_F),
@@ -330,11 +353,33 @@ function build_closures(project::Project, data::NetworkData, basis)
     all(value -> condition_within_limit(value, project.condition_limit), values(conditions)) ||
         error("an equilibrium closure exceeds the condition-number gate")
     all(value -> condition_within_limit(value, project.condition_limit),
-        (NCt.condition, NTt.condition, Ft.condition, FMt.condition, FRt.condition)) ||
+        (NCt.condition, NTt.condition, Ft.condition, FMt.condition, FRt.condition,
+         FMNTt.condition, FRNTt.condition)) ||
         error("a transport closure exceeds the condition-number gate")
+    factors = IFTDecomposition.jacobian_factors(
+        data.sx, data.sy, data.mu, data.lam, data.omega, c)
+    factors.residual <= project.tolerance ||
+        error("no-congestion Jacobian factorization exceeded tolerance")
+    zero = zero_factor(size(J0, 1))
+    road_F = transport_factor(NTt)
+    term_F = difference_factor(Ft, NTt)
+    road_FM = transport_factor(FMNTt)
+    term_FM = difference_factor(FMt, FMNTt)
+    road_FR = transport_factor(FRNTt)
+    term_FR = difference_factor(FRt, FRNTt)
+    blocks = (;
+        NC=closure_block(:NC, J_NC, factors, zero, zero),
+        NT=closure_block(:NT, J_NT, factors, road_F, zero),
+        F=closure_block(:F, J_F, factors, road_F, term_F),
+        FM=closure_block(:FM, J_FM, factors, road_FM, term_FM),
+        FR=closure_block(:FR, J_FR, factors, road_FR, term_FR),
+    )
+    maximum(getproperty(blocks, name).reconstruction_residual for name in keys(blocks)) <=
+        project.tolerance || error("closure Jacobian block reconstruction exceeded tolerance")
     return (;
         c, B, J0, NC=J_NC, NT=J_NT, F=J_F, FM=J_FM, FR=J_FR,
-        transport=(NC=NCt, NT=NTt, F=Ft, FM=FMt, FR=FRt), conditions,
+        transport=(NC=NCt, NT=NTt, F=Ft, FM=FMt, FR=FRt,
+                   FMNT=FMNTt, FRNT=FRNTt), conditions, blocks,
         edge_block=J_NT-J_NC, terminal_block=J_F-J_NT,
         mode_core=J_FM-J_F, route_core=J_FR-J_F,
     ), point_basis
@@ -349,6 +394,31 @@ function build_model(project::Project)
     data = load_network(project)
     basis = build_route_basis(project, data)
     closures, point_basis = build_closures(project, data, basis)
+    return TransportModel(project, data, point_basis, closures)
+end
+
+function build_welfare_model(project::Project)
+    isfinite(project.condition_limit) && 1 < project.condition_limit <= 1e12 ||
+        throw(ArgumentError("condition_limit must be finite and lie in (1, 1e12]"))
+    data = load_network(project)
+    basis = build_route_basis(project, data; include_fixed=false)
+    c = AdjointRSUE.coefs(
+        project.parameters.alpha, project.parameters.beta, project.parameters.sigma)
+    point_basis = merge(basis, (;
+        Qz_soft=route_state_matrix(data, basis, c; route=:soft),
+    ))
+    J0 = AdjointRSUE.assemble_J(data.sx, data.sy, data.mu, data.lam, data.omega, c)
+    B = IFTDecomposition.cost_loading_matrix(
+        data.N, point_basis.active_network_edges, data.mu, data.lam, c.σ)
+    Ft = build_transport_closure(project, data, point_basis, B)
+    JF = J0+Ft.Jc
+    condition = cond(JF)
+    condition_within_limit(condition, project.condition_limit) ||
+        error("the full equilibrium closure exceeds the condition-number gate")
+    condition_within_limit(Ft.condition, project.condition_limit) ||
+        error("the full transport closure exceeds the condition-number gate")
+    closures = (; c, B, J0, F=JF, transport=(F=Ft,),
+                 conditions=(F=condition,), level=:welfare)
     return TransportModel(project, data, point_basis, closures)
 end
 
@@ -383,6 +453,45 @@ function inverse_gap(JA::AbstractMatrix, JB::AbstractMatrix,
     return dot(permutedims(JA) \ q, (JB-JA) * (JB \ b))
 end
 
+function structured_gap(JA::AbstractMatrix, U::AbstractMatrix, V::AbstractMatrix,
+                        q::AbstractVector, forcing::AbstractMatrix)
+    isempty(U) && return zeros(size(forcing, 2))
+    left = permutedims(permutedims(JA) \ q) * U
+    middle = Matrix{Float64}(I, size(V, 1), size(V, 1)) + V*(JA \ U)
+    right = middle \ (V*(JA \ forcing))
+    return vec(left*right)
+end
+
+function mixed_channels(full, alternative, q::AbstractVector,
+                        forcing::AbstractMatrix, normalization::AbstractVector)
+    S = alternative.D-full.D
+    road_difference = alternative.road.U*alternative.road.V-
+                      full.road.U*full.road.V
+    terminal_difference = alternative.terminal.U*alternative.terminal.V-
+                          full.terminal.U*full.terminal.V
+    C = road_difference+terminal_difference
+    K = full.J+S+C
+    R = hcat(full.u, alternative.u-full.u)
+    Q = hcat(alternative.v-full.v, alternative.v)
+    gamma = Matrix{Float64}(I, 2, 2)+permutedims(Q)*(K\R)
+    y = K\forcing
+    pfull = permutedims(permutedims(full.J)\q)
+    pk = permutedims(permutedims(K)\q)
+    allocation = vec(pfull*S*y) ./ normalization
+    scarcity = vec(pfull*C*y) ./ normalization
+    equilibrium = vec(pk*R*(gamma\(permutedims(Q)*y))) ./ normalization
+    total = allocation+scarcity+equilibrium
+    jacobian_residual = maximum(abs.(alternative.J-(K+R*permutedims(Q))))
+    return (; allocation, scarcity, equilibrium, total, jacobian_residual)
+end
+
+function effective_ratio(realized::Real, primitive::Real, traffic::Real)
+    all(isfinite, (realized, primitive, traffic)) ||
+        throw(ArgumentError("effective-ratio inputs must be finite"))
+    scale = max(abs(primitive), abs(traffic), floatmin(Float64))
+    return abs(realized) > sqrt(eps(Float64))*scale ? primitive/realized : missing
+end
+
 function decomposition_rows(model::TransportModel)
     data, basis, closures = model.data, model.basis, model.closures
     q = AdjointRSUE.welfare_gradient(data.omega, closures.c)
@@ -392,6 +501,20 @@ function decomposition_rows(model::TransportModel)
     elasticities = Dict(name => operator_gain(getproperty(closures, name), q, realized_forcing)
                         for name in names)
     primitive_values = operator_gain(closures.F, q, primitive.forcing)
+    traffic = [data.mode_flows[basis.policy_mode][edge...] for edge in basis.policy_edges]
+    normalization = closures.c.ρ .* traffic
+    road_scarcity = structured_gap(
+        closures.NC, closures.blocks.F.road.U, closures.blocks.F.road.V,
+        q, realized_forcing) ./ normalization
+    terminal_scarcity = structured_gap(
+        closures.NT, closures.blocks.F.terminal.U, closures.blocks.F.terminal.V,
+        q, realized_forcing) ./ normalization
+    mode_channels = mixed_channels(
+        closures.blocks.F, closures.blocks.FM, q, realized_forcing, normalization)
+    route_channels = mixed_channels(
+        closures.blocks.F, closures.blocks.FR, q, realized_forcing, normalization)
+    maximum((mode_channels.jacobian_residual, route_channels.jacobian_residual)) <=
+        model.project.tolerance || error("mixed closure Jacobian reconstruction exceeded tolerance")
     rows = NamedTuple[]
     for r in eachindex(basis.policy_pairs)
         k, l = basis.policy_edges[r]
@@ -402,9 +525,9 @@ function decomposition_rows(model::TransportModel)
         d_terminal = multipliers[:NT]-multipliers[:F]
         d_mode = multipliers[:F]-multipliers[:FM]
         d_route = multipliers[:F]-multipliers[:FR]
-        isfinite(values[:F]) && !iszero(values[:F]) ||
-            error("full-closure realized elasticity is zero or nonfinite; pass-through is undefined")
-        chi = primitive_values[r] / values[:F]
+        all(isfinite, (values[:F], primitive_values[r])) ||
+            error("full-closure welfare elasticities are nonfinite")
+        chi = effective_ratio(values[:F], primitive_values[r], Xi)
         b = realized_forcing[:, r]
         identity_edge = (values[:NC]-values[:NT])-
             inverse_gap(closures.NC, closures.NT, q, b)
@@ -422,7 +545,7 @@ function decomposition_rows(model::TransportModel)
         primitive_propagation = closures.c.ρ*Xi*(1-multipliers[:NC])
         primitive_edge = closures.c.ρ*Xi*d_edge
         primitive_terminal = closures.c.ρ*Xi*d_terminal
-        primitive_pass_through = closures.c.ρ*Xi*multipliers[:F]*(1-chi)
+        primitive_pass_through = values[:F] - primitive_values[r]
         push!(rows, (;
             edge_id=basis.policy_edge_ids[r],
             physical_link_id=basis.policy_physical_ids[r],
@@ -435,10 +558,18 @@ function decomposition_rows(model::TransportModel)
             m_NC=multipliers[:NC], m_NT=multipliers[:NT], m_F=multipliers[:F],
             m_FM=multipliers[:FM], m_FR=multipliers[:FR],
             d_edge, d_road=d_edge, d_terminal, d_mode, d_route,
-            edge_allocation=0.0, edge_scarcity=d_edge, edge_equilibrium=0.0,
-            terminal_allocation=0.0, terminal_scarcity=d_terminal, terminal_equilibrium=0.0,
-            mode_allocation=0.0, mode_scarcity=d_mode, mode_equilibrium=0.0,
-            route_allocation=0.0, route_scarcity=d_route, route_equilibrium=0.0,
+            edge_allocation=0.0, edge_scarcity=road_scarcity[r], edge_equilibrium=0.0,
+            terminal_allocation=0.0, terminal_scarcity=terminal_scarcity[r], terminal_equilibrium=0.0,
+            mode_allocation=mode_channels.allocation[r],
+            mode_scarcity=mode_channels.scarcity[r],
+            mode_equilibrium=mode_channels.equilibrium[r],
+            route_allocation=route_channels.allocation[r],
+            route_scarcity=route_channels.scarcity[r],
+            route_equilibrium=route_channels.equilibrium[r],
+            channel_residual_edge=d_edge-road_scarcity[r],
+            channel_residual_terminal=d_terminal-terminal_scarcity[r],
+            channel_residual_mode=d_mode-mode_channels.total[r],
+            channel_residual_route=d_route-route_channels.total[r],
             hulten_realized_gap, hulten_externality, hulten_attenuation,
             primitive_gap, primitive_externality, primitive_propagation,
             primitive_edge, primitive_road=primitive_edge, primitive_terminal,
@@ -452,7 +583,7 @@ function decomposition_rows(model::TransportModel)
     return rows, primitive
 end
 
-function aggregate_physical(rows::Vector{NamedTuple}, rho::Real)
+function aggregate_physical(rows::AbstractVector{<:NamedTuple}, rho::Real)
     grouped = Dict{String,Vector{NamedTuple}}()
     for row in rows
         push!(get!(grouped, row.physical_link_id, NamedTuple[]), row)
@@ -466,6 +597,14 @@ function aggregate_physical(rows::Vector{NamedTuple}, rho::Real)
         :primitive_terminal, :primitive_pass_through, :identity_residual_edge,
         :identity_residual_terminal, :identity_residual_mode, :identity_residual_route,
     )
+    normalized_channels = (
+        :edge_allocation, :edge_scarcity, :edge_equilibrium,
+        :terminal_allocation, :terminal_scarcity, :terminal_equilibrium,
+        :mode_allocation, :mode_scarcity, :mode_equilibrium,
+        :route_allocation, :route_scarcity, :route_equilibrium,
+        :channel_residual_edge, :channel_residual_terminal,
+        :channel_residual_mode, :channel_residual_route,
+    )
     for link in sort!(collect(keys(grouped)))
         group = grouped[link]
         length(group) == 2 ||
@@ -475,23 +614,23 @@ function aggregate_physical(rows::Vector{NamedTuple}, rho::Real)
             throw(ArgumentError("physical link $link does not contain opposite directions"))
         sums = Dict(field => sum(getproperty(row, field) for row in group) for field in additive)
         h = sums[:hulten]
-        isfinite(sums[:realized_F]) && !iszero(sums[:realized_F]) ||
-            error("physical-link realized elasticity is zero or nonfinite; pass-through is undefined")
+        all(isfinite, (sums[:realized_F], sums[:primitive_F])) ||
+            error("physical-link welfare elasticities are nonfinite")
         mNC, mNT = sums[:realized_NC]/(rho*h), sums[:realized_NT]/(rho*h)
         mF, mFM, mFR = sums[:realized_F]/(rho*h), sums[:realized_FM]/(rho*h),
                         sums[:realized_FR]/(rho*h)
         d_edge, d_terminal, d_mode, d_route = mNC-mNT, mNT-mF, mF-mFM, mF-mFR
+        channels = Dict(field =>
+            sum(row.hulten*getproperty(row, field) for row in group)/h
+            for field in normalized_channels)
         push!(output, (;
             physical_link_id=link, directions=2,
             endpoint_a=min(a.origin, a.destination), endpoint_b=max(a.origin, a.destination),
             (field => sums[field] for field in additive)...,
-            chi_effective=sums[:primitive_F]/sums[:realized_F],
+            chi_effective=effective_ratio(sums[:realized_F], sums[:primitive_F], h),
             m_NC=mNC, m_NT=mNT, m_F=mF, m_FM=mFM, m_FR=mFR,
             d_edge, d_road=d_edge, d_terminal, d_mode, d_route,
-            edge_allocation=0.0, edge_scarcity=d_edge, edge_equilibrium=0.0,
-            terminal_allocation=0.0, terminal_scarcity=d_terminal, terminal_equilibrium=0.0,
-            mode_allocation=0.0, mode_scarcity=d_mode, mode_equilibrium=0.0,
-            route_allocation=0.0, route_scarcity=d_route, route_equilibrium=0.0,
+            (field => channels[field] for field in normalized_channels)...,
         ))
     end
     return output

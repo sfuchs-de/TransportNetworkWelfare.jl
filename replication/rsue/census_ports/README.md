@@ -116,3 +116,13 @@ The tests cover credential sanitization, API parsing, deterministic output,
 directional accounting, RAS balance, and unsupported Schedule C codes. Julia
 tests independently validate the checked-in overlay and, when
 `RSUE_DATA_ROOT` is set, run the complete candidate decomposition.
+
+## CBSA geography
+
+The paper-artifact builder downloads the official 2018 Census CBSA archive and
+verifies its pinned SHA-256 before conversion. Its current command uses
+`replication/rsue/.public_cache`; the crosswalk script also accepts an explicit
+`--cache-dir`. A cache containing both the verified archive and its derived
+GeoJSON can be used offline. A fresh conversion requires `ogr2ogr`; the artifact
+metadata records the GDAL and Python versions together with the archive and
+GeoJSON hashes.

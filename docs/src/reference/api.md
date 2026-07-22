@@ -1,6 +1,7 @@
 # API reference
 
 ```@docs
+initialize_project
 load_project
 validate
 build_model

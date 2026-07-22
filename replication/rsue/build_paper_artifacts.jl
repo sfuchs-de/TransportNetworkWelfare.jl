@@ -1,6 +1,7 @@
 #!/usr/bin/env julia
 
 using Statistics
+using TOML
 using TransportNetworkWelfare
 
 const TNW = TransportNetworkWelfare
@@ -24,12 +25,30 @@ function write_json(path::AbstractString, value)
     return path
 end
 
+function accepted_verification(project, model)
+    path = joinpath(HERE, "verification", "choice_logsum_rsue_fd.toml")
+    isfile(path) || error("missing full-network choice-logsum verification report: $path")
+    report = TOML.parsefile(path)
+    report["verification_status"] == "accepted" ||
+        error("choice-logsum verification report is not accepted")
+    report["config_sha256"] == TNW.file_sha256(project.config_path) ||
+        error("choice-logsum verification report has a stale configuration hash")
+    Dict{String,String}(report["input_hashes"]) == model.data.input_hashes ||
+        error("choice-logsum verification report has stale input hashes")
+    for (relative, expected) in report["source_hashes"]
+        TNW.file_sha256(joinpath(ROOT, relative)) == expected ||
+            error("choice-logsum verification report has a stale source hash: $relative")
+    end
+    return path, report
+end
+
 function result_statistics(rows, shock_fraction)
     hulten = [row.hulten for row in rows]
     welfare = [row.primitive_F for row in rows]
     top_count = ceil(Int, 0.10length(rows))
     top = sort(welfare; rev=true)[1:top_count]
     return Dict{String,Any}(
+        "shock_fraction" => shock_fraction,
         "mean_elasticity" => mean(welfare),
         "median_elasticity" => median(welfare),
         "minimum_elasticity" => minimum(welfare),
@@ -46,6 +65,35 @@ function result_statistics(rows, shock_fraction)
         "top_decile_count" => top_count,
         "top_decile_median_ratio" => median(top)/median(welfare),
         "top_decile_mean_ratio" => mean(top)/mean(welfare),
+    )
+end
+
+function decomposition_statistics(rows)
+    mean_field(name) = mean(getproperty(row, name) for row in rows)
+    hulten = mean_field(:hulten)
+    realized_nc = mean_field(:realized_NC)
+    realized_f = mean_field(:realized_F)
+    realized_fm = mean_field(:realized_FM)
+    realized_fr = mean_field(:realized_FR)
+    primitive_f = mean_field(:primitive_F)
+    return Dict{String,Any}(
+        "mean_hulten" => hulten,
+        "mean_realized_no_congestion" => realized_nc,
+        "mean_realized_full" => realized_f,
+        "mean_realized_fixed_modes" => realized_fm,
+        "mean_realized_fixed_routes" => realized_fr,
+        "mean_primitive_full" => primitive_f,
+        "road_congestion_change_percent" => 100*(realized_f/realized_nc-1),
+        "fixed_modes_change_percent" => 100*(realized_fm/realized_f-1),
+        "fixed_routes_change_percent" => 100*(realized_fr/realized_f-1),
+        "primitive_to_realized_percent" => 100*primitive_f/realized_f,
+        "primitive_to_hulten_percent" => 100*primitive_f/hulten,
+        "mean_externality_component" => mean_field(:primitive_externality),
+        "mean_propagation_component" => mean_field(:primitive_propagation),
+        "mean_road_component" => mean_field(:primitive_edge),
+        "mean_terminal_component" => mean_field(:primitive_terminal),
+        "mean_pass_through_component" => mean_field(:primitive_pass_through),
+        "mean_hulten_gap" => hulten-primitive_f,
     )
 end
 
@@ -77,6 +125,39 @@ function top_links(rows, count::Int=20)
     ) for (rank, row) in enumerate(ordered[1:min(count, length(ordered))])]
 end
 
+function top_link_comparison(rows, count::Int=10)
+    traditional = sort(rows; by=row -> (-row.hulten, row.physical_link_id))
+    extended = sort(rows; by=row -> (-row.primitive_F, row.physical_link_id))
+    traditional_rank = Dict(row.physical_link_id => rank for (rank, row) in enumerate(traditional))
+    extended_rank = Dict(row.physical_link_id => rank for (rank, row) in enumerate(extended))
+
+    function entries(ordered)
+        return [Dict{String,Any}(
+            "rank" => rank,
+            "physical_link_id" => row.physical_link_id,
+            "endpoint_a" => row.endpoint_a,
+            "endpoint_b" => row.endpoint_b,
+            "traditional_rank" => traditional_rank[row.physical_link_id],
+            "extended_rank" => extended_rank[row.physical_link_id],
+            "hulten_elasticity" => row.hulten,
+            "primitive_elasticity" => row.primitive_F,
+        ) for (rank, row) in enumerate(ordered[1:min(count, length(ordered))])]
+    end
+
+    traditional_ids = Set(row.physical_link_id for row in traditional[1:min(count, length(traditional))])
+    extended_ids = Set(row.physical_link_id for row in extended[1:min(count, length(extended))])
+    overlap = intersect(traditional_ids, extended_ids)
+    combined = union(traditional_ids, extended_ids)
+    return Dict{String,Any}(
+        "count_per_measure" => min(count, length(rows)),
+        "overlap_count" => length(overlap),
+        "union_count" => length(combined),
+        "jaccard_index" => length(overlap)/length(combined),
+        "traditional" => entries(traditional),
+        "extended" => entries(extended),
+    )
+end
+
 function sensitivity_rows(model, role::String, parameters)
     output = NamedTuple[]
     for parameter in parameters
@@ -91,7 +172,7 @@ function tex_number(value; digits=6)
     return string(round(value; digits))
 end
 
-function write_tex_macros(path, statistics, robustness, diagnostics)
+function write_tex_macros(path, statistics, decomposition, ranking, robustness, diagnostics)
     open(path, "w") do io
         println(io, "% Generated by replication/rsue/build_paper_artifacts.jl; do not edit.")
         println(io, "\\providecommand{\\PaperNodeCount}{", diagnostics["nodes"], "}")
@@ -102,11 +183,19 @@ function write_tex_macros(path, statistics, robustness, diagnostics)
         println(io, "\\providecommand{\\PaperMeanGainPercent}{", tex_number(statistics["mean_gain_percent"]; digits=7), "}")
         println(io, "\\providecommand{\\PaperMedianGainPercent}{", tex_number(statistics["median_gain_percent"]; digits=7), "}")
         println(io, "\\providecommand{\\PaperMaximumGainPercent}{", tex_number(statistics["maximum_gain_percent"]; digits=7), "}")
-        println(io, "\\providecommand{\\PaperPtenGainPercent}{", tex_number(statistics["p10_elasticity"]; digits=7), "}")
-        println(io, "\\providecommand{\\PaperPninetiethGainPercent}{", tex_number(statistics["p90_elasticity"]; digits=7), "}")
+        scale = 100*statistics["shock_fraction"]
+        println(io, "\\providecommand{\\PaperPtenGainPercent}{", tex_number(scale*statistics["p10_elasticity"]; digits=7), "}")
+        println(io, "\\providecommand{\\PaperPninetiethGainPercent}{", tex_number(scale*statistics["p90_elasticity"]; digits=7), "}")
         println(io, "\\providecommand{\\PaperHultenCorrelation}{", tex_number(statistics["pearson_hulten"]; digits=3), "}")
         println(io, "\\providecommand{\\PaperHultenRankCorrelation}{", tex_number(statistics["spearman_hulten"]; digits=3), "}")
         println(io, "\\providecommand{\\PaperTopDecileRatio}{", tex_number(statistics["top_decile_median_ratio"]; digits=2), "}")
+        println(io, "\\providecommand{\\PaperTopTenOverlap}{", ranking["overlap_count"], "}")
+        println(io, "\\providecommand{\\PaperTopTenJaccard}{", tex_number(ranking["jaccard_index"]; digits=2), "}")
+        println(io, "\\providecommand{\\PaperRoadCongestionChangePercent}{", tex_number(decomposition["road_congestion_change_percent"]; digits=2), "}")
+        println(io, "\\providecommand{\\PaperFixedModesChangePercent}{", tex_number(decomposition["fixed_modes_change_percent"]; digits=3), "}")
+        println(io, "\\providecommand{\\PaperFixedRoutesChangePercent}{", tex_number(decomposition["fixed_routes_change_percent"]; digits=2), "}")
+        println(io, "\\providecommand{\\PaperPrimitiveToRealizedPercent}{", tex_number(decomposition["primitive_to_realized_percent"]; digits=1), "}")
+        println(io, "\\providecommand{\\PaperPrimitiveToHultenPercent}{", tex_number(decomposition["primitive_to_hulten_percent"]; digits=1), "}")
         println(io, "\\providecommand{\\PaperPortMeanDifferencePercent}{", tex_number(robustness["mean_difference_percent"]; digits=4), "}")
         println(io, "\\providecommand{\\PaperPortResultCorrelation}{", tex_number(robustness["physical_link_correlation"]; digits=6), "}")
     end
@@ -118,6 +207,7 @@ function main()
     main_model = TNW.build_model(main_project)
     main_result = TNW.decompose_welfare(main_model)
     main_result.diagnostics["verified"] || error("headline result failed verification")
+    verification_path, verification_report = accepted_verification(main_project, main_model)
     physical = sorted_physical(main_result)
     length(main_result.directed) == 704 || error("expected 704 directed road arcs")
     length(physical) == 352 || error("expected 352 physical road links")
@@ -158,15 +248,21 @@ function main()
         joinpath(output_dir, "paper_link_geometry.csv"), link_geometry(main_model, physical))
     sensitivity_path = TNW.write_table(
         joinpath(output_dir, "paper_sensitivity.csv"), all_sensitivity)
+    top_links_csv_path = joinpath(output_dir, "paper_top_links.csv")
+    top_links_tex_path = joinpath(output_dir, "paper_top_links.tex")
 
     statistics = result_statistics(physical, main_project.policy.shock_fraction)
+    decomposition = decomposition_statistics(physical)
+    ranking = top_link_comparison(physical)
     census_diagnostics_source = joinpath(
         HERE, "census_ports", "derived", "2017", "census_port_region_diagnostics.json")
     census_diagnostics_path = joinpath(output_dir, "census_port_source_metadata.json")
     cp(census_diagnostics_source, census_diagnostics_path; force=true)
     claims = Dict{String,Any}(
         "schema_version" => 1,
-        "status" => "accepted",
+        "specification_status" => "accepted",
+        "verification_status" => verification_report["verification_status"],
+        "release_status" => "restricted_data_pending",
         "policy" => Dict(
             "unit" => "bidirectional_physical_link",
             "shock" => "simultaneous one-percent primitive road-cost reduction in both directions",
@@ -189,33 +285,48 @@ function main()
             "terminal_congestion" => "extension_only",
         ),
         "results" => statistics,
+        "decomposition" => decomposition,
         "port_data_robustness" => robustness,
         "top_links" => top_links(physical),
+        "top_link_comparison" => ranking,
         "source_files" => Dict(
             "directed" => basename(directed_path),
             "physical" => basename(physical_path),
             "geometry" => basename(geometry_path),
             "sensitivity" => basename(sensitivity_path),
+            "top_link_comparison_csv" => basename(top_links_csv_path),
+            "top_link_comparison_tex" => basename(top_links_tex_path),
+            "choice_logsum_verification" => basename(verification_path),
+        ),
+        "choice_logsum_verification_sha256" => TNW.file_sha256(verification_path),
+        "environment_locks" => Dict(
+            "julia_manifest_sha256" => TNW.file_sha256(
+                joinpath(HERE, "environment", "Manifest.toml")),
+            "python_verification_requirements_sha256" => TNW.file_sha256(
+                joinpath(ROOT, "verification", "requirements-linux.txt")),
+            "python_plot_requirements_sha256" => TNW.file_sha256(
+                joinpath(ROOT, "plots", "requirements.txt")),
         ),
     )
     claims_path = write_json(joinpath(output_dir, "paper_claims.json"), claims)
     tex_path = write_tex_macros(
-        joinpath(output_dir, "paper_results.tex"), statistics, robustness,
-        main_result.diagnostics)
+        joinpath(output_dir, "paper_results.tex"), statistics, decomposition, ranking,
+        robustness, main_result.diagnostics)
 
     labels_path = joinpath(output_dir, "paper_link_labels.csv")
-    run(`python3 $(joinpath(HERE, "build_cbsa_crosswalk.py")) $geometry_path $claims_path $labels_path --cache-dir $(joinpath(HERE, ".public_cache"))`)
+    run(`python3 $(joinpath(HERE, "build_cbsa_crosswalk.py")) $geometry_path $claims_path $labels_path --cache-dir $(joinpath(HERE, ".public_cache")) --top-links-csv $top_links_csv_path --top-links-tex $top_links_tex_path`)
 
     figure_dir = joinpath(output_dir, "figures")
     run(`python3 $(joinpath(ROOT, "plots", "rsue_paper_figures.py")) $output_dir $figure_dir`)
     figure_outputs = sort!(filter(isfile, [
         joinpath(figure_dir, "$(name).$(extension)")
-        for name in ("rsue_hulten_map", "rsue_ift_map", "rsue_hulten_vs_ift", "rsue_sensitivity")
+        for name in ("rsue_hulten_map", "rsue_ift_map", "rsue_hulten_vs_ift", "rsue_decomposition", "rsue_sensitivity")
         for extension in ("pdf", "png")
     ]))
-    length(figure_outputs) == 8 || error("paper figure generation did not produce eight artifacts")
+    length(figure_outputs) == 10 || error("paper figure generation did not produce ten artifacts")
     extra_outputs = [
-        geometry_path, labels_path, sensitivity_path, claims_path, tex_path,
+        geometry_path, labels_path, top_links_csv_path, top_links_tex_path,
+        sensitivity_path, claims_path, tex_path, verification_path,
         census_diagnostics_path,
         figure_outputs...,
     ]
@@ -227,8 +338,12 @@ function main()
         "status" => "ok",
         "outputs" => paths,
         "statistics" => statistics,
+        "decomposition" => decomposition,
+        "top_link_comparison" => ranking,
         "port_data_robustness" => robustness,
     )))
 end
 
-main()
+if abspath(PROGRAM_FILE) == abspath(@__FILE__)
+    main()
+end

@@ -14,6 +14,9 @@ import numpy as np
 BLUE = "#0D66A6"
 ORANGE = "#C55A11"
 GRAY = "#666666"
+GREEN = "#4C956C"
+RED = "#C14953"
+PURPLE = "#8E6C9F"
 MAP_EXTENT = (-125.0, -66.0, 24.0, 50.0)
 MAP_ASSET_DIR = Path(__file__).resolve().parent / "assets"
 
@@ -151,6 +154,82 @@ def scatter_figure(rows, output):
     save_figure(figure, output)
 
 
+def interval_plot(axis, rows, specifications, scale=1.0, zero_line=False):
+    for position, (field, label, color) in enumerate(specifications):
+        values = scale*np.asarray([float(row[field]) for row in rows])
+        q05, q25, q50, q75, q95 = np.quantile(
+            values, [0.05, 0.25, 0.50, 0.75, 0.95])
+        axis.plot([q05, q95], [position, position], color=color,
+                  linewidth=1.0, alpha=0.65)
+        axis.plot([q25, q75], [position, position], color=color,
+                  linewidth=5.0, alpha=0.78, solid_capstyle="round")
+        axis.scatter([q50], [position], s=27, facecolor="white",
+                     edgecolor=color, linewidth=1.4, zorder=3)
+    axis.set_yticks(range(len(specifications)))
+    axis.set_yticklabels([label for _, label, _ in specifications])
+    axis.invert_yaxis()
+    axis.tick_params(axis="both", labelsize=8, length=0)
+    axis.spines[["top", "right", "left"]].set_visible(False)
+    axis.spines["bottom"].set_color("#888888")
+    axis.grid(axis="x", color="#DDDDDD", linewidth=0.5, alpha=0.55)
+    if zero_line:
+        axis.axvline(0.0, color="#777777", linewidth=0.75, zorder=0)
+
+
+def decomposition_figure(rows, output):
+    figure, axes = plt.subplots(1, 3, figsize=(11.8, 4.5))
+    interval_plot(
+        axes[0], rows,
+        [
+            ("hulten", "Traditional statistic", GRAY),
+            ("realized_NC", "No congestion", BLUE),
+            ("realized_F", "Full edge-local model", GREEN),
+            ("realized_FM", "Fixed modes", PURPLE),
+            ("realized_FR", "Fixed routes", ORANGE),
+            ("primitive_F", "Primitive cost", RED),
+        ],
+        scale=1.0e4,
+    )
+    axes[0].set_title("A. Elasticities by closure", loc="left", fontsize=10)
+    axes[0].set_xlabel(r"Welfare elasticity ($\times 10^{-4}$)", fontsize=8)
+
+    interval_plot(
+        axes[1], rows,
+        [
+            ("d_edge", "Road congestion", GREEN),
+            ("d_mode", "Modal adjustment", PURPLE),
+            ("d_route", "Route adjustment", ORANGE),
+        ],
+        zero_line=True,
+    )
+    axes[1].set_title("B. Multiplier comparisons", loc="left", fontsize=10)
+    axes[1].set_xlabel("Normalized multiplier difference", fontsize=8)
+
+    component_rows = []
+    for row in rows:
+        enriched = dict(row)
+        enriched["primitive_net_gap"] = (
+            float(row["hulten"])-float(row["primitive_F"]))
+        component_rows.append(enriched)
+    interval_plot(
+        axes[2], component_rows,
+        [
+            ("primitive_externality", "Externalities", BLUE),
+            ("primitive_propagation", "Equilibrium propagation", ORANGE),
+            ("primitive_edge", "Road congestion", GREEN),
+            ("primitive_pass_through", "Primitive pass-through", RED),
+            ("primitive_net_gap", "Net Hulten gap", GRAY),
+        ],
+        scale=1.0e4,
+        zero_line=True,
+    )
+    axes[2].set_title("C. Additive Hulten gap", loc="left", fontsize=10)
+    axes[2].set_xlabel(r"Signed elasticity component ($\times 10^{-4}$)", fontsize=8)
+
+    figure.subplots_adjust(wspace=0.48)
+    save_figure(figure, output)
+
+
 def sensitivity_figure(rows, output):
     parameters = [
         "alpha", "beta", "net_dispersion", "eta", "lambda_road",
@@ -221,6 +300,7 @@ def main():
         args.output_dir / "rsue_ift_map",
     )
     scatter_figure(physical, args.output_dir / "rsue_hulten_vs_ift")
+    decomposition_figure(physical, args.output_dir / "rsue_decomposition")
     sensitivity_figure(sensitivity, args.output_dir / "rsue_sensitivity")
 
 

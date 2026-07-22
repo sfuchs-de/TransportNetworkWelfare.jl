@@ -1,5 +1,6 @@
 .DS_Store
 Manifest.toml
+!replication/rsue/environment/Manifest.toml
 docs/build/
 output/
 replication/rsue/staging/

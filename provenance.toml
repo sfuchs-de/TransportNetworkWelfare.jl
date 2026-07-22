@@ -1,0 +1,33 @@
+schema_version = 1
+source_package = "IFT_Complete_Decomposition_2026-07-12.zip"
+source_package_sha256 = "0ba8a28c75987529ab77c882d55da3559c494bbbfa6adc2908feef7defed2a0d"
+
+[[kernel]]
+path = "src/kernels/AdjointRSUE.jl"
+origin_sha256 = "d843f3ed260f2af56aa5e163d0d3b144498507a48c0edf90313b6d5c9603fd7d"
+current_sha256 = "c4bc25027fad2e16a950fbf7a0c7395a424c1f207bedcc056b87834d4c2fb5fb"
+relationship = "validation-only divergence: explicit finite-input errors replaced assertions"
+
+[[kernel]]
+path = "src/kernels/IFTDecomposition.jl"
+origin_sha256 = "99d87f8cad942c5c744138a5446df540a6e14b9ee57ecbd484ad96c7855625c7"
+current_sha256 = "555117aee0b462d362a9f0549bbe3774c27bb4647714b8b6a3b093ea7e7425d5"
+relationship = "extended with analytic closure factors and package-level route decomposition"
+
+[[kernel]]
+path = "src/kernels/IFTCompleteDecomposition.jl"
+origin_sha256 = "a1d6e3d7dc08f66ddcabbcad1060abccaf3954e34ef961bb578815706cf84341"
+current_sha256 = "a1d6e3d7dc08f66ddcabbcad1060abccaf3954e34ef961bb578815706cf84341"
+relationship = "byte-for-byte frozen source"
+
+[[kernel]]
+path = "src/kernels/RSUEParameterSensitivity.jl"
+origin_sha256 = "9d5392b5ecec331615ce5e47c5d09e7a66954cad9a2ab7ca7c693d37b1e7ddbc"
+current_sha256 = "9d5392b5ecec331615ce5e47c5d09e7a66954cad9a2ab7ca7c693d37b1e7ddbc"
+relationship = "byte-for-byte frozen source"
+
+[[kernel]]
+path = "src/kernels/RSUETerminalCongestion.jl"
+origin_sha256 = "4cc3c2eb97f18d1df440d8b441d6193f5806c8a158027a40fb6673c2d5013e55"
+current_sha256 = "4cc3c2eb97f18d1df440d8b441d6193f5806c8a158027a40fb6673c2d5013e55"
+relationship = "byte-for-byte frozen source"
