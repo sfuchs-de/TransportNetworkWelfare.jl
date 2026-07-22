@@ -6,6 +6,7 @@ using TransportNetworkWelfare
     include("test_modal.jl")
     include("test_schema.jl")
     include("test_edge_congestion.jl")
+    include("test_edge_local.jl")
     include("test_examples.jl")
     include("test_paper_artifacts.jl")
     include("test_census_ports.jl")

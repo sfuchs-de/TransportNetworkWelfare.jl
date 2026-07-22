@@ -68,6 +68,28 @@ subtitle. `elevation` is plotting metadata and does not enter the model. Use
 `--cow-surface` in place of `--surface-ply ...` for the offline procedural
 fallback.
 
+### All 2,903 mesh vertices
+
+An optional larger variant makes every PLY vertex a model location and every
+mesh edge a bidirectional road link. The generated baseline has 2,903 locations,
+8,706 physical links, and 17,412 directed arcs. Positive body/head activity
+weights provide labor and income. Symmetric matrix scaling constructs balanced
+value flows with a common traffic-to-income ratio.
+
+```bash
+python examples/cow/prepare_surface.py
+julia --project=. examples/cow/build_mesh_network.jl
+julia --project=. bin/tnw.jl analyze-edge-local \
+  examples/cow/config_mesh_edge_local.toml
+```
+
+The sparse edge-local command computes the primitive-cost spatial-equilibrium
+derivative for every link. It does not report the route-consistent realized-
+friction diagnostic or build the `FM` and `FR` closures: the dense OD-by-edge
+incidence matrix would occupy about 1.09 TiB. The generated baseline is a
+calibrated sufficient-statistic equilibrium rather than a global level solution
+from exogenous productivity and amenity primitives.
+
 ## Why Seattle is deferred
 
 The 217-location Seattle replication for [Allen and

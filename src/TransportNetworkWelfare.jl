@@ -22,6 +22,7 @@ include("DataIO.jl")
 include("RSUEAdapter.jl")
 include("CompleteEngine.jl")
 include("Analysis.jl")
+include("EdgeLocalEngine.jl")
 include("Sensitivity.jl")
 include("Output.jl")
 include("CLI.jl")
@@ -32,6 +33,7 @@ export EndpointTerminalCongestion, CompositeCongestion
 export AbstractRouteCurvature, TheoremRouteCurvature, IndependentRouteCurvature
 export Project, TransportModel, WelfareResults, DecompositionResults
 export load_project, validate, build_model, welfare_effects
+export edge_local_welfare_effects
 export decompose_welfare, sensitivity_path, write_results, main
 export initialize_project
 

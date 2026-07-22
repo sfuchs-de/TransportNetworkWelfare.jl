@@ -6,6 +6,7 @@ using TransportNetworkWelfare
 const ROOT = normpath(joinpath(@__DIR__, ".."))
 
 include(joinpath(ROOT, "examples", "sioux_falls", "prepare.jl"))
+include(joinpath(ROOT, "examples", "cow", "build_mesh_network.jl"))
 
 @testset "Braess-style routing example" begin
     project = load_project(joinpath(ROOT, "examples", "braess", "config.toml"))
@@ -52,6 +53,28 @@ end
                   TransportNetworkWelfare.file_sha256.(second_paths)
         end
     end
+end
+
+@testset "Cow mesh network builder" begin
+    vertices = [
+        0.0 0.0 0.0
+        1.0 0.0 0.0
+        0.0 1.0 0.0
+        0.0 0.0 1.0
+    ]
+    faces = [[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]]
+    edges = CowMeshBuilder.mesh_edges(faces)
+    @test length(edges) == 6
+    income = fill(0.25, 4)
+    balanced = CowMeshBuilder.balanced_edge_flows(
+        vertices, edges, income; openness=0.5)
+    outgoing = zeros(4)
+    for (flow, (i, j)) in zip(balanced.flow, edges)
+        outgoing[i] += flow
+        outgoing[j] += flow
+    end
+    @test outgoing ≈ 0.5 .* income atol=1e-12 rtol=0
+    @test balanced.balance_error < 1e-12
 end
 
 @testset "Sioux Falls parsers and BPR derivative" begin

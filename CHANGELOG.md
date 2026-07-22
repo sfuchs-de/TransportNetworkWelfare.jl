@@ -12,6 +12,8 @@ All notable changes are documented here. The project follows semantic versioning
   the Seattle urban-model extension as out of scope.
 - Add an ASCII PLY surface renderer and a hash-pinned, on-demand cow mesh with
   explicit third-party licensing metadata.
+- Add a sparse edge-local adjoint solver and an all-vertex cow-mesh builder for
+  networks whose exact fixed-route decomposition is too large to construct.
 - Validate congestion keys, inactive modes, terminal identifiers, and the RSUE
   matrix mode order before model construction.
 - Give `directed_arc`, `physical_link`, and `both` policy units distinct output

@@ -15,6 +15,8 @@ plots/__pycache__/
 examples/braess/output/
 examples/cow/output/
 examples/cow/assets/
+examples/cow/mesh_data/
+examples/cow/mesh_output/
 examples/sioux_falls/raw/
 examples/sioux_falls/generated/
 examples/sioux_falls/output-efficient/

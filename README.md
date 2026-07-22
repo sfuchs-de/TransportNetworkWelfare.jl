@@ -24,7 +24,7 @@ Three additional applications exercise distinct parts of the package:
 
 - `examples/braess/`: a four-location routing example with a verified nonzero route wedge;
 - `examples/sioux_falls/`: an on-demand adaptation of the standard 24-node benchmark using heterogeneous local BPR elasticities;
-- `examples/cow/`: an original 30-node 3D synthetic geography whose traffic-only and extended rankings differ, with procedural and optional hash-pinned PLY surfaces.
+- `examples/cow/`: a 30-node mechanism example plus an optional sparse equilibrium with one location at each of 2,903 cow-mesh vertices.
 
 The first and third are fully self-contained. Sioux Falls downloads pinned,
 hash-verified academic-use source files and records its balancing conversion.
@@ -66,6 +66,7 @@ write_results(welfare, "output/"; project)
 julia --project=. bin/tnw.jl init /path/to/my-network
 julia --project=. bin/tnw.jl validate config.toml
 julia --project=. bin/tnw.jl analyze config.toml
+julia --project=. bin/tnw.jl analyze-edge-local config.toml
 julia --project=. bin/tnw.jl decompose config.toml
 julia --project=. bin/tnw.jl sensitivity config.toml
 julia --project=. bin/tnw.jl replicate-rsue replication/rsue/rsue_legacy_audited.toml

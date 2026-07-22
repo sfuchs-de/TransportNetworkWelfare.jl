@@ -1,12 +1,22 @@
 # Outputs
 
-`analyze` writes welfare results. `decompose` writes the full closure decomposition. Both commands also write `run_manifest.json`.
+`analyze` writes welfare results. `analyze-edge-local` writes the same compact
+welfare-result schema using the scalable edge-local Jacobian. `decompose` writes
+the full closure decomposition. All three commands also write
+`run_manifest.json`.
 
 ## Files
 
 - `welfare_directed.csv` and `welfare_physical.csv` are written by `analyze`.
 - `decomposition_directed.csv` and `decomposition_physical.csv` are written by `decompose`.
 - `run_manifest.json` records the code, configuration, inputs, parameters, diagnostics, transformations, and output hashes.
+
+The edge-local command reports `closure_level="edge_local_sparse"` and
+`decomposition_available=false`. It solves the spatial-equilibrium adjoint and
+reports the primitive-cost welfare derivative. Because it does not construct
+the route-consistent transport operators, `realized_F`, `chi_effective`, and
+`primitive_pass_through` are `missing`; it also omits the fixed-mode and
+fixed-route decomposition closures.
 
 Directed rows are indexed by `edge_id`. Physical rows are indexed by `physical_link_id`. Under a bidirectional policy, physical elasticities and additive components are sums across the two directions; normalized multipliers are calculated after aggregation.
 

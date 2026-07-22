@@ -71,6 +71,13 @@ julia --project=/path/to/TransportNetworkWelfare.jl \
 
 Validation checks schemas, identifiers, congestion-mode names, units, flow accounting, modal interiority, route contraction, policy pairing, and basic model regularity. It reports the approximate memory required by the dense fixed-route incidence object. `analyze` builds only the flexible full-model welfare closure. `decompose` additionally constructs the fixed-mode and fixed-route closures and is intended for moderate networks; its route-incidence memory grows as ``8N^2E`` bytes. The output directory is resolved relative to `config.toml`.
 
+For very large networks that use only edge-local congestion, run
+`analyze-edge-local`. It constructs the Proposition-2 Jacobian as a sparse core
+plus exact low-rank equilibrium terms and avoids route-incidence matrices. It
+reports the primitive-cost welfare derivative but not the route-consistent
+realized-friction diagnostic. It does not support endpoint-terminal congestion
+or the `FM`/`FR` decomposition.
+
 Validation and run manifests report whether edge congestion comes from a mode
 table or an input column, together with the column name, scale, count, and
 elasticity distribution. Use `edge_congestion_scale` for sensitivity analysis

@@ -219,7 +219,9 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
     weights = np.array([values[link] for link in ordered])
     absolute = np.abs(weights)
     scale = absolute.max()
-    widths = 0.8+3.2*(absolute/scale if scale > 0 else np.ones_like(absolute))
+    link_density = min(1.0, np.sqrt(500/max(len(ordered), 1)))
+    widths = link_density*(0.8+3.2*(
+        absolute/scale if scale > 0 else np.ones_like(absolute)))
     if weights.min() < 0 < weights.max():
         limit = max(abs(weights.min()), abs(weights.max()))
         normalization = Normalize(-limit, limit)
@@ -245,7 +247,8 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
         linewidths=widths, alpha=0.86, zorder=1,
     )
     axis.add_collection(collection)
-    sizes = 18+115*incomes/incomes.max()
+    node_density = min(1.0, np.sqrt(200/max(len(nodes), 1)))
+    sizes = node_density*(8+45*incomes/incomes.max())
     if three_dimensional:
         axis.scatter(
             coordinates[:, 0], coordinates[:, 1], coordinates[:, 2], s=sizes,

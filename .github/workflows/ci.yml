@@ -40,6 +40,7 @@ jobs:
         run: |
           julia --project=. bin/tnw.jl decompose examples/braess/config.toml
           julia --project=. bin/tnw.jl decompose examples/cow/config.toml
+          julia --project=. bin/tnw.jl analyze-edge-local examples/cow/config.toml
       - name: Independent choice-logsum nonlinear check
         if: matrix.os == 'ubuntu-latest' && matrix.julia-version == '1.10'
         run: julia --project=. replication/rsue/verify_choice_logsum_fd.jl examples/toy/config.toml /tmp/choice-logsum-fd.toml
