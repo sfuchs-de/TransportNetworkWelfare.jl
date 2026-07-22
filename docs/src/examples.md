@@ -47,22 +47,26 @@ original Wardrop problem.
 The cow-shaped example uses original deterministic three-dimensional node
 geometry. Alternative neck routes connect a high-activity head and body. Its
 traffic-only and extended top-five rankings differ, and the exact route and
-congestion channels explain the change. The plotting script can add an original
-procedural surface behind the network; neither the coordinates nor the surface
-copy an image or mesh.
+congestion channels explain the change. The plotting script can add either an
+original procedural surface or a hash-verified, on-demand PLY mesh behind the
+network. The third-party mesh is not distributed with the repository.
 
 Render any example from validated CSV outputs:
 
 ```bash
+python examples/cow/prepare_surface.py
 python plots/network_example.py \
   examples/cow/data/nodes.csv examples/cow/data/edge_modes.csv \
   examples/cow/output/decomposition_physical.csv examples/cow/output/cow.pdf \
   --metric primitive_F --label-top 5 --transparent \
-  --three-dimensional --cow-surface --elevation-angle 14 --azimuth -70
+  --three-dimensional --surface-ply examples/cow/assets/cow.ply \
+  --elevation-angle 14 --azimuth -70
 ```
 
 The plotting script writes PDF or transparent PNG output and adds no title or
-subtitle. `elevation` is plotting metadata and does not enter the model.
+subtitle. `elevation` is plotting metadata and does not enter the model. Use
+`--cow-surface` in place of `--surface-ply ...` for the offline procedural
+fallback.
 
 ## Why Seattle is deferred
 

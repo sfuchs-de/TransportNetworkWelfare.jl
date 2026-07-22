@@ -10,7 +10,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
-from mpl_toolkits.mplot3d.art3d import Line3DCollection
+from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 import numpy as np
 
 
@@ -133,10 +133,75 @@ def add_cow_surface(axis):
     )
 
 
+def read_ascii_ply(path: Path):
+    """Read vertex coordinates and polygon faces from an ASCII PLY mesh."""
+    with path.open(encoding="ascii") as handle:
+        if handle.readline().strip() != "ply":
+            raise ValueError(f"{path} is not a PLY file")
+        vertex_count = face_count = None
+        ascii_format = False
+        while True:
+            raw = handle.readline()
+            if not raw:
+                raise ValueError(f"{path} has no end_header marker")
+            line = raw.strip()
+            if line == "format ascii 1.0":
+                ascii_format = True
+            elif line.startswith("element vertex "):
+                vertex_count = int(line.split()[-1])
+            elif line.startswith("element face "):
+                face_count = int(line.split()[-1])
+            elif line == "end_header":
+                break
+        if not ascii_format or not vertex_count or not face_count:
+            raise ValueError(f"{path} must be a nonempty ASCII PLY 1.0 mesh")
+        vertices = []
+        for _ in range(vertex_count):
+            values = handle.readline().split()
+            if len(values) < 3:
+                raise ValueError(f"{path} has an incomplete vertex table")
+            vertices.append([float(value) for value in values[:3]])
+        faces = []
+        for _ in range(face_count):
+            values = handle.readline().split()
+            if not values:
+                raise ValueError(f"{path} has an incomplete face table")
+            count = int(values[0])
+            if count < 3 or len(values) != count+1:
+                raise ValueError(f"{path} contains an invalid polygon face")
+            face = [int(value) for value in values[1:]]
+            if min(face) < 0 or max(face) >= vertex_count:
+                raise ValueError(f"{path} contains an out-of-range vertex index")
+            faces.append(face)
+    vertices = np.asarray(vertices, dtype=float)
+    if not np.isfinite(vertices).all():
+        raise ValueError(f"{path} contains nonfinite vertices")
+    return vertices, faces
+
+
+def add_ply_surface(axis, path: Path, target_coordinates):
+    """Scale a cow PLY mesh to the plotted network's x/depth/height bounds."""
+    vertices, faces = read_ascii_ply(path)
+    # The source cow uses x=length, y=height, and z=depth.
+    source = vertices[:, (0, 2, 1)]
+    source_min, source_span = source.min(axis=0), np.ptp(source, axis=0)
+    target_min, target_span = target_coordinates.min(axis=0), np.ptp(
+        target_coordinates, axis=0)
+    if np.any(source_span <= 0) or np.any(target_span <= 0):
+        raise ValueError("PLY and network coordinates must span all three dimensions")
+    mapped = target_min+(source-source_min)/source_span*target_span
+    surface = Poly3DCollection(
+        [mapped[face] for face in faces],
+        facecolor="#9BA2AA", edgecolor="#555B62", linewidth=0.04,
+        alpha=0.16, zorder=0,
+    )
+    axis.add_collection3d(surface)
+
+
 def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
                  output_path: Path, *, metric="primitive_F", label_top=0,
                  transparent=False, three_dimensional=False,
-                 cow_surface=False, elevation_angle=18.0,
+                 cow_surface=False, surface_ply=None, elevation_angle=18.0,
                  azimuth=-62.0, dpi=240):
     nodes = read_nodes(nodes_path)
     links = read_physical_edges(edges_path, nodes)
@@ -149,6 +214,8 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
     segments = [[plotted_coordinate(links[link][0]),
                  plotted_coordinate(links[link][1])]
                 for link in ordered]
+    coordinates = np.array([plotted_coordinate(node) for node in sorted(nodes)])
+    incomes = np.array([nodes[node][3] for node in sorted(nodes)])
     weights = np.array([values[link] for link in ordered])
     absolute = np.abs(weights)
     scale = absolute.max()
@@ -168,6 +235,8 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
         collection_class = Line3DCollection
         if cow_surface:
             add_cow_surface(axis)
+        elif surface_ply is not None:
+            add_ply_surface(axis, Path(surface_ply), coordinates)
     else:
         figure, axis = plt.subplots(figsize=(7.2, 4.8))
         collection_class = LineCollection
@@ -176,8 +245,6 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
         linewidths=widths, alpha=0.86, zorder=1,
     )
     axis.add_collection(collection)
-    coordinates = np.array([plotted_coordinate(node) for node in sorted(nodes)])
-    incomes = np.array([nodes[node][3] for node in sorted(nodes)])
     sizes = 18+115*incomes/incomes.max()
     if three_dimensional:
         axis.scatter(
@@ -231,6 +298,7 @@ def main():
     parser.add_argument("--transparent", action="store_true")
     parser.add_argument("--three-dimensional", action="store_true")
     parser.add_argument("--cow-surface", action="store_true")
+    parser.add_argument("--surface-ply", type=Path)
     parser.add_argument("--elevation-angle", type=float, default=18.0)
     parser.add_argument("--azimuth", type=float, default=-62.0)
     args = parser.parse_args()
@@ -238,11 +306,15 @@ def main():
         parser.error("--label-top must be nonnegative")
     if args.cow_surface and not args.three_dimensional:
         parser.error("--cow-surface requires --three-dimensional")
+    if args.surface_ply is not None and not args.three_dimensional:
+        parser.error("--surface-ply requires --three-dimensional")
+    if args.cow_surface and args.surface_ply is not None:
+        parser.error("choose either --cow-surface or --surface-ply")
     plot_network(
         args.nodes, args.edge_modes, args.results, args.output,
         metric=args.metric, label_top=args.label_top, transparent=args.transparent,
         three_dimensional=args.three_dimensional,
-        cow_surface=args.cow_surface,
+        cow_surface=args.cow_surface, surface_ply=args.surface_ply,
         elevation_angle=args.elevation_angle, azimuth=args.azimuth,
     )
 

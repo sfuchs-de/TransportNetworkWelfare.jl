@@ -10,6 +10,8 @@ All notable changes are documented here. The project follows semantic versioning
   Sioux Falls adaptation with local BPR elasticities.
 - Add deterministic generic network plotting and an examples guide that marks
   the Seattle urban-model extension as out of scope.
+- Add an ASCII PLY surface renderer and a hash-pinned, on-demand cow mesh with
+  explicit third-party licensing metadata.
 - Validate congestion keys, inactive modes, terminal identifiers, and the RSUE
   matrix mode order before model construction.
 - Give `directed_arc`, `physical_link`, and `both` policy units distinct output

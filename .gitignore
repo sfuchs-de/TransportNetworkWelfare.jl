@@ -14,6 +14,7 @@ plots/__pycache__/
 *.pyc
 examples/braess/output/
 examples/cow/output/
+examples/cow/assets/
 examples/sioux_falls/raw/
 examples/sioux_falls/generated/
 examples/sioux_falls/output-efficient/

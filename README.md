@@ -24,7 +24,7 @@ Three additional applications exercise distinct parts of the package:
 
 - `examples/braess/`: a four-location routing example with a verified nonzero route wedge;
 - `examples/sioux_falls/`: an on-demand adaptation of the standard 24-node benchmark using heterogeneous local BPR elasticities;
-- `examples/cow/`: an original 30-node 3D synthetic geography whose traffic-only and extended rankings differ.
+- `examples/cow/`: an original 30-node 3D synthetic geography whose traffic-only and extended rankings differ, with procedural and optional hash-pinned PLY surfaces.
 
 The first and third are fully self-contained. Sioux Falls downloads pinned,
 hash-verified academic-use source files and records its balancing conversion.

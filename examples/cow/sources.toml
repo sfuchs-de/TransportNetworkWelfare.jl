@@ -1,0 +1,9 @@
+[mesh]
+url = "https://people.sc.fsu.edu/~jburkardt/data/ply/cow.ply"
+sha256 = "19ae0ad1f335dc3198e9ec084922885dec87cbd187c7532aa7ca20eed596e34c"
+format = "ascii_ply_1.0"
+vertices = 2903
+faces = 5804
+license = "GNU LGPL-3.0"
+license_url = "https://people.sc.fsu.edu/~jburkardt/txt/gnu_lgpl.txt"
+source_page = "https://people.sc.fsu.edu/~jburkardt/data/ply/ply.html"
