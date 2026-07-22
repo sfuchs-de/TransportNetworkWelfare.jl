@@ -4,6 +4,21 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+- Validate congestion keys, inactive modes, terminal identifiers, and the RSUE
+  matrix mode order before model construction.
+- Give `directed_arc`, `physical_link`, and `both` policy units distinct output
+  behavior, and permit valid zero welfare derivatives with nullable effective
+  pass-through ratios.
+- Add exact analytical allocation, scarcity, and equilibrium channels for the
+  road, terminal, fixed-mode, and fixed-route closure rungs, with fail-closed
+  Jacobian and channel reconstruction checks.
+- Keep ordinary welfare analysis on the lightweight flexible-route closure and
+  report a preflight memory estimate for the full fixed-route decomposition.
+- Add a nonlinear choice-logsum finite-difference harness, a locked RSUE Julia
+  environment, hashed Python verification dependencies, and machine-readable
+  kernel provenance.
+- Pin the Census CBSA archive hash and record GDAL, Python, configuration,
+  input, source, environment, and verification-report hashes in paper artifacts.
 - Add `tnw init` for portable external CSV/TOML projects.
 - Document the own-data accounting contract and directed/physical output schema.
 - Reject nonfinite parameters, diagnostics, sensitivity values, and ill-conditioned transport closures.

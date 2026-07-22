@@ -62,22 +62,23 @@ function run_command(command::String, config::String)
         print_summary(report)
         return 0
     end
-    model = build_model(project)
     if command == "analyze"
-        result = require_verified(welfare_effects(model))
+        result = require_verified(welfare_effects(project))
         paths = write_results(result, project.output_dir; project,
             command="analyze $config_label")
         print_summary(Dict("status" => "ok", "outputs" => paths))
     elseif command == "decompose"
+        model = build_model(project)
         result = require_verified(decompose_welfare(model))
         paths = write_results(result, project.output_dir; project,
             command="decompose $config_label")
         print_summary(Dict("status" => "ok", "outputs" => paths))
     elseif command == "sensitivity"
+        model = build_welfare_model(project)
         rows = all_sensitivity_paths(model)
         isempty(rows) && throw(ArgumentError("the configuration declares no sensitivity paths"))
         path = write_table(joinpath(project.output_dir, "sensitivity.csv"), rows)
-        baseline = require_verified(decompose_welfare(model))
+        baseline = require_verified(welfare_effects(model))
         baseline.diagnostics["sensitivity_rows"] = length(rows)
         baseline.diagnostics["sensitivity_verified"] = all(row.verified for row in rows)
         baseline.diagnostics["verified"] &= baseline.diagnostics["sensitivity_verified"]
@@ -88,6 +89,7 @@ function run_command(command::String, config::String)
         print_summary(Dict(
             "status" => "ok", "outputs" => [path, manifest], "rows" => length(rows)))
     elseif command == "replicate-rsue"
+        model = build_model(project)
         adapter = lowercase(String(get(project.input, "adapter", "")))
         adapter in ("rsue_frozen_2026_07_12", "rsue_census_ports_2017_v1") ||
             throw(ArgumentError("replicate-rsue requires a supported RSUE adapter"))

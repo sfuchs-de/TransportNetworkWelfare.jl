@@ -118,3 +118,30 @@ end
 
 condition_within_limit(value::Real, limit::Real) =
     isfinite(value) && isfinite(limit) && value > 0 && value <= limit
+
+function configured_active_modes(project, observed_modes)
+    observed = Set(Symbol.(observed_modes))
+    model = get(project.raw, "model", Dict{String,Any}())
+    configured = get(model, "active_transport_modes", String[])
+    modes = isempty(configured) ? observed : Set(Symbol.(configured))
+    all(mode in observed for mode in modes) ||
+        throw(ArgumentError("active_transport_modes contains a mode absent from the data"))
+    project.policy.mode in modes ||
+        throw(ArgumentError("active_transport_modes must include the policy mode"))
+    return modes
+end
+
+function validate_congestion_modes(project, observed_modes)
+    observed = Set(Symbol.(observed_modes))
+    active = configured_active_modes(project, observed)
+    for (channel, lambdas) in (("edge", edge_lambdas(project.congestion)),
+                               ("terminal", terminal_lambdas(project.congestion)))
+        for (mode, lambda) in lambdas
+            mode in observed || throw(ArgumentError(
+                "$channel-congestion mode '$mode' is absent from the data"))
+            lambda == 0 || mode in active || throw(ArgumentError(
+                "$channel congestion is positive for inactive mode '$mode'"))
+        end
+    end
+    return active
+end

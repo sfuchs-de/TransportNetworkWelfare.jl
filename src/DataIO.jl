@@ -191,7 +191,9 @@ function mode_order(project::Project, rows)
 end
 
 function require_terminal_ids(project::Project, rows)
-    active = Set(mode for (mode, lambda) in terminal_lambdas(project.congestion) if lambda > 0)
+    active_modes = configured_active_modes(project, (row.mode for row in rows))
+    active = Set(mode for (mode, lambda) in terminal_lambdas(project.congestion)
+                 if lambda > 0 && mode in active_modes)
     for row in rows
         row.mode in active || continue
         row.origin_terminal_id === nothing &&
@@ -223,6 +225,7 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
     transforms.normalize_income || throw(ArgumentError("set input.transformations.normalize_income=true"))
     node_index = Dict(id => i for (i, id) in enumerate(nodes.ids))
     metadata = validate_edge_metadata(rows, node_index)
+    validate_congestion_modes(project, (row.mode for row in rows))
     require_terminal_ids(project, rows)
     physical_policy_check(project, rows)
     modes = mode_order(project, rows)
@@ -365,5 +368,6 @@ function validate(project::Project)
         stock_disagreement=data.stock_disagreement,
         transformations=data.transformations,
         input_hashes=data.input_hashes,
+        decomposition_incidence_gib=data.N^2*length(data.edges)*sizeof(Float64)/2.0^30,
     )
 end

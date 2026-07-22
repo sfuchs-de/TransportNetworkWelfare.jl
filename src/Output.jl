@@ -56,12 +56,21 @@ function json_value(value)
     value isa AbstractString && return json_escape(value)
     value isa Symbol && return json_escape(String(value))
     value isa NamedTuple && return json_value(Dict(string(k) => getproperty(value, k) for k in keys(value)))
-    value isa AbstractDict && return "{" * join((json_escape(string(k))*":"*json_value(value[k])
-        for k in sort!(collect(keys(value)); by=string)), ',') * "}"
+    if value isa AbstractDict
+        keys_by_string = Dict{String,Any}()
+        for key in keys(value)
+            text = string(key)
+            haskey(keys_by_string, text) && throw(ArgumentError(
+                "JSON object contains keys that both encode as '$text'"))
+            keys_by_string[text] = key
+        end
+        return "{" * join((json_escape(text)*":"*json_value(value[keys_by_string[text]])
+            for text in sort!(collect(keys(keys_by_string)))), ',') * "}"
+    end
     if value isa Tuple || value isa AbstractVector
         return "[" * join(json_value.(collect(value)), ',') * "]"
     end
-    return json_escape(string(value))
+    throw(ArgumentError("unsupported JSON value of type $(typeof(value))"))
 end
 
 function package_git_state()
@@ -82,6 +91,17 @@ function package_version()
     return String(metadata["version"])
 end
 
+function environment_metadata()
+    project_path = Base.active_project()
+    manifest_path = project_path === nothing ? nothing : joinpath(dirname(project_path), "Manifest.toml")
+    return Dict{String,Any}(
+        "active_project" => project_path === nothing ? missing : basename(project_path),
+        "manifest_sha256" => manifest_path !== nothing && isfile(manifest_path) ?
+            file_sha256(manifest_path) : missing,
+        "blas" => string(LinearAlgebra.BLAS.get_config()),
+    )
+end
+
 function run_manifest(project::Project, diagnostics::AbstractDict, outputs; command="api")
     git = package_git_state()
     output_paths = String.(collect(outputs))
@@ -97,6 +117,7 @@ function run_manifest(project::Project, diagnostics::AbstractDict, outputs; comm
         "git_commit" => git.commit,
         "git_dirty" => git.dirty,
         "julia_version" => string(VERSION),
+        "environment" => environment_metadata(),
         "command" => command,
         "config_path" => relpath(project.config_path, project.root),
         "config_sha256" => file_sha256(project.config_path),
@@ -147,7 +168,8 @@ function write_results(result::Union{WelfareResults,DecompositionResults},
     mkpath(output_dir)
     prefix = result isa DecompositionResults ? "decomposition" : "welfare"
     outputs = String[]
-    push!(outputs, write_table(joinpath(output_dir, "$(prefix)_directed.csv"), result.directed))
+    !isempty(result.directed) &&
+        push!(outputs, write_table(joinpath(output_dir, "$(prefix)_directed.csv"), result.directed))
     !isempty(result.physical) &&
         push!(outputs, write_table(joinpath(output_dir, "$(prefix)_physical.csv"), result.physical))
     diagnostics_path = joinpath(output_dir, "diagnostics.json")

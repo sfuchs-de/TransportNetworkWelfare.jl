@@ -12,7 +12,7 @@ using LinearAlgebra
 
 using ..AdjointRSUE
 
-export jacobian_parts, response_rows, cost_loading_matrix
+export jacobian_parts, jacobian_factors, response_rows, cost_loading_matrix
 export fixed_mode_congestion_J, build_closures
 export reconstruct_route_kernel, route_incidence
 export soft_route_operators, fixed_route_operators, route_bridge_probe
@@ -34,6 +34,20 @@ function jacobian_parts(sx::AbstractVector, sy::AbstractVector,
     J_total = assemble_J(sx, sy, mu, lam, omega, c)
     J_sparse = J_total .- J_global
     return (; sparse=J_sparse, global_feedback=J_global, total=J_total)
+end
+
+"""Analytic sparse-plus-rank-one factorization of the no-congestion Jacobian."""
+function jacobian_factors(sx::AbstractVector, sy::AbstractVector,
+                          mu::AbstractMatrix, lam::AbstractMatrix,
+                          omega::AbstractVector, c::Coef)
+    parts = jacobian_parts(sx, sy, mu, lam, omega, c)
+    N = length(sx)
+    stacked = vcat(sx, sy[1:N-1])
+    u = zeros(2N)
+    u[1:2N-1] .= ((c.σ-1)/c.e) .* stacked
+    v = vcat(omega, (c.σ/(c.σ-1)) .* omega)
+    residual = maximum(abs.(parts.total .- (parts.sparse + u*permutedims(v))))
+    return (; D=parts.sparse, u, v, total=parts.total, residual)
 end
 
 """

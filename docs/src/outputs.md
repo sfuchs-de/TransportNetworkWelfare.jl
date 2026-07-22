@@ -26,11 +26,11 @@ A positive value is therefore a welfare gain from a primitive-cost reduction. Fo
 - `realized_NC`, `realized_NT`, and `realized_F` use no congestion, road congestion, and the full configured congestion system.
 - `realized_FM` freezes baseline modal shares; `realized_FR` freezes baseline route use.
 - `primitive_F` applies the full primitive-cost forcing.
-- `chi_effective` is `primitive_F / realized_F` where that ratio is defined.
+- `chi_effective` is `primitive_F / realized_F` where that ratio is numerically defined; otherwise it is missing. The additive pass-through component remains defined as `realized_F - primitive_F`.
 - `m_NC`, `m_NT`, `m_F`, `m_FM`, and `m_FR` are normalized equilibrium multipliers.
 - `d_edge`, `d_road`, `d_terminal`, `d_mode`, and `d_route` are closure differences under the common-baseline ladder.
 
-The allocation, scarcity, and equilibrium subcolumns provide the analytical Jacobian decomposition where the model implies those channels. Exact structural zeros are reported as zero. Identity-residual columns should remain below the configured numerical tolerance; the run fails its verification gate otherwise.
+The allocation, scarcity, and equilibrium subcolumns implement the analytical Jacobian decomposition. Exact structural zeros are reported as zero. The `channel_residual_*`, inverse-gap, and Jacobian-block diagnostics must remain below the configured tolerance; the run fails otherwise.
 
 ## Reproducibility manifest
 

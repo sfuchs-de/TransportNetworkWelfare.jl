@@ -21,6 +21,17 @@ function replace_diagnostics(project; condition_limit=project.condition_limit,
     )
 end
 
+
+function replace_policy_unit(project, unit)
+    policy = TNW.PolicySpecification(project.policy.mode, unit, project.policy.shock_fraction)
+    return Project(
+        project.config_path, project.root, project.name, project.schema_version,
+        project.input, project.parameters, project.modal, project.congestion,
+        policy, project.output_dir, project.sensitivity,
+        project.condition_limit, project.tolerance, project.raw,
+    )
+end
+
 @testset "Typed API and closure ladder" begin
     @test_throws ArgumentError TNW.run_command("unknown", "missing.toml")
     @test TNW.json_escape("a\b\f\x01") == "\"a\\b\\f\\u0001\""
@@ -29,6 +40,7 @@ end
     @test report.valid
     @test report.nodes == 3
     @test report.policy_arcs == 6
+    @test report.decomposition_incidence_gib > 0
     model = build_model(project)
     welfare = welfare_effects(model)
     decomposition = decompose_welfare(model)
@@ -42,6 +54,11 @@ end
     @test maximum(abs(row.identity_residual_terminal) for row in decomposition.directed) < 1e-12
     @test maximum(abs(row.identity_residual_mode) for row in decomposition.directed) < 1e-12
     @test maximum(abs(row.identity_residual_route) for row in decomposition.directed) < 1e-12
+    @test maximum(abs(row.channel_residual_edge) for row in decomposition.directed) < 1e-12
+    @test maximum(abs(row.channel_residual_terminal) for row in decomposition.directed) < 1e-12
+    @test maximum(abs(row.channel_residual_mode) for row in decomposition.directed) < 1e-12
+    @test maximum(abs(row.channel_residual_route) for row in decomposition.directed) < 1e-12
+    @test decomposition.diagnostics["max_jacobian_block_reconstruction_error"] < 1e-12
     @test all(isfinite(row.primitive_F) for row in decomposition.directed)
 
     none_project = TNW.replace_project(project; congestion=NoCongestion())
@@ -65,6 +82,39 @@ end
     efficient = decompose_welfare(efficient_model)
     @test maximum(abs(row.primitive_F-row.hulten) for row in efficient.directed) < 1e-10
     @test maximum(abs(row.realized_F-row.hulten) for row in efficient.directed) < 1e-10
+
+    directed = decompose_welfare(build_model(replace_policy_unit(project, :directed_arc)))
+    @test length(directed.directed) == 6
+    @test isempty(directed.physical)
+    physical = decompose_welfare(build_model(replace_policy_unit(project, :physical_link)))
+    @test isempty(physical.directed)
+    @test length(physical.physical) == 3
+    @test all(abs(row.channel_residual_mode) < 1e-12 for row in physical.physical)
+    mktempdir() do directory
+        paths = write_results(physical, directory; project=replace_policy_unit(project, :physical_link))
+        @test !any(endswith(path, "directed.csv") for path in paths)
+        @test any(endswith(path, "physical.csv") for path in paths)
+    end
+
+    lightweight = TNW.build_welfare_model(project)
+    @test lightweight.basis.Qz_fixed === nothing
+    @test lightweight.closures.level == :welfare
+    @test welfare_effects(lightweight).diagnostics["verified"]
+
+    @test ismissing(TNW.effective_ratio(0.0, 1.0e-4, 1.0e-3))
+    @test TNW.effective_ratio(2.0e-4, 1.0e-4, 1.0e-3) == 0.5
+    @test TNW.json_value(Dict("missing" => missing)) == "{\"missing\":null}"
+    @test_throws ArgumentError TNW.json_value(Set([1, 2]))
+    @test_throws ArgumentError TNW.json_value(Dict{Any,Any}(1 => "a", "1" => "b"))
+    zero_rows = [
+        (edge_id="AB", physical_link_id="AB", origin="A", destination="B",
+         hulten=0.2, realized_F=0.0, primitive_F=0.01),
+        (edge_id="BA", physical_link_id="AB", origin="B", destination="A",
+         hulten=0.3, realized_F=0.0, primitive_F=0.02),
+    ]
+    zero_physical = only(TNW.aggregate_welfare_physical(zero_rows))
+    @test ismissing(zero_physical.chi_effective)
+    @test zero_physical.primitive_pass_through == -0.03
 end
 
 @testset "External project initialization" begin
@@ -99,6 +149,9 @@ end
     @test length(rank_rows) == 2
     @test all(isfinite(row.spearman_vs_baseline) for row in rank_rows)
     @test all(-1 <= row.spearman_vs_baseline <= 1 for row in rank_rows)
+    lightweight_rank_rows = TNW.sensitivity_rank_path(
+        TNW.build_welfare_model(project), :eta, values[1:2])
+    @test rank_rows == lightweight_rank_rows
     baseline = only(row for row in rows if row.value == project.modal.eta)
     full_mean = sum(row.primitive_F for row in decompose_welfare(model).directed) /
         length(model.basis.policy_pairs)

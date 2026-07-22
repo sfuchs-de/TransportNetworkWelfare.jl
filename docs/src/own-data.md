@@ -40,7 +40,7 @@ Together with node income, this identity gives the same market-access exposure s
 
 Edge congestion elasticities are keyed by mode. Endpoint-terminal congestion additionally requires `origin_terminal_id` and `destination_terminal_id` on every affected mode row. Modes absent from a congestion table have zero congestion in that channel.
 
-For `policy.unit = "directed_arc"`, each directed policy edge is a separate experiment. For `policy.unit = "both"` or `"physical_link"`, each policy-mode physical link must contain exactly two opposite directed edges. The reported physical-link elasticity sums those two simultaneous primitive-cost derivatives before normalizing the link-level multiplier.
+For `policy.unit = "directed_arc"`, the package writes only directed-policy results. `physical_link` writes only bidirectional physical-link results, and `both` writes both files. A physical link must contain exactly two opposite policy-mode edges; its elasticity sums the simultaneous directional derivatives before normalizing the link multiplier.
 
 ## Validate and run
 
@@ -53,6 +53,6 @@ julia --project=/path/to/TransportNetworkWelfare.jl \
   /path/to/TransportNetworkWelfare.jl/bin/tnw.jl decompose /path/to/my-network/config.toml
 ```
 
-Validation checks schemas, identifiers, units, flow accounting, modal interiority, route contraction, policy pairing, and basic model regularity. Analysis then builds every requested transport and equilibrium closure and enforces the configured condition-number gate before writing results. The output directory is resolved relative to `config.toml`.
+Validation checks schemas, identifiers, congestion-mode names, units, flow accounting, modal interiority, route contraction, policy pairing, and basic model regularity. It reports the approximate memory required by the dense fixed-route incidence object. `analyze` builds only the flexible full-model welfare closure. `decompose` additionally constructs the fixed-mode and fixed-route closures and is intended for moderate networks; its route-incidence memory grows as ``8N^2E`` bytes. The output directory is resolved relative to `config.toml`.
 
 The generic CSV adapter covers applications that already fit this contract. A raw-data source with special balancing, geographic matching, or unit conversion should use a separate preprocessing script or adapter so every transformation remains explicit and reproducible.

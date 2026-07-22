@@ -69,7 +69,14 @@ julia --project=. bin/tnw.jl replicate-rsue replication/rsue/rsue_legacy_audited
 
 The legacy configuration reproduces the frozen July 12 directed welfare elasticities to numerical precision. Run `replication/rsue/verify_legacy.jl` with both `RSUE_DATA_ROOT` and `RSUE_FROZEN_RESULTS_ROOT` to check the archived artifact hashes and the full directed table. Restricted-data tests are explicitly skipped in public CI when those paths are unavailable.
 
-The legacy foreign-water matrix appears to use 2017 container-import geography and then symmetrizes it. The paper configuration instead uses separate Census port-level imports and exports, projected onto common margins so that the current balanced-trade theory remains valid. The credential-safe downloader, explicit crosswalks, derived overlay, diagnostics, and limitations are documented in [`replication/rsue/census_ports/README.md`](replication/rsue/census_ports/README.md). Build the paper artifact set with `julia --project=. replication/rsue/build_paper_artifacts.jl` after setting `RSUE_DATA_ROOT`.
+The legacy foreign-water matrix appears to use 2017 container-import geography and then symmetrizes it. The paper configuration instead uses separate Census port-level imports and exports, projected onto common margins so that the current balanced-trade theory remains valid. The credential-safe downloader, explicit crosswalks, derived overlay, diagnostics, and limitations are documented in [`replication/rsue/census_ports/README.md`](replication/rsue/census_ports/README.md). Build the paper artifact set in the locked replication environment after setting `RSUE_DATA_ROOT`:
+
+```bash
+julia --project=replication/rsue/environment -e 'using Pkg; Pkg.instantiate()'
+julia --project=replication/rsue/environment replication/rsue/build_paper_artifacts.jl
+```
+
+The builder requires an accepted, hash-bound nonlinear finite-difference report. Recreate that report with `replication/rsue/verify_choice_logsum_fd.jl` whenever the paper configuration, restricted inputs, or derivative sources change.
 
 ## Documentation
 

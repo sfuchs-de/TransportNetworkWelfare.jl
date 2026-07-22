@@ -85,6 +85,30 @@ function model_at(model::TransportModel, project::Project; enforce_branch::Bool=
     return TransportModel(project, model.data, basis, closures)
 end
 
+function welfare_model_at(model::TransportModel, project::Project; enforce_branch::Bool=false)
+    enforce_branch && check_sensitivity_branch(model, project)
+    data, basis = model.data, model.basis
+    c = AdjointRSUE.coefs(
+        project.parameters.alpha, project.parameters.beta, project.parameters.sigma)
+    point_basis = merge(basis, (;
+        Qz_soft=route_state_matrix(data, basis, c; route=:soft),
+        Qz_fixed=nothing,
+    ))
+    J0 = AdjointRSUE.assemble_J(data.sx, data.sy, data.mu, data.lam, data.omega, c)
+    B = IFTDecomposition.cost_loading_matrix(
+        data.N, basis.active_network_edges, data.mu, data.lam, c.σ)
+    closure = build_transport_closure(project, data, point_basis, B)
+    JF = J0+closure.Jc
+    condition = cond(JF)
+    condition_within_limit(condition, project.condition_limit) ||
+        error("the full equilibrium closure exceeds the condition-number gate")
+    condition_within_limit(closure.condition, project.condition_limit) ||
+        error("the full transport closure exceeds the condition-number gate")
+    closures = (; c, B, J0, F=JF, transport=(F=closure,),
+                 conditions=(F=condition,), level=:welfare)
+    return TransportModel(project, data, point_basis, closures)
+end
+
 function check_sensitivity_branch(model::TransportModel, project::Project)
     baseline = model.closures.c
     candidate = AdjointRSUE.coefs(
@@ -174,7 +198,7 @@ function sensitivity_path(model::TransportModel, parameter::Symbol, values)
 end
 
 function sensitivity_path(project::Project, parameter::Symbol, values)
-    return sensitivity_path(build_model(project), parameter, values)
+    return sensitivity_path(build_welfare_model(project), parameter, values)
 end
 
 function all_sensitivity_paths(model::TransportModel)
@@ -219,8 +243,8 @@ function spearman_correlation(left::AbstractVector{<:Real},
 end
 
 function physical_primitive_vector(model::TransportModel)
-    rows, _ = decomposition_rows(model)
-    physical = aggregate_physical(rows, model.closures.c.ρ)
+    rows, _ = welfare_rows(model)
+    physical = aggregate_welfare_physical(rows)
     sort!(physical; by=row -> row.physical_link_id)
     return [row.primitive_F for row in physical]
 end
@@ -231,7 +255,7 @@ function sensitivity_rank_path(model::TransportModel, parameter::Symbol, values)
     rows = NamedTuple[]
     for value in Float64.(values)
         project = project_at(model.project, parameter, value)
-        candidate = model_at(model, project; enforce_branch=true)
+        candidate = welfare_model_at(model, project; enforce_branch=true)
         effects = physical_primitive_vector(candidate)
         push!(rows, (;
             parameter=String(parameter), value,

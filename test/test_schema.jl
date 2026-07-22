@@ -99,6 +99,15 @@ end
         config -> replace(config, "mode_order = [\"road\", \"rail\"]" =>
                                   "mode_order = \"road\""))
     @test_throws ArgumentError validate(load_project(path))
+
+    directory, path = isolated_project(identity, identity,
+        config -> replace(config, "road = 0.05" => "raod = 0.05"))
+    @test_throws ArgumentError validate(load_project(path))
+
+    directory, path = isolated_project(identity, identity,
+        config -> replace(config, "route_curvature = \"theorem\"" =>
+            "route_curvature = \"theorem\"\nactive_transport_modes = [\"road\"]"))
+    @test_throws ArgumentError validate(load_project(path))
 end
 
 @testset "Typed specifications reject nonfinite values" begin
@@ -116,6 +125,25 @@ end
         @test_throws ArgumentError validate(load_project(config))
     finally
         previous === nothing || (ENV["RSUE_DATA_ROOT"] = previous)
+    end
+end
+
+@testset "RSUE matrix mode order is explicit" begin
+    source = read(joinpath(ROOT, "replication", "rsue", "rsue_legacy_audited.toml"), String)
+    reordered = replace(source,
+        "mode_order = [\"road\", \"rail\", \"water_dom\", \"water_for\"]" =>
+        "mode_order = [\"rail\", \"road\", \"water_dom\", \"water_for\"]")
+    mktempdir() do directory
+        path = joinpath(directory, "rsue.toml")
+        write(path, reordered)
+        exception = try
+            validate(load_project(path))
+            nothing
+        catch caught
+            caught
+        end
+        @test exception isa ArgumentError
+        @test occursin("source matrices use this order", sprint(showerror, exception))
     end
 end
 

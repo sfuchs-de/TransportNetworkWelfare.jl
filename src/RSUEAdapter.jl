@@ -149,6 +149,13 @@ function load_rsue_network(project::Project)
     census_ports = adapter == "rsue_census_ports_2017_v1"
     adapter in ("rsue_frozen_2026_07_12", "rsue_census_ports_2017_v1") ||
         throw(ArgumentError("unsupported RSUE adapter: $adapter"))
+    modes = [:road, :rail, :water_dom, :water_for]
+    declared_modes = get(project.input, "mode_order", nothing)
+    declared_modes isa AbstractVector || throw(ArgumentError(
+        "RSUE adapters require input.mode_order"))
+    Symbol.(declared_modes) == modes || throw(ArgumentError(
+        "RSUE input.mode_order must be $(String.(modes)); the source matrices use this order"))
+    validate_congestion_modes(project, modes)
     input_dir = rsue_input_directory(project)
     input_hashes = verify_rsue_manifest(project, input_dir)
     transformations = require_rsue_transformations(project)
@@ -156,7 +163,6 @@ function load_rsue_network(project::Project)
     readcsv(name) = readdlm(joinpath(input_dir, name), ',', Float64)
 
     N_dom, N = 228, 234
-    modes = [:road, :rail, :water_dom, :water_for]
     road_table = readcsv("sparse_adjmat_interstate.csv")
     rail_table = readcsv("bilateral_rail_sparse.csv")
     barge_table = readcsv("bilateral_barges_sparse.csv")
