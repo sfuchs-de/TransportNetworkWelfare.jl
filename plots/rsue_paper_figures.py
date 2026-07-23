@@ -92,7 +92,22 @@ def add_us_context(axis):
         spine.set_visible(False)
 
 
-def map_figure(rows, field, label, output):
+def shared_map_norm(rows, fields, scale=1.0):
+    values = np.asarray([
+        scale*float(row[field])
+        for row in rows
+        for field in fields
+    ])
+    if values.size == 0 or not np.all(np.isfinite(values)):
+        raise ValueError("Map values must be finite and nonempty.")
+    lower = min(0.0, float(np.quantile(values, 0.02)))
+    upper = max(0.0, float(np.quantile(values, 0.98)))
+    if upper <= lower:
+        upper = lower + max(abs(lower), 1.0) * np.finfo(float).eps
+    return Normalize(lower, upper, clip=True)
+
+
+def map_figure(rows, field, label, output, *, norm=None, scale=1.0):
     segments, values = [], []
     for row in rows:
         coordinates = [row[key] for key in (
@@ -101,12 +116,11 @@ def map_figure(rows, field, label, output):
             continue
         lon_a, lat_a, lon_b, lat_b = map(float, coordinates)
         segments.append(((lon_a, lat_a), (lon_b, lat_b)))
-        values.append(float(row[field]))
+        values.append(scale*float(row[field]))
     values = np.asarray(values)
-    lower, upper = np.quantile(values, [0.02, 0.98])
-    if upper <= lower:
-        upper = lower + max(abs(lower), 1.0) * np.finfo(float).eps
-    norm = Normalize(lower, upper, clip=True)
+    if norm is None:
+        norm = shared_map_norm(rows, (field,), scale=scale)
+    lower, upper = norm.vmin, norm.vmax
     widths = 0.35 + 2.4*np.sqrt(np.clip((values-lower)/(upper-lower), 0, 1))
     figure, axis = plt.subplots(figsize=(9.0, 5.2))
     add_us_context(axis)
@@ -176,21 +190,54 @@ def interval_plot(axis, rows, specifications, scale=1.0, zero_line=False):
         axis.axvline(0.0, color="#777777", linewidth=0.75, zorder=0)
 
 
+def decomposition_ladder_rows(rows, tolerance=1.0e-12):
+    ladder_rows = []
+    for row in rows:
+        enriched = dict(row)
+        traditional = float(row["hulten"])
+        after_externalities = (
+            traditional - float(row["primitive_externality"])
+        )
+        after_propagation = (
+            after_externalities - float(row["primitive_propagation"])
+        )
+        after_congestion = (
+            after_propagation - float(row["primitive_edge"])
+        )
+        extended = (
+            after_congestion - float(row["primitive_pass_through"])
+        )
+        if abs(extended - float(row["primitive_F"])) > tolerance:
+            raise ValueError(
+                "The cumulative Hulten-to-extended ladder does not "
+                "reconstruct primitive_F."
+            )
+        enriched.update({
+            "ladder_traditional": traditional,
+            "ladder_externalities": after_externalities,
+            "ladder_propagation": after_propagation,
+            "ladder_congestion": after_congestion,
+            "ladder_extended": extended,
+        })
+        ladder_rows.append(enriched)
+    return ladder_rows
+
+
 def decomposition_figure(rows, output):
+    ladder_rows = decomposition_ladder_rows(rows)
     figure, axes = plt.subplots(1, 3, figsize=(11.8, 4.5))
     interval_plot(
-        axes[0], rows,
+        axes[0], ladder_rows,
         [
-            ("hulten", "Traditional statistic", GRAY),
-            ("realized_NC", "No congestion", BLUE),
-            ("realized_F", "Full edge-local model", GREEN),
-            ("realized_FM", "Fixed modes", PURPLE),
-            ("realized_FR", "Fixed routes", ORANGE),
-            ("primitive_F", "Primitive cost", RED),
+            ("ladder_traditional", "Traditional approach", GRAY),
+            ("ladder_externalities", "+ externalities", PURPLE),
+            ("ladder_propagation", "+ equilibrium propagation", BLUE),
+            ("ladder_congestion", "+ road congestion", GREEN),
+            ("ladder_extended", "Extended approach (+ pass-through)", RED),
         ],
         scale=1.0e4,
     )
-    axes[0].set_title("A. Elasticities by closure", loc="left", fontsize=10)
+    axes[0].set_title("A. From traditional to extended", loc="left", fontsize=10)
     axes[0].set_xlabel(r"Welfare elasticity ($\times 10^{-4}$)", fontsize=8)
 
     interval_plot(
@@ -202,7 +249,7 @@ def decomposition_figure(rows, output):
         ],
         zero_line=True,
     )
-    axes[1].set_title("B. Multiplier comparisons", loc="left", fontsize=10)
+    axes[1].set_title("B. Alternative adjustment margins", loc="left", fontsize=10)
     axes[1].set_xlabel("Normalized multiplier difference", fontsize=8)
 
     component_rows = []
@@ -268,10 +315,12 @@ def sensitivity_figure(rows, output):
         rank_axis.spines["right"].set_color("#BBBBBB")
     for axis in axes.flat[len(parameters):]:
         axis.axis("off")
-    axes[1, 0].set_ylabel(
-        r"Mean gain from a 1% improvement ($\%\times 10^{4}$)", fontsize=8)
+    figure.supylabel(
+        "Mean welfare effect of a 1% improvement (ppm)",
+        x=0.015, fontsize=8,
+    )
     axes[2, 1].text(
-        0.0, 0.65, "Solid: mean model-implied gain", color=BLUE,
+        0.0, 0.65, "Solid: mean welfare effect", color=BLUE,
         transform=axes[2, 1].transAxes, fontsize=8,
     )
     axes[2, 1].text(
@@ -279,7 +328,7 @@ def sensitivity_figure(rows, output):
         transform=axes[2, 1].transAxes, fontsize=8,
     )
     axes[2, 1].axis("off")
-    figure.subplots_adjust(wspace=0.42, hspace=0.48)
+    figure.subplots_adjust(left=0.10, wspace=0.42, hspace=0.48)
     save_figure(figure, output)
 
 
@@ -291,13 +340,24 @@ def main():
     geometry = read_rows(args.input_dir / "paper_link_geometry.csv")
     physical = read_rows(args.input_dir / "decomposition_physical.csv")
     sensitivity = read_rows(args.input_dir / "paper_sensitivity.csv")
-    map_figure(
-        geometry, "hulten", "Traffic share",
-        args.output_dir / "rsue_hulten_map",
+    traffic_norm = shared_map_norm(
+        geometry, ("hulten",), scale=1.0e4,
+    )
+    map_norm = shared_map_norm(
+        geometry, ("hulten", "primitive_F"), scale=1.0e4,
     )
     map_figure(
-        geometry, "primitive_F", "Welfare elasticity",
-        args.output_dir / "rsue_ift_map",
+        geometry, "hulten", r"World-income traffic share ($\times 10^{-4}$)",
+        args.output_dir / "rsue_traffic_map",
+        norm=traffic_norm, scale=1.0e4,
+    )
+    map_figure(
+        geometry, "hulten", r"Welfare elasticity ($\times 10^{-4}$)",
+        args.output_dir / "rsue_hulten_map", norm=map_norm, scale=1.0e4,
+    )
+    map_figure(
+        geometry, "primitive_F", r"Welfare elasticity ($\times 10^{-4}$)",
+        args.output_dir / "rsue_ift_map", norm=map_norm, scale=1.0e4,
     )
     scatter_figure(physical, args.output_dir / "rsue_hulten_vs_ift")
     decomposition_figure(physical, args.output_dir / "rsue_decomposition")

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 HERE = Path(__file__).resolve().parent
@@ -42,6 +43,48 @@ class MapFigureTests(unittest.TestCase):
                 rendered = output.with_suffix(suffix)
                 self.assertTrue(rendered.is_file())
                 self.assertGreater(rendered.stat().st_size, 10_000)
+
+    def test_shared_map_norm_uses_common_zero_based_scale(self):
+        rows = [
+            {"hulten": "0.0004", "primitive_F": "0.0002"},
+            {"hulten": "0.0008", "primitive_F": "0.0003"},
+        ]
+        norm = FIGURES.shared_map_norm(
+            rows, ("hulten", "primitive_F"), scale=1.0e4,
+        )
+        self.assertEqual(norm.vmin, 0.0)
+        self.assertGreater(norm.vmax, 3.0)
+        self.assertLess(norm.vmax, 8.1)
+
+
+class DecompositionFigureTests(unittest.TestCase):
+    def test_cumulative_ladder_reconstructs_extended_effect(self):
+        rows = [{
+            "hulten": "0.0010",
+            "primitive_externality": "0.0002",
+            "primitive_propagation": "-0.0001",
+            "primitive_edge": "0.00005",
+            "primitive_pass_through": "0.00015",
+            "primitive_F": "0.0007",
+        }]
+        ladder = FIGURES.decomposition_ladder_rows(rows)[0]
+        self.assertTrue(np.isclose(ladder["ladder_traditional"], 0.0010))
+        self.assertTrue(np.isclose(ladder["ladder_externalities"], 0.0008))
+        self.assertTrue(np.isclose(ladder["ladder_propagation"], 0.0009))
+        self.assertTrue(np.isclose(ladder["ladder_congestion"], 0.00085))
+        self.assertTrue(np.isclose(ladder["ladder_extended"], 0.0007))
+
+    def test_cumulative_ladder_fails_on_identity_error(self):
+        rows = [{
+            "hulten": "0.0010",
+            "primitive_externality": "0.0002",
+            "primitive_propagation": "-0.0001",
+            "primitive_edge": "0.00005",
+            "primitive_pass_through": "0.00015",
+            "primitive_F": "0.0008",
+        }]
+        with self.assertRaisesRegex(ValueError, "does not reconstruct"):
+            FIGURES.decomposition_ladder_rows(rows)
 
 
 if __name__ == "__main__":

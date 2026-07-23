@@ -320,10 +320,11 @@ function main()
     run(`python3 $(joinpath(ROOT, "plots", "rsue_paper_figures.py")) $output_dir $figure_dir`)
     figure_outputs = sort!(filter(isfile, [
         joinpath(figure_dir, "$(name).$(extension)")
-        for name in ("rsue_hulten_map", "rsue_ift_map", "rsue_hulten_vs_ift", "rsue_decomposition", "rsue_sensitivity")
+        for name in ("rsue_traffic_map", "rsue_hulten_map", "rsue_ift_map",
+            "rsue_hulten_vs_ift", "rsue_decomposition", "rsue_sensitivity")
         for extension in ("pdf", "png")
     ]))
-    length(figure_outputs) == 10 || error("paper figure generation did not produce ten artifacts")
+    length(figure_outputs) == 12 || error("paper figure generation did not produce twelve artifacts")
     extra_outputs = [
         geometry_path, labels_path, top_links_csv_path, top_links_tex_path,
         sensitivity_path, claims_path, tex_path, verification_path,
