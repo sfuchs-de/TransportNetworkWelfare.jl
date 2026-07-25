@@ -88,6 +88,49 @@ end
     end
 end
 
+@testset "Public historical GTFS source is preferred" begin
+    specification = Dict{String,Any}(
+        "mobility_database_archive_url" =>
+            "https://example.test/20170614/gtfs.zip",
+        "archive_sha256" => repeat("b", 64),
+        "feed_version_sha1" => repeat("a", 40),
+        "download_endpoint" => "https://example.invalid/archive.zip",
+    )
+    withenv("TRANSITLAND_API_KEY" => "unused") do
+        source = Downloader.gtfs_download_source(specification)
+        @test source.provider == "mobility_database_historical_archive"
+        @test source.url isa String
+        @test source.algorithm == :sha256
+        @test source.expected == repeat("b", 64)
+        @test isempty(source.headers)
+    end
+end
+
+@testset "Verified ACS cache works offline" begin
+    mktempdir() do directory
+        path = joinpath(
+            directory, "raw", "acs", "acs_2017_king_county_b08301.json")
+        mkpath(dirname(path))
+        write(path, "[[\"B08301_010E\"],[\"1\"]]\n")
+        expected = bytes2hex(open(SHA.sha256, path))
+        specification = Dict{String,Any}(
+            "endpoint_without_key" => "https://example.invalid/acs",
+            "response_sha256" => expected,
+        )
+        withenv("CENSUS_API_KEY" => "") do
+            result = Downloader.acquire_acs(
+                directory, specification; refresh=false)
+            @test result["source"] == "verified_offline_cache"
+            @test result["sha256"] == expected
+        end
+        write(path, "changed\n")
+        withenv("CENSUS_API_KEY" => "") do
+            @test_throws ArgumentError Downloader.acquire_acs(
+                directory, specification; refresh=false)
+        end
+    end
+end
+
 @testset "Metro route-activity parser" begin
     rows = Downloader.parse_metro_route_activity(
         "Appendix G: Route-level Ridership and Hours\n" *

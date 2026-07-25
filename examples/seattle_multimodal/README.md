@@ -44,36 +44,38 @@ validation target; it is not used to manufacture an OD-to-route allocation.
 
 ## Exact 2017 source acquisition
 
-Raw sources are not committed. Choose an external cache and expose the
-credentials:
+Raw sources are not committed. Choose an external cache. A Census API key is
+needed only when the pinned ACS response is not already present:
 
 ```bash
 export SEATTLE_TRANSIT_DATA_ROOT=/absolute/path/to/seattle-transit-2017
 export CENSUS_API_KEY=...
-export TRANSITLAND_API_KEY=...
 julia --project=. examples/seattle_multimodal/download_sources.jl \
   --data-root "$SEATTLE_TRANSIT_DATA_ROOT"
 ```
 
 The downloader obtains and verifies the Allen--Arkolakis source files, ACS
 B08301 response, Metro evaluation report, and 2017 Census map layers. It also
-requires the exact historical GTFS recorded in `sources.toml`. Transitland
-identifies that archive by SHA-1
+requires the exact historical GTFS recorded in `sources.toml`. The default
+download is the public Mobility Database copy of the TransitFeeds archive,
+dataset `mdb-267-20170614`. Its SHA-1
 `ad172e653aa881557a5f3cb84f2ace6819308600`, with service from 8 June through
-22 September 2017. The acquisition gate verifies 223 routes, 7,718 stops,
-33,837 trips, 442,686 shape points, 1,193,603 stop times, and every file hash.
-It never substitutes the current King County feed.
+22 September 2017, matches the feed version independently catalogued by
+Transitland. The acquisition gate also verifies the archive SHA-256, 223
+routes, 7,718 stops, 33,837 trips, 442,686 shape points, 1,193,603 stop times,
+and every file hash. It never substitutes the current King County feed.
 
-Transitland restricts historical archive downloads to accounts with archive
-access. To use a previously downloaded copy instead, set:
+To use a previously downloaded copy instead, set:
 
 ```bash
 export SEATTLE_GTFS_2017_ARCHIVE=/absolute/path/to/ad172e653aa881557a5f3cb84f2ace6819308600.zip
 ```
 
-The downloader verifies it before extraction. `AA_REPLICATION_ARCHIVE`
-provides the corresponding optional offline input for the
-Allen--Arkolakis ZIP. API keys are omitted from errors and manifests.
+The downloader verifies it before extraction. `TRANSITLAND_API_KEY` remains a
+fallback for archive-enabled accounts if the public source is removed from a
+custom manifest. `AA_REPLICATION_ARCHIVE` provides the corresponding optional
+offline input for the Allen--Arkolakis ZIP. Verified cached ACS responses also
+work offline. API keys are omitted from errors and manifests.
 
 Transit scheduling and geographic data provided by permission of King County.
 

@@ -188,14 +188,24 @@ function acquire_aa(data_root, specification; refresh)
 end
 
 function acquire_acs(data_root, specification; refresh)
-    key = strip(get(ENV, "CENSUS_API_KEY", ""))
-    isempty(key) && throw(ArgumentError(
-        "CENSUS_API_KEY is required to acquire the 2017 ACS response"))
     path = joinpath(data_root, "raw", "acs", "acs_2017_king_county_b08301.json")
     endpoint = String(specification["endpoint_without_key"])
     if isfile(path) && !refresh
-        return Dict("path" => path, "sha256" => sha256_file(path))
+        observed = sha256_file(path)
+        expected = get(specification, "response_sha256", nothing)
+        expected === nothing || observed == String(expected) ||
+            throw(ArgumentError(
+                "cached 2017 ACS response hash mismatch: expected " *
+                "$(expected), observed $observed"))
+        return Dict(
+            "path" => path,
+            "sha256" => observed,
+            "source" => "verified_offline_cache",
+        )
     end
+    key = strip(get(ENV, "CENSUS_API_KEY", ""))
+    isempty(key) && throw(ArgumentError(
+        "CENSUS_API_KEY is required to acquire the 2017 ACS response"))
     mkpath(dirname(path))
     temporary = tempname(dirname(path))
     try
@@ -207,38 +217,95 @@ function acquire_acs(data_root, specification; refresh)
         end
         occursin("B08301_010E", read(temporary, String)) ||
             throw(ArgumentError("the ACS response does not contain B08301_010E"))
+        expected = get(specification, "response_sha256", nothing)
+        observed = sha256_file(temporary)
+        expected === nothing || observed == String(expected) ||
+            throw(ArgumentError(
+                "downloaded 2017 ACS response hash mismatch: expected " *
+                "$(expected), observed $observed"))
         mv(temporary, path; force=true)
     finally
         isfile(temporary) && rm(temporary; force=true)
     end
-    return Dict("path" => path, "sha256" => sha256_file(path))
+    return Dict(
+        "path" => path,
+        "sha256" => sha256_file(path),
+        "source" => "census_api",
+    )
+end
+
+function gtfs_download_source(specification)
+    public_url = strip(String(get(
+        specification, "mobility_database_archive_url", "")))
+    if !isempty(public_url)
+        haskey(specification, "archive_sha256") || throw(ArgumentError(
+            "the public historical GTFS source requires archive_sha256"))
+        return (
+            provider="mobility_database_historical_archive",
+            url=String(public_url),
+            headers=Pair{String,String}[],
+            algorithm=:sha256,
+            expected=String(specification["archive_sha256"]),
+        )
+    end
+    key = strip(get(ENV, "TRANSITLAND_API_KEY", ""))
+    isempty(key) && throw(ArgumentError(
+        "exact 2017 GTFS unavailable: use the pinned public archive, set " *
+        "TRANSITLAND_API_KEY with archive access, or set " *
+        "SEATTLE_GTFS_2017_ARCHIVE"))
+    return (
+        provider="transitland_historical_archive",
+        url=String(specification["download_endpoint"]),
+        headers=["apikey" => key],
+        algorithm=:sha1,
+        expected=String(specification["feed_version_sha1"]),
+    )
 end
 
 function acquire_gtfs(data_root, specification; refresh)
     directory = joinpath(data_root, "raw", "king_county_gtfs_2017")
     archive = joinpath(directory, "$(specification["feed_version_sha1"]).zip")
     supplied = strip(get(ENV, "SEATTLE_GTFS_2017_ARCHIVE", ""))
+    source_provider = "verified_cache"
+    source_url = missing
     if !isempty(supplied)
         verified_copy(supplied, archive; expected=String(
             specification["feed_version_sha1"]), refresh)
+        source_provider = "local_archive_override"
     elseif !isfile(archive) || refresh
-        key = strip(get(ENV, "TRANSITLAND_API_KEY", ""))
-        isempty(key) && throw(ArgumentError(
-            "exact 2017 GTFS unavailable: set TRANSITLAND_API_KEY with archive " *
-            "access or SEATTLE_GTFS_2017_ARCHIVE"))
+        source = gtfs_download_source(specification)
         verified_download(
-            String(specification["download_endpoint"]), archive;
-            algorithm=:sha1, expected=String(specification["feed_version_sha1"]),
-            headers=["apikey" => key], refresh)
+            source.url, archive;
+            algorithm=source.algorithm, expected=source.expected,
+            headers=source.headers, refresh)
+        source_provider = source.provider
+        source_url = source.url
+    elseif haskey(specification, "mobility_database_archive_url")
+        source_provider = "mobility_database_historical_archive"
+        source_url = String(specification["mobility_database_archive_url"])
     end
-    sha1_file(archive) == String(specification["feed_version_sha1"]) ||
+    archive_sha1 = sha1_file(archive)
+    archive_sha256 = sha256_file(archive)
+    archive_sha1 == String(specification["feed_version_sha1"]) ||
         throw(ArgumentError("cached historical GTFS archive hash mismatch"))
+    expected_sha256 = get(specification, "archive_sha256", nothing)
+    expected_sha256 === nothing ||
+        archive_sha256 == String(expected_sha256) ||
+        throw(ArgumentError(
+            "cached historical GTFS archive SHA-256 mismatch"))
     extracted = joinpath(directory, "extracted")
     extract_zip(archive, extracted)
     verification = verify_gtfs(extracted, specification)
     return Dict(
         "archive" => archive,
-        "archive_sha1" => sha1_file(archive),
+        "archive_sha1" => archive_sha1,
+        "archive_sha256" => archive_sha256,
+        "source_provider" => source_provider,
+        "source_url" => source_url,
+        "mobility_database_feed_id" =>
+            get(specification, "mobility_database_feed_id", missing),
+        "mobility_database_dataset_id" =>
+            get(specification, "mobility_database_dataset_id", missing),
         "root" => extracted,
         "files" => verification.hashes,
         "counts" => verification.counts,

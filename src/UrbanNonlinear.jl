@@ -82,10 +82,13 @@ end
 function solve_urban_transport(model::TransportModel, state::AbstractVector,
                                primitive_shock::AbstractVector, closure;
                                tolerance::Real=1e-12,
-                               max_iterations::Int=500)
+                               max_iterations::Int=500,
+                               relaxation::Real=0.1)
     basis = model.basis
     length(primitive_shock) == basis.P ||
         throw(DimensionMismatch("primitive shock vector must have length P"))
+    isfinite(relaxation) && 0 < relaxation <= 1 ||
+        throw(ArgumentError("urban transport relaxation must lie in (0,1]"))
     pair_costs = Float64.(primitive_shock)
     closure.Q == 0 &&
         return merge(urban_pair_allocation(model, state, pair_costs, closure),
@@ -101,7 +104,8 @@ function solve_urban_transport(model::TransportModel, state::AbstractVector,
             final = urban_pair_allocation(model, state, updated, closure)
             return merge(final, (; cost_residual=residual, iterations=iteration))
         end
-        pair_costs .= 0.5 .* pair_costs .+ 0.5 .* updated
+        pair_costs .=
+            (1-relaxation) .* pair_costs .+ relaxation .* updated
     end
     error("urban transport fixed point did not converge in $max_iterations iterations")
 end
@@ -158,11 +162,77 @@ function numerical_state_jacobian(function_value, state::AbstractVector;
     return J
 end
 
+function inadmissible_urban_trial(error)
+    message = sprint(showerror, error)
+    return error isa ArgumentError && (
+               occursin("route kernel is not contractive", message) ||
+               occursin("congestion quantities must remain positive", message)
+           ) ||
+           error isa ErrorException &&
+               occursin("transport fixed point did not converge", message)
+end
+
+function urban_counterfactual_baseline_jacobian(
+        model::TransportModel, closure_name::Symbol)
+    data, basis = model.data, model.basis
+    closure = getproperty(model.closures.transport, closure_name)
+    closure.route == :soft || throw(ArgumentError(
+        "the direct-margin baseline Jacobian requires flexible routing"))
+    N = data.N
+    nv = 2N+1
+    source_state, destination_state, _ =
+        urban_bilateral_state_rows(model.project, N)
+    T = basis.route.T
+    K = basis.route.K
+    source = data.residence
+    destination = data.sx
+    P = vec(permutedims(source)*T)
+    Q = T*destination
+    minimum(P) > 0 && minimum(Q) > 0 ||
+        throw(ArgumentError(
+            "urban baseline exposures must be strictly positive"))
+
+    J = zeros(nv, nv)
+    absorption = T*Diagonal(destination)
+    J[1:N, :] .= source_state + absorption*destination_state
+    source_weights = Diagonal(source)*T*Diagonal(1 ./ P)
+    column_state = permutedims(source_weights)*source_state +
+                   destination_state
+    J[N+1:2N-1, :] .= column_state[1:N-1, :]
+    for i in 1:N
+        J[i, i] -= 1
+    end
+    for i in 1:N-1
+        J[N+i, N+i] -= 1
+    end
+    J[2N, 1:N] .= data.residence
+    J[2N+1, N+1:2N] .= data.workplace
+
+    theta = basis.route_curvature
+    edge_cost_loading = zeros(nv, basis.E)
+    for (edge_index, (i, j)) in enumerate(basis.active_network_edges)
+        weight = K[i, j]
+        edge_cost_loading[1:N, edge_index] .=
+            -theta .* T[:, i] .* weight .* Q[j] ./ Q
+        edge_cost_loading[N+1:2N-1, edge_index] .=
+            -theta .* P[i] .* weight .* T[j, 1:N-1] ./ P[1:N-1]
+    end
+    J .+= edge_cost_loading*closure.edge_cost_state
+    return J
+end
+
 function solve_urban_counterfactual(
         model::TransportModel, pair_shock::AbstractVector,
         closure_name::Symbol; shock_type::Symbol=:primitive,
-        tolerance::Real=1e-11, max_iterations::Int=40)
+        tolerance::Real=1e-11, max_iterations::Int=40,
+        state_jacobian::Symbol=:numerical)
+    state_jacobian in (:numerical, :baseline_analytic) ||
+        throw(ArgumentError(
+            "state_jacobian must be :numerical or :baseline_analytic"))
     state = zeros(2model.data.N+1)
+    approximate_jacobian = state_jacobian == :baseline_analytic ?
+        urban_counterfactual_baseline_jacobian(
+            model, closure_name) : nothing
     residual(value) = urban_counterfactual_residual(
         model, value, pair_shock, closure_name; shock_type)
     for iteration in 1:max_iterations
@@ -173,7 +243,9 @@ function solve_urban_counterfactual(
             residual=norm(value, Inf),
             iterations=iteration-1,
         )
-        J = numerical_state_jacobian(residual, state)
+        J = state_jacobian == :numerical ?
+            numerical_state_jacobian(residual, state) :
+            approximate_jacobian
         condition = cond(J)
         condition_within_limit(condition, model.project.condition_limit) ||
             error("urban nonlinear counterfactual Jacobian exceeds the condition gate")
@@ -183,7 +255,25 @@ function solve_urban_counterfactual(
         accepted = false
         while scale >= 2.0^-20
             candidate = state+scale*direction
-            if norm(residual(candidate)) < old_norm
+            candidate_residual = try
+                residual(candidate)
+            catch error
+                inadmissible_urban_trial(error) || rethrow()
+                scale /= 2
+                continue
+            end
+            if norm(candidate_residual) < old_norm
+                if approximate_jacobian !== nothing
+                    state_step = candidate-state
+                    denominator = dot(state_step, state_step)
+                    if denominator > eps(Float64)
+                        residual_step = candidate_residual-value
+                        approximate_jacobian .+=
+                            ((residual_step -
+                              approximate_jacobian*state_step) *
+                             permutedims(state_step)) / denominator
+                    end
+                end
                 state = candidate
                 accepted = true
                 break
@@ -191,7 +281,9 @@ function solve_urban_counterfactual(
             scale /= 2
         end
         accepted ||
-            error("urban nonlinear counterfactual step failed to reduce the residual")
+            error(
+                "urban nonlinear counterfactual step failed to reduce the " *
+                "residual at iteration $iteration (norm=$old_norm)")
     end
     error("urban nonlinear counterfactual did not converge in $max_iterations iterations")
 end
@@ -208,7 +300,7 @@ the imposed realized shock.
 function urban_multimodal_finite_difference(
         model::TransportModel, policy_index::Int;
         closure::Symbol=:F, shock_type::Symbol=:primitive,
-        step::Real=1e-5)
+        step::Real=1e-5, state_jacobian::Symbol=:numerical)
     model.project.spatial isa UrbanCommuting ||
         throw(ArgumentError("urban finite difference requires an urban model"))
     hasproperty(model.closures, closure) ||
@@ -219,10 +311,10 @@ function urban_multimodal_finite_difference(
     pair = model.basis.policy_pairs[policy_index]
     shocks[pair] = step
     plus = solve_urban_counterfactual(
-        model, shocks, closure; shock_type)
+        model, shocks, closure; shock_type, state_jacobian)
     shocks[pair] = -step
     minus = solve_urban_counterfactual(
-        model, shocks, closure; shock_type)
+        model, shocks, closure; shock_type, state_jacobian)
     elasticity = -(plus.log_welfare-minus.log_welfare)/(2step)
     return (; elasticity, plus, minus, closure, shock_type)
 end

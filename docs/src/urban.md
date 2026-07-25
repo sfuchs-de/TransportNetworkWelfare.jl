@@ -145,6 +145,14 @@ independently solved nonlinear equilibrium under `NC`, `NT`, `F`, `FM`, and
 zero-congestion limits, along with mode permutation and strict accounting
 failures.
 
+For moderate empirical networks, the nonlinear solver uses the exact
+direct-margin Jacobian at the baseline as its initial Newton preconditioner and
+updates it with independently evaluated residual changes. The Jacobian follows
+from residence and workplace response weights, the route resolvent, edge-cost
+exposure, and the congestion cost-state map. Synthetic tests compare it with
+numerical differentiation. Counterfactual acceptance still depends on the
+nonlinear residual and its tolerance, not on the preconditioner.
+
 The synthetic example is in `examples/urban_multimodal`. The empirical
 candidate in `examples/seattle_multimodal` uses the same transport block with
 2017 LODES OD commuters, ACS origin transit shares, and a hash-pinned June 2017

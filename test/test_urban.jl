@@ -12,6 +12,32 @@ const MULTIMODAL_CONFIG =
 
 toml_path(path::AbstractString) = replace(path, '\\' => '/')
 
+@testset "Nonlinear urban trial classification" begin
+    @test TNW.inadmissible_urban_trial(ArgumentError(
+        "counterfactual urban route kernel is not contractive"))
+    @test TNW.inadmissible_urban_trial(ArgumentError(
+        "urban congestion quantities must remain positive"))
+    @test TNW.inadmissible_urban_trial(ErrorException(
+        "urban transport fixed point did not converge in 500 iterations"))
+    @test !TNW.inadmissible_urban_trial(ArgumentError("unrelated input error"))
+end
+
+@testset "Nonlinear urban solver options" begin
+    model = TNW.build_urban_welfare_model(load_project(MULTIMODAL_CONFIG))
+    @test_throws ArgumentError TNW.solve_urban_counterfactual(
+        model, zeros(model.basis.P), :F; state_jacobian=:unsupported)
+    residual(state) = TNW.urban_counterfactual_residual(
+        model, state, zeros(model.basis.P), :F)
+    numerical = TNW.numerical_state_jacobian(
+        residual, zeros(2model.data.N+1))
+    analytic = TNW.urban_counterfactual_baseline_jacobian(model, :F)
+    @test maximum(abs.(analytic-numerical)) < 1e-6
+    decomposition_model = TNW.build_urban_model(
+        load_project(MULTIMODAL_CONFIG))
+    @test_throws ArgumentError TNW.urban_counterfactual_baseline_jacobian(
+        decomposition_model, :FR)
+end
+
 function absolute_config(source_path::AbstractString)
     source = read(source_path, String)
     root = dirname(source_path)

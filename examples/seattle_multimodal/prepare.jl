@@ -509,8 +509,25 @@ function read_gtfs_network(root::AbstractString, nodes;
     end
     sort!(route_edges; by=row ->
         (String(row.mode), row.route_name, row.route_id, row.origin, row.destination))
+    source_provenance = Dict(
+        "archive_provider" =>
+            get(sources.specification, "mobility_database_feed_id", nothing) === nothing ?
+            "transitland_feed_version" :
+            "mobility_database_historical_archive",
+        "mobility_database_feed_id" =>
+            get(sources.specification, "mobility_database_feed_id", missing),
+        "mobility_database_dataset_id" =>
+            get(sources.specification, "mobility_database_dataset_id", missing),
+        "mobility_database_feed_page" =>
+            get(sources.specification, "mobility_database_feed_page", missing),
+        "transitland_archive_page" =>
+            get(sources.specification, "archive_page", missing),
+    )
     return (; arcs, source_hashes=sources.hashes,
             feed_version=String(sources.specification["feed_version_sha1"]),
+            archive_sha256=get(
+                sources.specification, "archive_sha256", missing),
+            source_provenance,
             source_counts,
             service_date=string(service_date), active_services=length(services),
             active_trips=length(trips), active_stop_times, mapped_stops,
@@ -961,6 +978,7 @@ function build_example(aa_root::AbstractString, gtfs_root::AbstractString,
             "acs_response_sha256" => acs.response_sha256,
             "gtfs_files_sha1" => gtfs.source_hashes,
             "gtfs_feed_version_sha1" => gtfs.feed_version,
+            "gtfs_archive_sha256" => gtfs.archive_sha256,
         ),
         "generated_hashes" => generated_hashes,
         "nodes" => length(nodes.ids),
@@ -982,6 +1000,7 @@ function build_example(aa_root::AbstractString, gtfs_root::AbstractString,
             "suppressed_block_groups" => acs.suppressed,
         ),
         "gtfs" => Dict(
+            "source_provenance" => gtfs.source_provenance,
             "service_date" => gtfs.service_date,
             "active_services" => gtfs.active_services,
             "active_trips" => gtfs.active_trips,

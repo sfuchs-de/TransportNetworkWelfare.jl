@@ -259,7 +259,8 @@ function finite_difference_rows(model, result)
     for index in selected
         analytic = result.directed[index].primitive_F
         check = TNW.urban_multimodal_finite_difference(
-            model, index; closure=:F, shock_type=:primitive, step=1e-5)
+            model, index; closure=:F, shock_type=:primitive, step=1e-5,
+            state_jacobian=:baseline_analytic)
         error = abs(analytic-check.elasticity)
         push!(output, (;
             mode=String(model.project.policy.mode),
@@ -268,6 +269,7 @@ function finite_difference_rows(model, result)
                              index == selected[end] ? "high" : "middle",
             analytic,
             finite_difference=check.elasticity,
+            nonlinear_state_jacobian="baseline_analytic_preconditioner",
             absolute_error=error,
             passed=error <= 1e-6,
         ))
@@ -296,8 +298,8 @@ function eta_rows(project, baseline_rows)
             eta,
             mean_extended_gain_pct=mean(vector),
             median_extended_gain_pct=median(vector),
-            spearman_vs_eta_1_099=TNW.spearman_correlation(
-                base_vector, vector),
+            spearman_vs_eta_1_099=length(vector) > 1 ?
+                TNW.spearman_correlation(base_vector, vector) : missing,
             minimum_extended_gain_pct=minimum(vector),
             maximum_extended_gain_pct=maximum(vector),
             verified=result.diagnostics["verified"],
@@ -385,7 +387,7 @@ function build(generated_root::AbstractString, output::AbstractString;
         corridors = aggregate_corridors(rows; mode=String(mode))
         mode_corridors[mode] = corridors
         entries = filter(entry -> entry.mode == mode, all_entries)
-        routes = add_route_metadata(
+        routes = isempty(entries) ? NamedTuple[] : add_route_metadata(
             bundle_welfare_effects(model, entries), metadata)
         mode_routes[mode] = routes
 
@@ -393,7 +395,7 @@ function build(generated_root::AbstractString, output::AbstractString;
             joinpath(destination, "directed_$(String(mode)).csv"), rows))
         push!(outputs, TNW.write_table(
             joinpath(destination, "links_$(String(mode)).csv"), corridors))
-        push!(outputs, TNW.write_table(
+        isempty(routes) || push!(outputs, TNW.write_table(
             joinpath(destination, "routes_$(String(mode)).csv"), routes))
         append!(summaries, [mode_summary(mode, rows, corridors, routes)])
         append!(finite_differences, finite_difference_rows(model, result))
@@ -430,9 +432,10 @@ function build(generated_root::AbstractString, output::AbstractString;
     link_union = reduce(vcat,
         (top_union(mode_corridors[mode], 30) for mode in TRANSIT_MODES);
         init=NamedTuple[])
-    route_union = reduce(vcat,
-        (top_union(mode_routes[mode], 30) for mode in TRANSIT_MODES);
-        init=NamedTuple[])
+    route_union = NamedTuple[]
+    for mode in TRANSIT_MODES
+        append!(route_union, top_union(mode_routes[mode], 30))
+    end
     sort!(link_union; by=row ->
         (row.mode, min(row.traditional_rank, row.extended_rank),
          row.extended_rank, row.corridor_id))

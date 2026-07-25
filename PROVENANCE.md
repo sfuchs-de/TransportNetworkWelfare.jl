@@ -17,7 +17,7 @@ The kernels began from the frozen package and are tracked in `provenance.toml`. 
 | `src/kernels/UrbanCommutingIFT.jl` | Frozen one-mode Allen--Arkolakis regression oracle. |
 | `src/UrbanEngine.jl` | Refactored from the one-mode builder to the shared multimodal closure engine. |
 | `src/SharedTransport.jl` | New spatial-model-neutral transport basis. |
-| `src/UrbanNonlinear.jl` | New independent nonlinear multimodal urban verification oracle. |
+| `src/UrbanNonlinear.jl` | Independent nonlinear multimodal urban verification oracle with a direct-margin baseline Jacobian and damped congestion solve. |
 | `src/kernels/IFTCompleteDecomposition.jl` | Byte-for-byte frozen. |
 | `src/kernels/RSUEParameterSensitivity.jl` | Byte-for-byte frozen. |
 | `src/kernels/RSUETerminalCongestion.jl` | Byte-for-byte frozen. |
@@ -35,6 +35,13 @@ Metro GTFS feed version
 `ad172e653aa881557a5f3cb84f2ace6819308600`. Relied-on file hashes, dates,
 URLs, and the King County attribution are recorded in
 `examples/seattle_multimodal/sources.toml`.
+
+The default historical-feed source is Mobility Database dataset
+`mdb-267-20170614`, migrated from TransitFeeds. Its public archive has SHA-256
+`469d072cb091bb70240f9e71bfa49f74ac1b0fafadc1fa7f669e933f513da334`
+and the same SHA-1 as the independently catalogued Transitland feed version.
+The downloader retains a verified local-archive override and a Transitland
+archive fallback; it never substitutes a current feed.
 
 The official 2017 King County Metro System Evaluation is pinned as a
 route-level validation source. A deterministic `pdftotext -layout` parser

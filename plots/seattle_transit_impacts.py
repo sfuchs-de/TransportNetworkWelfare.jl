@@ -246,10 +246,12 @@ def scatter_figure(artifacts):
         rx = average_ranks(x)
         ry = average_ranks(y)
         spearman = np.corrcoef(rx, ry)[0, 1] if len(x) > 1 else np.nan
+        pearson_text = f"{pearson:.3f}" if np.isfinite(pearson) else "n/a"
+        spearman_text = f"{spearman:.3f}" if np.isfinite(spearman) else "n/a"
         axis.text(0.03, 0.97, LABELS[mode], transform=axis.transAxes,
                   ha="left", va="top", fontsize=9, fontweight="bold")
         axis.text(
-            0.03, 0.88, f"Pearson {pearson:.3f}\nRank {spearman:.3f}",
+            0.03, 0.88, f"Pearson {pearson_text}\nRank {spearman_text}",
             transform=axis.transAxes, ha="left", va="top", fontsize=7)
         for index in np.argsort(y)[-3:]:
             axis.annotate(
@@ -293,7 +295,11 @@ def sensitivity_figure(artifacts):
             key=lambda row: float(row["eta"]))
         eta = numeric(selected, "eta")
         mean = numeric(selected, "mean_extended_gain_pct")
-        rank = numeric(selected, "spearman_vs_eta_1_099")
+        rank = np.asarray([
+            float(row["spearman_vs_eta_1_099"])
+            if row["spearman_vs_eta_1_099"] else np.nan
+            for row in selected
+        ])
         axes[0].plot(eta, mean, marker="o", markersize=3,
                      linewidth=1.1, color=COLORS[mode], label=LABELS[mode])
         axes[1].plot(eta, rank, marker="o", markersize=3,
@@ -305,6 +311,9 @@ def sensitivity_figure(artifacts):
         axis.spines[["top", "right"]].set_visible(False)
     axes[0].set_ylabel("Mean welfare gain (%)")
     axes[1].set_ylabel(r"Rank correlation with $\eta=1.099$")
+    axes[1].ticklabel_format(axis="y", style="plain", useOffset=False)
+    axes[1].yaxis.set_major_formatter(
+        matplotlib.ticker.FormatStrFormatter("%.6f"))
     axes[0].legend(frameon=False, fontsize=7)
     figure.tight_layout(pad=0.5)
     return save_pair(figure, artifacts, "seattle_eta_sensitivity")

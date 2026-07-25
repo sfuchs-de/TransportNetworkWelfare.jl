@@ -130,8 +130,9 @@ separate bus, rail/streetcar, and ferry policy configurations. The baseline
 uses `ChoiceLogsum(1.099)`, transferred from the economic-geography
 application and labeled as such rather than as a Seattle estimate. It evaluates
 one-percent edge-mode improvements, reciprocal corridor sums, and coordinated
-GTFS route-corridor bundles. Historical GTFS archive access is required;
-current service is never substituted for the pinned June 2017 feed.
+GTFS route-corridor bundles. The public Mobility Database copy of the exact
+June 2017 TransitFeeds archive is hash-pinned; current service is never
+substituted for that feed.
 
 ## Westeros urban commuting
 

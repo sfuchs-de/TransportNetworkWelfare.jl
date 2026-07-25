@@ -35,8 +35,8 @@ relationship = "new spatial-model-neutral route, modal, congestion, and pass-thr
 [[kernel]]
 path = "src/UrbanNonlinear.jl"
 origin_sha256 = "283ddbc59cc4bc6fb3fcb2170693e9074cf92ce92a46d40c3cd0bb539c8f82ff"
-current_sha256 = "6f8c06c3681c76e93562c464519a921f0295f43158696fd2b216b00aff4abfc0"
-relationship = "new independent nonlinear multimodal urban finite-difference oracle"
+current_sha256 = "c53a0107e1dcd136e6324322c4a6df4a36158ac0af1af3476e075e45b2a4510d"
+relationship = "independent nonlinear multimodal urban finite-difference oracle with an exact direct-margin baseline Jacobian and damped congestion solve"
 
 [[kernel]]
 path = "src/kernels/IFTCompleteDecomposition.jl"
