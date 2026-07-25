@@ -14,4 +14,5 @@ UrbanCommuting
 ChoiceLogsum
 ComponentCES
 urban_finite_difference
+urban_multimodal_finite_difference
 ```

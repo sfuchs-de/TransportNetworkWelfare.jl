@@ -1,6 +1,7 @@
 # Examples
 
 - `urban_toy`: self-contained Allen-Arkolakis residence-workplace model.
+- `urban_multimodal`: self-contained recursive road/transit urban model.
 - `seattle_urban`: hash-verified adapter for the published Seattle replication.
 - `westeros_urban`: on-demand synthetic application using public ArcGIS geography.
 

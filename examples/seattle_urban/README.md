@@ -20,3 +20,6 @@ and `lambda=(1/theta)*0.488`.
 
 This is a local IFT evaluation at the observed Seattle baseline. It does not
 run the replication archive's 1,384 separate nonlinear counterfactual jobs.
+It also remains a one-road-mode replication adapter. Adding GTFS service and
+ridership requires a documented edge-mode construction, modal calibration,
+and explicit balancing to the recursive urban accounting identity.

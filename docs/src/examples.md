@@ -2,12 +2,13 @@
 
 ## Urban commuting
 
-`examples/urban_toy` is a self-contained Allen-Arkolakis commuting application
-with separate residence and workplace masses. `examples/seattle_urban` converts
+`examples/urban_toy` is the self-contained one-mode Allen-Arkolakis regression
+fixture. `examples/urban_multimodal` adds road and transit, alternative routes,
+edge congestion, and terminal congestion. `examples/seattle_urban` converts
 the published 217-location Seattle inputs after verifying their hashes. The
 Seattle source archive remains external to Git.
 
-The repository includes seven examples with different purposes. All use the
+The repository includes eight examples with different purposes. All use the
 same public API and TOML schema.
 
 | Example | Purpose | Size | Typical command | External data |
@@ -17,6 +18,7 @@ same public API and TOML schema.
 | `cow` | Mechanism-rich 3D synthetic geography and ranking comparison | 30 nodes, 72 directed edges | `decompose examples/cow/config.toml` | None |
 | `sioux_falls` | Standard traffic-network adaptation with heterogeneous BPR elasticities | 24 nodes, 76 directed edges | `decompose examples/sioux_falls/config_extended.toml` | On-demand academic-use files |
 | `urban_toy` | Allen-Arkolakis residence-workplace IFT and exact-hat checks | 3 nodes, 6 directed edges | `analyze examples/urban_toy/config.toml` | None |
+| `urban_multimodal` | Shared recursive road/transit urban IFT | 4 nodes, 10 directed edges, 20 edge-modes | `decompose examples/urban_multimodal/config.toml` | None |
 | `seattle_urban` | Published urban commuting application | 217 nodes, 1,384 directed edges | `analyze examples/seattle_urban/generated/config.toml` | External replication archive |
 | `westeros_urban` | Synthetic urban application on fictional geography | Generated on demand | `analyze examples/westeros_urban/generated/config.toml` | Public ArcGIS queries |
 

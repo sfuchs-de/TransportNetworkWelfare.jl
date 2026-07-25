@@ -11,8 +11,32 @@ relationship = "validation-only divergence: explicit finite-input errors replace
 [[kernel]]
 path = "src/kernels/IFTDecomposition.jl"
 origin_sha256 = "99d87f8cad942c5c744138a5446df540a6e14b9ee57ecbd484ad96c7855625c7"
-current_sha256 = "555117aee0b462d362a9f0549bbe3774c27bb4647714b8b6a3b093ea7e7425d5"
-relationship = "extended with analytic closure factors and package-level route decomposition"
+current_sha256 = "7d0fd529ee4b0a92813b9d88b4bb0784662d60321ce018345d5511afaed2fa25"
+relationship = "extended with analytic closure factors, distinct-margin route reconstruction, and explicit route-curvature entry points"
+
+[[kernel]]
+path = "src/kernels/UrbanCommutingIFT.jl"
+origin_sha256 = "80f708a38728b31b29560c031d01c73f83588f00c1bb1bd8145ef6d481af44a8"
+current_sha256 = "80f708a38728b31b29560c031d01c73f83588f00c1bb1bd8145ef6d481af44a8"
+relationship = "frozen one-mode Allen-Arkolakis regression oracle"
+
+[[kernel]]
+path = "src/UrbanEngine.jl"
+origin_sha256 = "398ca5edf3f103c5e21485febd2a47d97dfb9e4d886c95ba1f0ffcd7a4894ada"
+current_sha256 = "4e5765752b8887163c624d356933cb78f1cdf1e5f702fe833c3027344c10ef7e"
+relationship = "refactored from the one-mode builder to the shared multimodal closure engine"
+
+[[kernel]]
+path = "src/SharedTransport.jl"
+origin_sha256 = "40d4795ca5e6c53076412b96d19ef58174db677bf9c47f03090d72f468d48e49"
+current_sha256 = "40d4795ca5e6c53076412b96d19ef58174db677bf9c47f03090d72f468d48e49"
+relationship = "new spatial-model-neutral route, modal, congestion, and pass-through basis"
+
+[[kernel]]
+path = "src/UrbanNonlinear.jl"
+origin_sha256 = "283ddbc59cc4bc6fb3fcb2170693e9074cf92ce92a46d40c3cd0bb539c8f82ff"
+current_sha256 = "6f8c06c3681c76e93562c464519a921f0295f43158696fd2b216b00aff4abfc0"
+relationship = "new independent nonlinear multimodal urban finite-difference oracle"
 
 [[kernel]]
 path = "src/kernels/IFTCompleteDecomposition.jl"

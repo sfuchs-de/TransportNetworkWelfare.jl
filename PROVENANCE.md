@@ -13,7 +13,11 @@ The kernels began from the frozen package and are tracked in `provenance.toml`. 
 | Package file | Relationship to frozen source |
 | --- | --- |
 | `src/kernels/AdjointRSUE.jl` | Validation-only divergence: finite-input assertions became explicit errors. |
-| `src/kernels/IFTDecomposition.jl` | Extended with the package's analytic closure-factor implementation. |
+| `src/kernels/IFTDecomposition.jl` | Extended with analytic closure factors, distinct-margin reconstruction, and explicit route curvature. |
+| `src/kernels/UrbanCommutingIFT.jl` | Frozen one-mode Allen--Arkolakis regression oracle. |
+| `src/UrbanEngine.jl` | Refactored from the one-mode builder to the shared multimodal closure engine. |
+| `src/SharedTransport.jl` | New spatial-model-neutral transport basis. |
+| `src/UrbanNonlinear.jl` | New independent nonlinear multimodal urban verification oracle. |
 | `src/kernels/IFTCompleteDecomposition.jl` | Byte-for-byte frozen. |
 | `src/kernels/RSUEParameterSensitivity.jl` | Byte-for-byte frozen. |
 | `src/kernels/RSUETerminalCongestion.jl` | Byte-for-byte frozen. |

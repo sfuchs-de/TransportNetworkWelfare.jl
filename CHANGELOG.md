@@ -4,6 +4,10 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+- Add a symmetric multimodal urban IFT with shared route, mode, edge
+  congestion, terminal congestion, and pass-through operators.
+- Add urban `NC`, `NT`, `F`, `FM`, and `FR` closure results, an independent
+  nonlinear finite-difference solver, and a distributable road/transit example.
 - Support edge-mode-specific congestion elasticities supplied by a validated
   input column, including common-scale sensitivity and manifest diagnostics.
 - Add self-contained Braess-style and three-dimensional cow networks, plus a pinned, on-demand

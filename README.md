@@ -20,19 +20,20 @@ The example is self-contained. It does not require Dropbox, credentials, Python,
 
 ## Canonical examples
 
-Six additional applications exercise distinct parts of the package:
+Seven additional applications exercise distinct parts of the package:
 
 - `examples/braess/`: a four-location routing example with a verified nonzero route wedge;
 - `examples/sioux_falls/`: an on-demand adaptation of the standard 24-node benchmark using heterogeneous local BPR elasticities;
 - `examples/cow/`: a 30-node mechanism example plus an optional sparse equilibrium with one location at each of 2,903 cow-mesh vertices;
 - `examples/urban_toy/`: a self-contained Allen-Arkolakis residence-workplace model with nonlinear exact-hat checks;
+- `examples/urban_multimodal/`: a self-contained road/transit urban model using the shared recursive transport block;
 - `examples/seattle_urban/`: a hash-verified adapter for the published 217-location Seattle application; and
 - `examples/westeros_urban/`: an on-demand synthetic commuting application built from hash-pinned public ArcGIS geography.
 
-Braess, cow, and the urban toy are fully self-contained. Sioux Falls downloads
+Braess, cow, and both urban toys are fully self-contained. Sioux Falls downloads
 pinned, hash-verified academic-use source files and records its balancing conversion.
 See [Examples](docs/src/examples.md) for assumptions, commands, plotting, and
-the urban model's separate data and decomposition boundary.
+the urban model's separate equilibrium closure.
 
 ## Use your own data
 

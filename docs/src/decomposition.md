@@ -45,3 +45,9 @@ J_A=\widetilde K_{A:F}+R_{A:F}Q_{A:F}^\top,
 and report allocation, scarcity, and Woodbury equilibrium-correction channels separately. In the current common-baseline model, ``D_S``, ``u_S``, and ``v_S`` do not vary across the transport closures. The allocation and equilibrium-correction channels are therefore exact structural zeros, while the mode and route gaps enter through the analytically constructed congestion blocks. The code evaluates the general formulas and tests the Jacobian and channel reconstructions; it does not assign the zeros by convention.
 
 Directed-arc shocks are separate policies. A physical-link result sums the two opposite directed elasticities and every additive component before calculating normalized link multipliers. Normalized channel contributions are aggregated using the two directions' traffic weights.
+
+The urban model uses the same `H`, `NC`, `NT`, `F`, `FM`, and `FR` transport
+closures and reports their exact road, terminal, mode, and route gaps. Its
+normalization is commuter traffic rather than $\rho$ times trade traffic. The
+allocation/scarcity/equilibrium subchannel split is currently reported only
+for the economic-geography closure.

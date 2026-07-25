@@ -14,7 +14,10 @@ The command writes `config.toml`, `data/nodes.csv`, `data/edge_modes.csv`, and a
 
 ## Define nodes
 
-Each `nodes.csv` row needs a unique `node_id`, positive labor, and positive income. Coordinates are optional metadata. The model uses the income values both for world-income normalization and for the domestic absorption shares.
+For `economic_geography`, each `nodes.csv` row needs a unique `node_id`,
+positive labor, and positive income. For `urban_commuting`, replace those
+columns with positive `residents` and `employment`. Coordinates are optional
+metadata.
 
 ## Define edge-mode flows
 
@@ -35,6 +38,17 @@ At every node, the supplied baseline must satisfy
 ```
 
 Together with node income, this identity gives the same market-access exposure stock from outgoing and incoming traffic. The loader checks it and fails if it does not hold. It does not balance, symmetrize, pad, impute, or mode-rescale generic inputs.
+
+For the urban closure, the corresponding identity is
+
+```math
+l_i^F+\sum_{j,m}\Xi_{ij,m}
+=l_i^R+\sum_{j,m}\Xi_{ji,m}.
+```
+
+The left side is workplace absorption plus outgoing route traffic; the right
+side is residence supply plus incoming route traffic. Urban inputs that do not
+satisfy this identity must be balanced explicitly before loading.
 
 ## Configure congestion and policy units
 
