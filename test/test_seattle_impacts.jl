@@ -48,6 +48,18 @@ end
     @test forward.primitive_F ≈ 0.14
     all_corridors = Impacts.aggregate_corridors(combined; mode="all_transit")
     @test length(all_corridors) == 2
+
+    with_road = merge(modes, Dict(:road => policy_rows(:road, 10.0)))
+    transit_only = Impacts.aggregate_transit_only(with_road)
+    @test transit_only == combined
+    @test_throws ArgumentError Impacts.aggregate_transit_only(
+        Dict(:bus => bus, :rail => policy_rows(:rail, 0.5)))
+
+    comparison = Impacts.comparison_summary(:bus, bus, corridors)
+    @test comparison.mean_extended_corridor_gain_pct ≈
+        sum(row.primitive_F for row in corridors)/length(corridors)
+    @test comparison.negative_corridors == 0
+    @test comparison.top_overlap <= comparison.top_count
 end
 
 @testset "Top-union and exact-build gates" begin

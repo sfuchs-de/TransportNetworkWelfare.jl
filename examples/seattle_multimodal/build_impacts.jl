@@ -12,6 +12,7 @@ const TNW = TransportNetworkWelfare
 const EXAMPLE_ROOT = @__DIR__
 const PACKAGE_ROOT = normpath(joinpath(EXAMPLE_ROOT, "..", ".."))
 const TRANSIT_MODES = (:bus, :rail, :ferry)
+const POLICY_MODES = (:road, TRANSIT_MODES...)
 const ETA_VALUES = (0.75, 0.90, 1.099, 1.25, 1.40)
 
 sha256_file(path::AbstractString) = bytes2hex(open(SHA.sha256, path))
@@ -105,6 +106,13 @@ function aggregate_all_transit(mode_rows)
         ))
     end
     return directed
+end
+
+function aggregate_transit_only(mode_rows)
+    all(haskey(mode_rows, mode) for mode in TRANSIT_MODES) ||
+        throw(ArgumentError("all-transit aggregation requires bus, rail, and ferry"))
+    return aggregate_all_transit(
+        Dict(mode => mode_rows[mode] for mode in TRANSIT_MODES))
 end
 
 function route_metadata(path::AbstractString)
@@ -249,6 +257,128 @@ function mode_summary(mode, rows, corridors, routes)
     )
 end
 
+function comparison_summary(mode, rows, corridors)
+    hulten = getproperty.(rows, :hulten)
+    extended = getproperty.(rows, :primitive_F)
+    corridor_hulten = getproperty.(corridors, :hulten)
+    corridor_extended = getproperty.(corridors, :primitive_F)
+    top = min(10, length(corridors))
+    traditional_top = Set(
+        row.corridor_id for row in corridors if row.traditional_rank <= top)
+    extended_top = Set(
+        row.corridor_id for row in corridors if row.extended_rank <= top)
+    return (;
+        mode=String(mode),
+        directed_interventions=length(rows),
+        mapped_corridors=length(corridors),
+        mean_traditional_gain_pct=mean(hulten),
+        mean_extended_gain_pct=mean(extended),
+        median_traditional_gain_pct=median(hulten),
+        median_extended_gain_pct=median(extended),
+        mean_traditional_corridor_gain_pct=mean(corridor_hulten),
+        mean_extended_corridor_gain_pct=mean(corridor_extended),
+        mean_extended_to_traditional_ratio=mean(extended)/mean(hulten),
+        share_extended_above_traditional=mean(extended .> hulten),
+        negative_directed_interventions=count(value -> value < 0, extended),
+        negative_corridors=count(value -> value < 0, corridor_extended),
+        minimum_extended_gain_pct=minimum(extended),
+        pearson=correlation(hulten, extended),
+        spearman=length(rows) > 1 ?
+            TNW.spearman_correlation(hulten, extended) : missing,
+        top_count=top,
+        top_overlap=length(intersect(traditional_top, extended_top)),
+        maximum_extended_gain_pct=maximum(extended),
+    )
+end
+
+function write_analysis_memo(path, comparisons, route_validation, route_rows,
+                             sensitivity)
+    lookup = Dict(row.mode => row for row in comparisons)
+    top_routes = sort(route_rows; by=row -> -row.primitive_F)[
+        1:min(5, length(route_rows))]
+    open(path, "w") do io
+        println(io, "# Seattle Multimodal Welfare Results")
+        println(io)
+        println(io, "The table reports model-implied welfare gains from a " *
+                    "one-percent reduction in primitive generalized cost. " *
+                    "Road and transit policies are evaluated in the same " *
+                    "217-location multimodal equilibrium.")
+        println(io)
+        println(io, "| Policy mode | Directed experiments | Mean extended (%) | " *
+                    "Mean corridor extended (%) | Extended / traditional | " *
+                    "Rank correlation | Top-10 overlap |")
+        println(io, "|---|---:|---:|---:|---:|---:|---:|")
+        for mode in ("road", "bus", "rail", "ferry", "all_transit")
+            row = lookup[mode]
+            rank = ismissing(row.spearman) ? "n/a" : @sprintf("%.3f", row.spearman)
+            println(io, @sprintf(
+                "| %s | %d | %.6f | %.6f | %.3f | %s | %d/%d |",
+                mode, row.directed_interventions,
+                row.mean_extended_gain_pct,
+                row.mean_extended_corridor_gain_pct,
+                row.mean_extended_to_traditional_ratio, rank,
+                row.top_overlap, row.top_count))
+        end
+        println(io)
+        println(io, "## Interpretation")
+        println(io)
+        road, bus, rail = lookup["road"], lookup["bus"], lookup["rail"]
+        println(io, @sprintf(
+            "- The extended calculation changes levels more than rankings. Its mean is %.1f percent of the traffic-only mean for road, %.1f percent for bus, and %.1f percent for rail/streetcar. The corresponding rank correlations are all above %.2f.",
+            100*road.mean_extended_to_traditional_ratio,
+            100*bus.mean_extended_to_traditional_ratio,
+            100*rail.mean_extended_to_traditional_ratio,
+            minimum((road.spearman, bus.spearman, rail.spearman))))
+        println(io, "- Bus provides the broadest transit policy support. Rail/streetcar " *
+                    "and ferry estimates are based on much smaller mapped supports and " *
+                    "should not be compared using within-mode correlations alone.")
+        println(io, "- $(bus.negative_corridors) of $(bus.mapped_corridors) bus " *
+                    "corridors have small negative extended effects. Road, rail, " *
+                    "and ferry corridor effects are positive in this baseline.")
+        println(io, "- An all-transit edge experiment improves every active transit " *
+                    "mode on that edge. It is a local policy bundle, not a " *
+                    "system-wide transit shock.")
+        println(io, "- GTFS schedules identify feasible service and route geometry. " *
+                    "ACS origin mode shares allocate commuters to transit, while the " *
+                    "Metro report is used only as an external route-activity check.")
+        if !isempty(top_routes)
+            println(io)
+            println(io, "## Highest complete route-corridor experiments")
+            println(io)
+            for (rank, row) in enumerate(top_routes)
+                println(io, @sprintf(
+                    "%d. %s (%s): %.6f%% extended welfare gain",
+                    rank, row.route_name, row.mode, row.primitive_F))
+            end
+        end
+        eta_rows = sort(
+            [row for row in sensitivity if row.mode == "all_transit"];
+            by=row -> row.eta)
+        if !isempty(eta_rows)
+            low, high = first(eta_rows), last(eta_rows)
+            println(io)
+            println(io, "## Modal-elasticity sensitivity")
+            println(io)
+            println(io, @sprintf(
+                "Changing eta from %.2f to %.2f moves the all-transit mean from %.6f%% to %.6f%%. Rank correlations with the eta=1.099 baseline remain above %.6f across the reported range.",
+                low.eta, high.eta, low.mean_extended_gain_pct,
+                high.mean_extended_gain_pct,
+                minimum(row.spearman_vs_eta_1_099 for row in eta_rows
+                        if !ismissing(row.spearman_vs_eta_1_099))))
+        end
+        println(io)
+        println(io, "The schedule-activity comparison matches " *
+                    "$(route_validation.metro_routes_matched) of " *
+                    "$(route_validation.gtfs_bus_routes) complete bus routes. " *
+                    "Its Pearson correlation with reported route ridership is " *
+                    @sprintf("%.3f", route_validation.pearson_service_ridership) *
+                    " and its rank correlation is " *
+                    @sprintf("%.3f", route_validation.spearman_service_ridership) *
+                    "; this check is not used to calibrate the model.")
+    end
+    return path
+end
+
 function finite_difference_rows(model, result)
     count = length(result.directed)
     count > 0 || throw(ArgumentError("finite differences require policy arcs"))
@@ -329,10 +459,14 @@ function write_tex_table(path, rows; identifier::Symbol, label::AbstractString)
     return path
 end
 
-function run_plots(output, generated_root, geography_root, python)
+function run_plots(output, generated_root, geography_root, gtfs_root,
+                   observed_roads, python)
     script = joinpath(PACKAGE_ROOT, "plots", "seattle_transit_impacts.py")
     nodes = joinpath(generated_root, "data", "nodes.csv")
-    run(`$python $script --artifacts $output --nodes $nodes --geography-root $geography_root`)
+    edge_modes = joinpath(generated_root, "data", "edge_modes.csv")
+    run(`$python $script --artifacts $output --nodes $nodes
+         --edge-modes $edge_modes --geography-root $geography_root
+         --gtfs-root $gtfs_root --observed-roads $observed_roads`)
     stems = (
         "seattle_transit_welfare_map",
         "seattle_all_transit_welfare_map",
@@ -340,6 +474,9 @@ function run_plots(output, generated_root, geography_root, python)
         "seattle_transit_traditional_extended",
         "seattle_route_corridor_rankings",
         "seattle_eta_sensitivity",
+        "seattle_aa_multimodal_network",
+        "seattle_aa_mode_welfare",
+        "seattle_aa_transit_traditional_extended",
     )
     paths = [joinpath(output, "$stem.$extension")
              for stem in stems for extension in ("pdf", "png")]
@@ -348,8 +485,26 @@ function run_plots(output, generated_root, geography_root, python)
     return paths
 end
 
+function extract_observed_roads(archive::AbstractString, output::AbstractString)
+    isfile(archive) || throw(ArgumentError(
+        "Allen-Arkolakis replication archive is missing: $archive"))
+    ogr2ogr = Sys.which("ogr2ogr")
+    ogr2ogr === nothing && throw(ArgumentError(
+        "ogr2ogr is required for the Allen-Arkolakis observed-road panel"))
+    gdb = "/vsizip/$(abspath(archive))/" *
+          "ReplicationFinal/data/seattle/gis/seattlenetwork.gdb"
+    rm(output; force=true)
+    run(`$ogr2ogr -overwrite -f GeoJSON -t_srs EPSG:4326
+         -select SS_Albers_simplified_AADT $output $gdb obs_seattle`)
+    isfile(output) || throw(ArgumentError(
+        "ogr2ogr did not create the observed-road geometry"))
+    return output
+end
+
 function build(generated_root::AbstractString, output::AbstractString;
                geography_root::AbstractString,
+               gtfs_root::AbstractString,
+               aa_archive::AbstractString,
                metro_activity_path::AbstractString,
                plots::Bool=true,
                python::AbstractString="python3")
@@ -373,8 +528,10 @@ function build(generated_root::AbstractString, output::AbstractString;
     eta_baselines = Dict{Symbol,Vector{Float64}}()
     outputs = String[]
 
-    for mode in TRANSIT_MODES
-        config = joinpath(root, "config_$(String(mode)).toml")
+    for mode in POLICY_MODES
+        config = mode == :road ?
+            joinpath(root, "config.toml") :
+            joinpath(root, "config_$(String(mode)).toml")
         project = load_project(config)
         project.modal isa ChoiceLogsum && project.modal.eta == 1.099 ||
             throw(ArgumentError("Seattle policy configuration must use ChoiceLogsum(1.099)"))
@@ -399,13 +556,15 @@ function build(generated_root::AbstractString, output::AbstractString;
             joinpath(destination, "routes_$(String(mode)).csv"), routes))
         append!(summaries, [mode_summary(mode, rows, corridors, routes)])
         append!(finite_differences, finite_difference_rows(model, result))
-        eta_report = eta_rows(project, rows)
-        append!(sensitivity, eta_report.rows)
-        eta_effects[mode] = eta_report.effects
-        eta_baselines[mode] = eta_report.baseline
+        if mode in TRANSIT_MODES
+            eta_report = eta_rows(project, rows)
+            append!(sensitivity, eta_report.rows)
+            eta_effects[mode] = eta_report.effects
+            eta_baselines[mode] = eta_report.baseline
+        end
     end
 
-    all_directed = aggregate_all_transit(mode_rows)
+    all_directed = aggregate_transit_only(mode_rows)
     all_corridors = aggregate_corridors(all_directed; mode="all_transit")
     all_routes = reduce(vcat, (mode_routes[mode] for mode in TRANSIT_MODES);
                         init=NamedTuple[])
@@ -430,7 +589,7 @@ function build(generated_root::AbstractString, output::AbstractString;
     end
 
     link_union = reduce(vcat,
-        (top_union(mode_corridors[mode], 30) for mode in TRANSIT_MODES);
+        (top_union(mode_corridors[mode], 30) for mode in POLICY_MODES);
         init=NamedTuple[])
     route_union = NamedTuple[]
     for mode in TRANSIT_MODES
@@ -442,6 +601,13 @@ function build(generated_root::AbstractString, output::AbstractString;
     sort!(route_union; by=row ->
         (row.mode, min(row.traditional_rank, row.extended_rank),
          row.extended_rank, row.route_id))
+    comparisons = [
+        comparison_summary(mode, mode_rows[mode], mode_corridors[mode])
+        for mode in POLICY_MODES
+    ]
+    push!(comparisons,
+        comparison_summary(:all_transit, all_directed, all_corridors))
+    analysis_path = joinpath(destination, "analysis.md")
     append!(outputs, [
         TNW.write_table(joinpath(destination, "directed_all_transit.csv"), all_directed),
         TNW.write_table(joinpath(destination, "links_all_transit.csv"), all_corridors),
@@ -452,6 +618,7 @@ function build(generated_root::AbstractString, output::AbstractString;
         TNW.write_table(joinpath(destination, "finite_difference_checks.csv"),
                         finite_differences),
         TNW.write_table(joinpath(destination, "summary.csv"), summaries),
+        TNW.write_table(joinpath(destination, "comparison_summary.csv"), comparisons),
         TNW.write_table(
             joinpath(destination, "route_activity_validation.csv"),
             route_validation.comparison),
@@ -462,10 +629,19 @@ function build(generated_root::AbstractString, output::AbstractString;
                         identifier=:corridor_id, label="Link"),
         write_tex_table(joinpath(destination, "top30_routes.tex"), route_union;
                         identifier=:route_name, label="Route"),
+        write_analysis_memo(
+            analysis_path, comparisons, route_validation.summary, all_routes,
+            sensitivity),
     ])
 
-    plots && append!(outputs,
-        run_plots(destination, root, geography_root, python))
+    if plots
+        observed_roads = extract_observed_roads(
+            aa_archive, joinpath(destination, "aa_observed_roads.geojson"))
+        push!(outputs, observed_roads)
+        append!(outputs, run_plots(
+            destination, root, geography_root, gtfs_root,
+            observed_roads, python))
+    end
     all(row.passed for row in finite_differences) ||
         throw(ArgumentError("finite-difference checks did not pass"))
     manifest = Dict{String,Any}(
@@ -474,7 +650,8 @@ function build(generated_root::AbstractString, output::AbstractString;
         "eta" => 1.099,
         "eta_status" => "transferred_economic_geography_baseline",
         "policy_shock" => "one-percent primitive generalized-cost reduction",
-        "modes" => String.(TRANSIT_MODES),
+        "policy_modes" => String.(POLICY_MODES),
+        "transit_modes" => String.(TRANSIT_MODES),
         "build_manifest_sha256" => sha256_file(build_manifest),
         "route_bundle_sha256" => sha256_file(bundles_path),
         "finite_difference_tolerance" => 1e-6,
@@ -510,7 +687,20 @@ function main(args=ARGS)
             joinpath(data_root, "derived", "metro_route_activity_fall_2016.csv"))
     isempty(metro_activity) && throw(ArgumentError(
         "set SEATTLE_TRANSIT_DATA_ROOT or pass --metro-route-activity"))
+    gtfs_root = option(args, "--gtfs-root";
+        default=isempty(data_root) ? "" :
+            joinpath(data_root, "raw", "king_county_gtfs_2017", "extracted"))
+    isempty(gtfs_root) && throw(ArgumentError(
+        "set SEATTLE_TRANSIT_DATA_ROOT or pass --gtfs-root"))
+    aa_archive = option(args, "--aa-archive";
+        default=isempty(data_root) ? "" :
+            joinpath(data_root, "raw", "allen_arkolakis",
+                     "RESTUD26454_Replication.zip"))
+    isempty(aa_archive) && throw(ArgumentError(
+        "set SEATTLE_TRANSIT_DATA_ROOT or pass --aa-archive"))
     result = build(generated, output; geography_root=abspath(geography),
+                   gtfs_root=abspath(gtfs_root),
+                   aa_archive=abspath(aa_archive),
                    metro_activity_path=abspath(metro_activity),
                    plots=!("--skip-plots" in args),
                    python=String(option(args, "--python"; default="python3")))

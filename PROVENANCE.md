@@ -59,6 +59,12 @@ uniform improvement to the aggregate mode cost along a named route's mapped
 corridor, not route-exclusive passenger assignment on segments shared by
 multiple services.
 
+The Allen--Arkolakis-style observed-road panel is extracted directly from the
+hash-pinned replication archive's `obs_seattle` FileGDB layer with GDAL. The
+artifact manifest binds the resulting GeoJSON, full GTFS route-shape render,
+model outputs, and figures to their output hashes. The derived geometry and
+figures remain outside Git.
+
 ## Census port-trade extension
 
 The candidate port-trade adapter uses public monthly Census International Trade API aggregates. Its downloader and crosswalk design were adapted from an audited private discussion-simulation pipeline. The source is provenance only and is not a runtime dependency.

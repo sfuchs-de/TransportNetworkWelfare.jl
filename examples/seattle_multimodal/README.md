@@ -124,12 +124,26 @@ model's positive-flow support. The build manifest reports the number and share
 of routes excluded by this gate; it never shortens a route to its active
 segments.
 
-The impact builder writes directed and corridor results for each transit mode
-and all transit, top-30 link and route tables, traditional-versus-extended
-correlations, nonlinear finite-difference checks, the $\eta$ sensitivity
-path, a non-calibrating comparison of GTFS service activity with the Metro
-report's route ridership, and PDF plus transparent PNG figures. Map colors are
-welfare gains from a one-percent improvement, not traffic shares.
+The impact builder writes directed and corridor results for road, each transit
+mode, and all transit. It also writes top-30 link and route tables,
+traditional-versus-extended correlations, nonlinear finite-difference checks,
+the $\eta$ sensitivity path, and a non-calibrating comparison of GTFS service
+activity with the Metro report's route ridership.
+
+The figure set includes three displays modeled on the Seattle figures in Allen
+and Arkolakis:
+
+- the observed 2017 road and GTFS networks beside the constructed multimodal
+  network;
+- road, bus, rail/streetcar, and ferry welfare effects on a common scale; and
+- traditional and extended transit effects on a common scale.
+
+Node area reflects the sum of residence and workplace commuter mass. Line
+widths in the constructed-network panel reflect baseline model flow. Map
+colors in the welfare panels are gains from a one-percent improvement, not
+traffic shares. Figures are written as PDF and transparent PNG files. The
+generated `analysis.md` distinguishes directed experiments from corridor sums
+and records the quantitative comparisons used to interpret the maps.
 
 ## Declared approximations
 

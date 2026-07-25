@@ -126,13 +126,19 @@ output hashes, and all transformations. See its README and [Urban commuting
 model](urban.md) for the data contract and model boundary.
 
 The exact-2017 workflow has a credential-safe acquisition command and produces
-separate bus, rail/streetcar, and ferry policy configurations. The baseline
+separate road, bus, rail/streetcar, and ferry policy configurations. The baseline
 uses `ChoiceLogsum(1.099)`, transferred from the economic-geography
 application and labeled as such rather than as a Seattle estimate. It evaluates
 one-percent edge-mode improvements, reciprocal corridor sums, and coordinated
 GTFS route-corridor bundles. The public Mobility Database copy of the exact
 June 2017 TransitFeeds archive is hash-pinned; current service is never
 substituted for that feed.
+
+The artifact builder also produces Allen--Arkolakis-style maps of the observed
+and constructed networks, mode-specific welfare effects on a common scale, and
+traditional versus extended transit effects. These maps use the full 2017 GTFS
+shape geometry for the observed network and the model's edge-mode support for
+the constructed network.
 
 ## Westeros urban commuting
 

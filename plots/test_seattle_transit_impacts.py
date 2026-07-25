@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -43,7 +44,8 @@ class SeattleTransitFigureTests(unittest.TestCase):
             ]
             mode_links = {}
             mode_directed = {}
-            for offset, mode in enumerate(("bus", "rail", "ferry"), start=1):
+            for offset, mode in enumerate(
+                    ("road", "bus", "rail", "ferry"), start=1):
                 links = [
                     {"corridor_id": "1_2", "origin": "1", "destination": "2",
                      "mode": mode, "hulten": 0.01*offset,
@@ -71,12 +73,13 @@ class SeattleTransitFigureTests(unittest.TestCase):
 
             all_links = []
             all_directed = []
+            transit_modes = ("bus", "rail", "ferry")
             for index in range(2):
                 source = mode_links["bus"][index]
                 hulten = sum(float(mode_links[mode][index]["hulten"])
-                             for mode in mode_links)
+                             for mode in transit_modes)
                 primitive = sum(float(mode_links[mode][index]["primitive_F"])
-                                for mode in mode_links)
+                                for mode in transit_modes)
                 all_links.append({
                     "corridor_id": source["corridor_id"], "origin": source["origin"],
                     "destination": source["destination"], "mode": "all_transit",
@@ -133,6 +136,81 @@ class SeattleTransitFigureTests(unittest.TestCase):
             self.assertEqual(first_hashes, repeated_hashes)
             png = mpimg.imread(root / "seattle_transit_welfare_map.png")
             self.assertEqual(png.shape[-1], 4)
+
+            edge_modes = root / "edge_modes.csv"
+            edge_rows = []
+            for mode in ("road", "bus", "rail", "ferry"):
+                for row in mode_directed[mode]:
+                    edge_rows.append({
+                        "edge_id": row["edge_id"],
+                        "origin": row["origin"],
+                        "destination": row["destination"],
+                        "mode": mode,
+                        "flow": 10.0,
+                    })
+            write_rows(
+                edge_modes,
+                ["edge_id", "origin", "destination", "mode", "flow"],
+                edge_rows)
+            gtfs = root / "gtfs"
+            gtfs.mkdir()
+            write_rows(
+                gtfs / "calendar.txt",
+                ["service_id", "monday", "tuesday", "wednesday", "thursday",
+                 "friday", "saturday", "sunday", "start_date", "end_date"],
+                [{"service_id": "weekday", "monday": 1, "tuesday": 1,
+                  "wednesday": 1, "thursday": 1, "friday": 1,
+                  "saturday": 0, "sunday": 0, "start_date": "20170601",
+                  "end_date": "20170630"}])
+            write_rows(
+                gtfs / "calendar_dates.txt",
+                ["service_id", "date", "exception_type"], [])
+            write_rows(
+                gtfs / "routes.txt", ["route_id", "route_type"], [
+                    {"route_id": "bus", "route_type": 3},
+                    {"route_id": "rail", "route_type": 0},
+                    {"route_id": "ferry", "route_type": 4},
+                ])
+            write_rows(
+                gtfs / "trips.txt",
+                ["route_id", "service_id", "trip_id", "shape_id"], [
+                    {"route_id": mode, "service_id": "weekday",
+                     "trip_id": mode, "shape_id": mode}
+                    for mode in ("bus", "rail", "ferry")
+                ])
+            shape_rows = []
+            for offset, mode in enumerate(("bus", "rail", "ferry")):
+                shape_rows.extend([
+                    {"shape_id": mode, "shape_pt_lat": 47.58+0.01*offset,
+                     "shape_pt_lon": -122.35,
+                     "shape_pt_sequence": 1},
+                    {"shape_id": mode, "shape_pt_lat": 47.62-0.01*offset,
+                     "shape_pt_lon": -122.25,
+                     "shape_pt_sequence": 2},
+                ])
+            write_rows(
+                gtfs / "shapes.txt",
+                ["shape_id", "shape_pt_lat", "shape_pt_lon",
+                 "shape_pt_sequence"], shape_rows)
+            observed_roads = root / "roads.geojson"
+            observed_roads.write_text(json.dumps({
+                "type": "FeatureCollection",
+                "features": [{
+                    "type": "Feature",
+                    "properties": {},
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[-122.35, 47.58], [-122.25, 47.57]],
+                    },
+                }],
+            }), encoding="utf-8")
+            detailed_outputs = MODULE.build_figures(
+                root, nodes, Path(geography) if geography else None,
+                edge_modes_path=edge_modes, gtfs_root=gtfs,
+                observed_roads=observed_roads)
+            self.assertEqual(len(detailed_outputs), 18)
+            aa_png = mpimg.imread(root / "seattle_aa_mode_welfare.png")
+            self.assertEqual(aa_png.shape[-1], 4)
 
 
 if __name__ == "__main__":

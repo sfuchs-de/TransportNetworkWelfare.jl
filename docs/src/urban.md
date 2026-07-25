@@ -170,7 +170,8 @@ source hashes do not match.
 The Seattle impact workflow treats ``\eta=1.099`` as a transferred baseline
 calibration. Observed edge-mode shares fix the local modal baseline, while
 ``\eta`` governs substitution following a cost change. Separate bus,
-rail/streetcar, and ferry models retain the same full multimodal equilibrium.
+rail/streetcar, ferry, and road policy models retain the same full multimodal
+equilibrium.
 The route-corridor output uses sparse bundles of edge-mode primitive-cost
 shocks. It is exact for the declared corridor intervention; shared segments
 affect the aggregate mode cost and are not route-exclusive service shocks.
@@ -178,6 +179,12 @@ Only complete named corridors on the model's positive-flow support are
 reported. The workflow records excluded-route coverage and compares GTFS
 scheduled edge traversals with the Metro report's route ridership as an
 external check, not as a calibration target.
+
+The generated map suite parallels the Allen--Arkolakis Seattle displays. It
+places the observed road and GTFS networks beside the constructed multimodal
+network, maps road and transit welfare effects on a common scale, and aligns
+traditional and extended transit maps. Node area reflects residence plus
+workplace commuter mass; welfare colors never encode traffic.
 
 Sources: [Allen and Arkolakis paper](https://par.nsf.gov/servlets/purl/10383104),
 [replication archive](https://dl.dropbox.com/s/mmux9ys035xi6iu/RESTUD26454_Replication.zip).

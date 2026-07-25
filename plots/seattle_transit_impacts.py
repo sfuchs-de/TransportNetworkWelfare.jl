@@ -3,13 +3,16 @@
 
 import argparse
 import csv
+import datetime as dt
+import json
 from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-from matplotlib.colors import Normalize, TwoSlopeNorm
+from matplotlib.colors import LinearSegmentedColormap, Normalize, TwoSlopeNorm
+from matplotlib.lines import Line2D
 import numpy as np
 
 try:
@@ -19,17 +22,21 @@ except ImportError:  # Geography is optional for fixture tests.
 
 
 COLORS = {
+    "road": "#656D73",
     "bus": "#26734D",
     "rail": "#B5483A",
     "ferry": "#2B6EA6",
     "all_transit": "#343A40",
 }
 LABELS = {
+    "road": "Road",
     "bus": "Bus",
     "rail": "Rail / streetcar",
     "ferry": "Ferry",
     "all_transit": "All transit",
 }
+AA_CMAP = LinearSegmentedColormap.from_list(
+    "aa_blue_red", ("#2166AC", "#7B6CB4", "#D6604D", "#B2182B"))
 
 
 def read_rows(path):
@@ -49,6 +56,20 @@ def read_nodes(path):
     if not nodes:
         raise ValueError("Seattle node file is empty")
     return nodes
+
+
+def read_node_mass(path):
+    rows = read_rows(path)
+    masses = {}
+    for row in rows:
+        identifier = row["node_id"].strip()
+        resident = float(row.get("residents", row.get("income", 1.0)))
+        employment = float(row.get("employment", 0.0))
+        mass = resident + employment
+        if identifier in masses or not np.isfinite(mass) or mass < 0:
+            raise ValueError(f"invalid Seattle node mass {identifier!r}")
+        masses[identifier] = mass
+    return masses
 
 
 def numeric(rows, field):
@@ -122,6 +143,159 @@ def add_geography(axis, root):
                       linewidth=0.6, linestyle=(0, (2, 2)), zorder=1)
 
 
+def map_limits(nodes):
+    coordinates = np.asarray(list(nodes.values()))
+    return (
+        (coordinates[:, 0].min()-0.02, coordinates[:, 0].max()+0.02),
+        (coordinates[:, 1].min()-0.02, coordinates[:, 1].max()+0.02),
+    )
+
+
+def finish_map(axis, nodes):
+    xlim, ylim = map_limits(nodes)
+    axis.set_xlim(*xlim)
+    axis.set_ylim(*ylim)
+    axis.set_aspect("equal", adjustable="box")
+    axis.axis("off")
+
+
+def node_sizes(masses, maximum=34.0, minimum=2.0):
+    values = np.asarray(list(masses.values()), dtype=float)
+    scale = np.sqrt(values/max(values.max(), 1.0))
+    return dict(zip(masses, minimum+(maximum-minimum)*scale))
+
+
+def add_nodes(axis, nodes, masses, *, alpha=0.78):
+    sizes = node_sizes(masses)
+    axis.scatter(
+        [nodes[key][0] for key in nodes],
+        [nodes[key][1] for key in nodes],
+        s=[sizes[key] for key in nodes],
+        color="#111111", edgecolors="white", linewidths=0.18,
+        alpha=alpha, zorder=5)
+
+
+def unique_mode_segments(rows, nodes, mode=None):
+    grouped = {}
+    endpoints = {}
+    for row in rows:
+        if mode is not None and row["mode"] != mode:
+            continue
+        origin, destination = row["origin"], row["destination"]
+        key = (*sorted((origin, destination)), row["mode"])
+        grouped[key] = grouped.get(key, 0.0) + float(row.get("flow", 1.0))
+        endpoints.setdefault(key, (origin, destination))
+    segments = []
+    values = []
+    for key in sorted(grouped):
+        origin, destination = endpoints[key]
+        if origin not in nodes or destination not in nodes:
+            raise ValueError(f"edge {origin}_{destination} has an unknown endpoint")
+        segments.append([nodes[origin], nodes[destination]])
+        values.append(grouped[key])
+    return segments, np.asarray(values, dtype=float)
+
+
+def add_road_context(axis, edge_rows, nodes):
+    segments, _ = unique_mode_segments(edge_rows, nodes, "road")
+    axis.add_collection(LineCollection(
+        segments, colors="#C5C9CC", linewidths=0.38,
+        alpha=0.72, zorder=2))
+
+
+def geojson_lines(path):
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    output = []
+    for feature in payload.get("features", []):
+        geometry = feature.get("geometry") or {}
+        coordinates = geometry.get("coordinates", [])
+        kind = geometry.get("type")
+        if kind == "LineString":
+            candidates = [coordinates]
+        elif kind == "MultiLineString":
+            candidates = coordinates
+        else:
+            continue
+        for line in candidates:
+            array = np.asarray(line, dtype=float)
+            if array.ndim == 2 and array.shape[0] >= 2:
+                output.append(array[:, :2])
+    return output
+
+
+def gtfs_date(value):
+    return dt.datetime.strptime(value, "%Y%m%d").date()
+
+
+def active_gtfs_services(root, service_date=dt.date(2017, 6, 14)):
+    root = Path(root)
+    weekday = service_date.strftime("%A").lower()
+    services = set()
+    for row in read_rows(root / "calendar.txt"):
+        if (gtfs_date(row["start_date"]) <= service_date <=
+                gtfs_date(row["end_date"]) and row[weekday] == "1"):
+            services.add(row["service_id"])
+    for row in read_rows(root / "calendar_dates.txt"):
+        if gtfs_date(row["date"]) != service_date:
+            continue
+        if row["exception_type"] == "1":
+            services.add(row["service_id"])
+        elif row["exception_type"] == "2":
+            services.discard(row["service_id"])
+        else:
+            raise ValueError("invalid GTFS calendar exception")
+    if not services:
+        raise ValueError(f"GTFS has no service on {service_date}")
+    return services
+
+
+def route_type_mode(value):
+    route_type = int(value)
+    if route_type in (0, 1, 2):
+        return "rail"
+    if route_type == 3:
+        return "bus"
+    if route_type == 4:
+        return "ferry"
+    return None
+
+
+def gtfs_shapes(root):
+    root = Path(root)
+    services = active_gtfs_services(root)
+    route_modes = {
+        row["route_id"]: route_type_mode(row["route_type"])
+        for row in read_rows(root / "routes.txt")
+    }
+    shape_modes = {}
+    for row in read_rows(root / "trips.txt"):
+        if row["service_id"] not in services or not row.get("shape_id"):
+            continue
+        mode = route_modes.get(row["route_id"])
+        if mode is None:
+            continue
+        prior = shape_modes.setdefault(row["shape_id"], mode)
+        if prior != mode:
+            raise ValueError(f"GTFS shape {row['shape_id']} spans multiple modes")
+    points = {shape_id: [] for shape_id in shape_modes}
+    for row in read_rows(root / "shapes.txt"):
+        shape_id = row["shape_id"]
+        if shape_id not in points:
+            continue
+        points[shape_id].append((
+            int(row["shape_pt_sequence"]),
+            float(row["shape_pt_lon"]),
+            float(row["shape_pt_lat"]),
+        ))
+    output = {mode: [] for mode in ("bus", "rail", "ferry")}
+    for shape_id, rows in points.items():
+        rows.sort()
+        if len(rows) >= 2:
+            output[shape_modes[shape_id]].append(
+                np.asarray([(lon, lat) for _, lon, lat in rows]))
+    return output
+
+
 def figure_paths(output, stem):
     return Path(output) / f"{stem}.pdf", Path(output) / f"{stem}.png"
 
@@ -171,12 +345,137 @@ def add_corridors(axis, rows, nodes, field, norm, cmap, geography_root):
         linewidths=1.3, alpha=0.92, zorder=3,
     )
     axis.add_collection(collection)
-    coordinates = np.asarray(list(nodes.values()))
-    axis.set_xlim(coordinates[:, 0].min()-0.02, coordinates[:, 0].max()+0.02)
-    axis.set_ylim(coordinates[:, 1].min()-0.02, coordinates[:, 1].max()+0.02)
-    axis.set_aspect("equal", adjustable="box")
-    axis.axis("off")
+    finish_map(axis, nodes)
     return collection
+
+
+def aa_multimodal_network_map(artifacts, nodes, masses, geography_root,
+                              edge_modes_path, gtfs_root, observed_roads):
+    edge_rows = read_rows(edge_modes_path)
+    raw_shapes = gtfs_shapes(gtfs_root)
+    road_geometry = geojson_lines(observed_roads)
+    figure, axes = plt.subplots(
+        1, 2, figsize=(8.0, 5.1), sharex=True, sharey=True)
+
+    add_geography(axes[0], geography_root)
+    axes[0].add_collection(LineCollection(
+        road_geometry, colors="#BEC3C6", linewidths=0.22,
+        alpha=0.58, zorder=2))
+    for mode in ("bus", "rail", "ferry"):
+        axes[0].add_collection(LineCollection(
+            raw_shapes[mode], colors=COLORS[mode],
+            linewidths={"bus": 0.28, "rail": 1.05, "ferry": 1.15}[mode],
+            alpha={"bus": 0.22, "rail": 0.82, "ferry": 0.88}[mode],
+            linestyles="dashed" if mode == "ferry" else "solid",
+            zorder=3))
+    add_nodes(axes[0], nodes, masses, alpha=0.58)
+    finish_map(axes[0], nodes)
+
+    add_geography(axes[1], geography_root)
+    for mode in ("road", "bus", "rail", "ferry"):
+        segments, flows = unique_mode_segments(edge_rows, nodes, mode)
+        if not segments:
+            continue
+        positive = np.log1p(flows)
+        span = float(positive.max()-positive.min())
+        widths = 0.32 + 1.45 * (
+            (positive-positive.min())/span if span > 0 else
+            np.ones_like(positive))
+        axes[1].add_collection(LineCollection(
+            segments, colors=COLORS[mode], linewidths=widths,
+            alpha=0.68 if mode == "road" else 0.88, zorder=3))
+    add_nodes(axes[1], nodes, masses)
+    finish_map(axes[1], nodes)
+
+    for axis, label in zip(
+            axes, ("Observed 2017 networks", "Constructed multimodal network")):
+        axis.text(
+            0.02, 0.98, label, transform=axis.transAxes,
+            ha="left", va="top", fontsize=8.5, fontweight="bold")
+    legend = [
+        Line2D([0], [0], color=COLORS[mode], linewidth=1.6,
+               linestyle="dashed" if mode == "ferry" else "solid",
+               label=LABELS[mode])
+        for mode in ("road", "bus", "rail", "ferry")
+    ]
+    axes[1].legend(
+        handles=legend, loc="lower right", frameon=False,
+        fontsize=7, handlelength=2.5)
+    figure.subplots_adjust(
+        left=0.01, right=0.99, bottom=0.01, top=0.99, wspace=0.025)
+    return save_pair(figure, artifacts, "seattle_aa_multimodal_network")
+
+
+def aa_mode_welfare_map(artifacts, nodes, masses, geography_root,
+                        edge_modes_path):
+    modes = ("road", "bus", "rail", "ferry")
+    rows = {
+        mode: read_rows(Path(artifacts) / f"links_{mode}.csv")
+        for mode in modes
+    }
+    values = np.concatenate([
+        numeric(rows[mode], "extended_gain_pct") for mode in modes])
+    norm = Normalize(vmin=min(0.0, float(values.min())),
+                     vmax=float(values.max()))
+    edge_rows = read_rows(edge_modes_path)
+    figure, axes = plt.subplots(
+        2, 2, figsize=(7.6, 8.4), sharex=True, sharey=True)
+    collection = None
+    for axis, mode in zip(axes.flat, modes):
+        add_geography(axis, geography_root)
+        add_road_context(axis, edge_rows, nodes)
+        collection = LineCollection(
+            corridor_segments(rows[mode], nodes),
+            array=numeric(rows[mode], "extended_gain_pct"),
+            cmap=AA_CMAP, norm=norm, linewidths=1.35,
+            alpha=0.95, zorder=3)
+        axis.add_collection(collection)
+        add_nodes(axis, nodes, masses, alpha=0.68)
+        finish_map(axis, nodes)
+        axis.text(
+            0.02, 0.98, LABELS[mode], transform=axis.transAxes,
+            ha="left", va="top", fontsize=8.5, fontweight="bold")
+    figure.colorbar(
+        collection, ax=axes, fraction=0.025, pad=0.015,
+        label="Welfare gain from a 1% improvement (%)")
+    figure.subplots_adjust(
+        left=0.01, right=0.90, bottom=0.01, top=0.99,
+        wspace=0.025, hspace=0.025)
+    return save_pair(figure, artifacts, "seattle_aa_mode_welfare")
+
+
+def aa_transit_comparison_map(artifacts, nodes, masses, geography_root,
+                              edge_modes_path):
+    rows = read_rows(Path(artifacts) / "links_all_transit.csv")
+    fields = ("traditional_gain_pct", "extended_gain_pct")
+    values = np.concatenate([numeric(rows, field) for field in fields])
+    norm = Normalize(vmin=min(0.0, float(values.min())),
+                     vmax=float(values.max()))
+    edge_rows = read_rows(edge_modes_path)
+    figure, axes = plt.subplots(
+        1, 2, figsize=(8.0, 5.1), sharex=True, sharey=True)
+    collection = None
+    for axis, field, label in zip(
+            axes, fields, ("Traditional approach", "Extended approach")):
+        add_geography(axis, geography_root)
+        add_road_context(axis, edge_rows, nodes)
+        collection = LineCollection(
+            corridor_segments(rows, nodes), array=numeric(rows, field),
+            cmap=AA_CMAP, norm=norm, linewidths=1.35,
+            alpha=0.95, zorder=3)
+        axis.add_collection(collection)
+        add_nodes(axis, nodes, masses, alpha=0.68)
+        finish_map(axis, nodes)
+        axis.text(
+            0.02, 0.98, label, transform=axis.transAxes,
+            ha="left", va="top", fontsize=8.5, fontweight="bold")
+    figure.colorbar(
+        collection, ax=axes, fraction=0.03, pad=0.015,
+        label="Welfare gain from a 1% transit improvement (%)")
+    figure.subplots_adjust(
+        left=0.01, right=0.90, bottom=0.01, top=0.99, wspace=0.025)
+    return save_pair(
+        figure, artifacts, "seattle_aa_transit_traditional_extended")
 
 
 def mode_welfare_map(artifacts, nodes, geography_root):
@@ -319,9 +618,12 @@ def sensitivity_figure(artifacts):
     return save_pair(figure, artifacts, "seattle_eta_sensitivity")
 
 
-def build_figures(artifacts, nodes_path, geography_root=None):
+def build_figures(artifacts, nodes_path, geography_root=None, *,
+                  edge_modes_path=None, gtfs_root=None,
+                  observed_roads=None):
     artifacts = Path(artifacts)
     nodes = read_nodes(nodes_path)
+    masses = read_node_mass(nodes_path)
     outputs = []
     outputs.extend(mode_welfare_map(artifacts, nodes, geography_root))
     outputs.extend(single_map(
@@ -335,6 +637,18 @@ def build_figures(artifacts, nodes_path, geography_root=None):
     outputs.extend(scatter_figure(artifacts))
     outputs.extend(route_figure(artifacts))
     outputs.extend(sensitivity_figure(artifacts))
+    detailed = (edge_modes_path, gtfs_root, observed_roads)
+    if any(item is not None for item in detailed):
+        if not all(item is not None for item in detailed):
+            raise ValueError(
+                "AA-style figures require edge modes, GTFS, and observed roads")
+        outputs.extend(aa_multimodal_network_map(
+            artifacts, nodes, masses, geography_root,
+            edge_modes_path, gtfs_root, observed_roads))
+        outputs.extend(aa_mode_welfare_map(
+            artifacts, nodes, masses, geography_root, edge_modes_path))
+        outputs.extend(aa_transit_comparison_map(
+            artifacts, nodes, masses, geography_root, edge_modes_path))
     return outputs
 
 
@@ -343,8 +657,14 @@ def main():
     parser.add_argument("--artifacts", type=Path, required=True)
     parser.add_argument("--nodes", type=Path, required=True)
     parser.add_argument("--geography-root", type=Path)
+    parser.add_argument("--edge-modes", type=Path)
+    parser.add_argument("--gtfs-root", type=Path)
+    parser.add_argument("--observed-roads", type=Path)
     args = parser.parse_args()
-    build_figures(args.artifacts, args.nodes, args.geography_root)
+    build_figures(
+        args.artifacts, args.nodes, args.geography_root,
+        edge_modes_path=args.edge_modes, gtfs_root=args.gtfs_root,
+        observed_roads=args.observed_roads)
 
 
 if __name__ == "__main__":
