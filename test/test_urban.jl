@@ -10,15 +10,17 @@ const LEGACY_CONFIG = joinpath(ROOT, "examples", "urban_toy", "config.toml")
 const MULTIMODAL_CONFIG =
     joinpath(ROOT, "examples", "urban_multimodal", "config.toml")
 
+toml_path(path::AbstractString) = replace(path, '\\' => '/')
+
 function absolute_config(source_path::AbstractString)
     source = read(source_path, String)
     root = dirname(source_path)
     return replace(
         source,
         "nodes = \"data/nodes.csv\"" =>
-            "nodes = \"$(joinpath(root, "data", "nodes.csv"))\"",
+            "nodes = \"$(toml_path(joinpath(root, "data", "nodes.csv")))\"",
         "edge_modes = \"data/edge_modes.csv\"" =>
-            "edge_modes = \"$(joinpath(root, "data", "edge_modes.csv"))\"",
+            "edge_modes = \"$(toml_path(joinpath(root, "data", "edge_modes.csv")))\"",
     )
 end
 
@@ -271,10 +273,12 @@ end
 
         node_lines = readlines(joinpath(
             ROOT, "examples", "urban_multimodal", "data", "nodes.csv"))
-        permuted_nodes_path = joinpath(directory, "nodes-permuted.csv")
+        permuted_nodes_path =
+            toml_path(joinpath(directory, "nodes-permuted.csv"))
         write(permuted_nodes_path, join(vcat(first(node_lines), reverse(node_lines[2:end])), "\n")*"\n")
         original_nodes_path =
-            joinpath(ROOT, "examples", "urban_multimodal", "data", "nodes.csv")
+            toml_path(joinpath(
+                ROOT, "examples", "urban_multimodal", "data", "nodes.csv"))
         node_config = replace(
             multimodal,
             "nodes = \"$original_nodes_path\"" => "nodes = \"$permuted_nodes_path\"",
@@ -304,13 +308,15 @@ end
         write(double_path, double_congestion)
         @test_throws ArgumentError load_project(double_path)
 
-        nodes_path = joinpath(ROOT, "examples", "urban_multimodal", "data", "nodes.csv")
-        edges_path = joinpath(ROOT, "examples", "urban_multimodal", "data", "edge_modes.csv")
+        nodes_path = toml_path(joinpath(
+            ROOT, "examples", "urban_multimodal", "data", "nodes.csv"))
+        edges_path = toml_path(joinpath(
+            ROOT, "examples", "urban_multimodal", "data", "edge_modes.csv"))
         bad_edges = replace(
             read(edges_path, String),
             "0.03166533522595979" => "0.04166533522595979",
         )
-        bad_edges_path = joinpath(directory, "bad-edges.csv")
+        bad_edges_path = toml_path(joinpath(directory, "bad-edges.csv"))
         write(bad_edges_path, bad_edges)
         bad_config = replace(
             multimodal,
@@ -325,7 +331,8 @@ end
             "A_station,B_station" => ",B_station",
             count=1,
         )
-        missing_terminal_path = joinpath(directory, "missing-terminal.csv")
+        missing_terminal_path =
+            toml_path(joinpath(directory, "missing-terminal.csv"))
         write(missing_terminal_path, missing_terminal_edges)
         missing_terminal_config = replace(
             multimodal,
