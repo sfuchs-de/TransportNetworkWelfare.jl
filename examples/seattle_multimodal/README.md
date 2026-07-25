@@ -42,56 +42,92 @@ not route choice. The 2017 King County Metro System Evaluation reports
 route-level ridership and passenger-load measures and is retained as a
 validation target; it is not used to manufacture an OD-to-route allocation.
 
-## Required external sources
+## Exact 2017 source acquisition
 
-The raw sources are not committed. Set:
+Raw sources are not committed. Choose an external cache and expose the
+credentials:
 
 ```bash
-export AA_REPLICATION_ROOT=/path/to/extracted/ReplicationFinal
-export SEATTLE_GTFS_2017_ROOT=/path/to/extracted/ad172e653aa881557a5f3cb84f2ace6819308600
+export SEATTLE_TRANSIT_DATA_ROOT=/absolute/path/to/seattle-transit-2017
 export CENSUS_API_KEY=...
+export TRANSITLAND_API_KEY=...
+julia --project=. examples/seattle_multimodal/download_sources.jl \
+  --data-root "$SEATTLE_TRANSIT_DATA_ROOT"
 ```
 
-The GTFS directory must contain the exact historical feed recorded in
-`sources.toml`. Transitland identifies it by SHA-1
+The downloader obtains and verifies the Allen--Arkolakis source files, ACS
+B08301 response, Metro evaluation report, and 2017 Census map layers. It also
+requires the exact historical GTFS recorded in `sources.toml`. Transitland
+identifies that archive by SHA-1
 `ad172e653aa881557a5f3cb84f2ace6819308600`, with service from 8 June through
-22 September 2017. The builder verifies every GTFS file that it uses. It will
-not silently substitute the current King County feed.
+22 September 2017. The acquisition gate verifies 223 routes, 7,718 stops,
+33,837 trips, 442,686 shape points, 1,193,603 stop times, and every file hash.
+It never substitutes the current King County feed.
 
-Historical Transitland downloads may require an account with feed-archive
-access. A previously downloaded and extracted copy works offline.
+Transitland restricts historical archive downloads to accounts with archive
+access. To use a previously downloaded copy instead, set:
+
+```bash
+export SEATTLE_GTFS_2017_ARCHIVE=/absolute/path/to/ad172e653aa881557a5f3cb84f2ace6819308600.zip
+```
+
+The downloader verifies it before extraction. `AA_REPLICATION_ARCHIVE`
+provides the corresponding optional offline input for the
+Allen--Arkolakis ZIP. API keys are omitted from errors and manifests.
 
 Transit scheduling and geographic data provided by permission of King County.
 
 ## Build and analyze
 
-Seattle does not provide an estimated modal elasticity for this model, so
-`--eta` is mandatory:
-
-```bash
-julia --project=. examples/seattle_multimodal/prepare.jl --eta 1.099
-julia --project=. bin/tnw.jl validate \
-  examples/seattle_multimodal/generated/config.toml
-julia --project=. bin/tnw.jl analyze \
-  examples/seattle_multimodal/generated/config.toml
-```
-
-`1.099` is a possible sensitivity value inherited from the economic-geography
-application. It is not a Seattle estimate. The generated manifest labels it as
-user supplied.
-
-For a cached ACS response:
+Use the economic-geography application's $\eta=1.099$ as the declared
+baseline:
 
 ```bash
 julia --project=. examples/seattle_multimodal/prepare.jl \
-  --eta 1.099 \
-  --acs /path/to/acs_2017_king_county_b08301.json \
-  --offline
+  --data-root "$SEATTLE_TRANSIT_DATA_ROOT" --eta 1.099 --offline
+julia --project=. examples/seattle_multimodal/build_impacts.jl \
+  --data-root "$SEATTLE_TRANSIT_DATA_ROOT"
 ```
+
+The builder writes separate road, bus, rail/streetcar, and ferry
+configurations. Each contains every observed mode; only the policy mode
+changes. Because some transit arcs are not reciprocal, transit configurations
+request directed results. The artifact builder reports reciprocal corridor
+sums separately without relabeling one-way arcs as physical links.
+
+Observed edge-mode shares are the implied modal shifters that reproduce the
+constructed ACS-based modal baseline in the hat/IFT system.
+The transferred $\eta=1.099$ controls substitution around that baseline; it
+is not estimated from Seattle data. The artifacts include sensitivity at
+$0.75$, $0.90$, $1.099$, $1.25$, and $1.40$.
 
 An optional terminal-congestion diagnostic can be generated with
 `--terminal-lambda VALUE`. The value must be supplied explicitly and is not
 part of the baseline Seattle candidate.
+
+## Policies and outputs
+
+The link experiment reduces one directed edge-mode primitive generalized cost
+by one percent. Reciprocal corridor results sum the two directional
+elasticities only when both directions exist.
+
+`route_bundles.csv` maps each named GTFS route to the unique grid edge-mode
+pairs that it traverses. A route-corridor experiment reduces the aggregate
+mode cost on each mapped segment by one percent. On a segment shared by
+several services, this is a corridor intervention rather than a claim that
+only one operator's vehicles improve.
+
+A named route is reported only when its complete mapped corridor lies on the
+model's positive-flow support. The build manifest reports the number and share
+of routes excluded by this gate; it never shortens a route to its active
+segments.
+
+The impact builder writes directed and corridor results for each transit mode
+and all transit, top-30 link and route tables, traditional-versus-extended
+correlations, nonlinear finite-difference checks, the $\eta$ sensitivity
+path, a non-calibrating comparison of GTFS service activity with the Metro
+report's route ridership, and PDF plus transparent PNG figures. Map colors are
+welfare gains from a one-percent improvement, not traffic shares.
 
 ## Declared approximations
 
@@ -99,7 +135,8 @@ part of the baseline Seattle candidate.
   the edge-specific scheduled headway.
 - Stops are mapped to grid nodes within a declared distance threshold.
 - Transit trips without a path in the mapped network are reassigned to road
-  and reported in the manifest.
+  and reported by origin. The build fails if this exceeds five percent of
+  requested transit commuters.
 - A negligible, declared reciprocal circulation keeps all 1,384 published
   road arcs interior without changing node flow balances.
 - Grid nodes serve as transfer points; walking access and transfer nodes are

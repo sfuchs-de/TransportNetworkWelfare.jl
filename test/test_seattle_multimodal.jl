@@ -30,6 +30,10 @@ function write_gtfs_fixture(root)
           "S1,One,47.6000,-122.3300,0\n" *
           "S2,Two,47.6050,-122.3200,0\n" *
           "S3,Three,47.6100,-122.3100,0\n")
+    write(joinpath(root, "shapes.txt"),
+          "shape_id,shape_pt_lat,shape_pt_lon,shape_pt_sequence\n" *
+          "R,47.6000,-122.3300,1\n" *
+          "R,47.6100,-122.3100,2\n")
     write(joinpath(root, "stop_times.txt"),
           "trip_id,arrival_time,departure_time,stop_id,stop_sequence\n" *
           "R1,08:00:00,08:00:00,S1,1\n" *
@@ -94,12 +98,14 @@ end
         @test gtfs.active_trips == 2
         @test gtfs.mapped_stops == 3
         @test Set(arc.mode for arc in gtfs.arcs) == Set((:bus, :rail))
+        @test length(gtfs.route_edges) == 4
 
         routed = Builder.route_commuters(
             commute, [0.5, 0.4, 0.3], road_arcs, gtfs.arcs;
             road_interiority_share=1e-8)
         @test routed.balance_error < 1e-12
         @test routed.fallback_to_road == 0
+        @test routed.transit_assignment_error < 1e-12
         @test routed.routed_transit ≈ routed.requested_transit atol=1e-12 rtol=0
         @test all(get(routed.flows, (arc.origin, arc.destination, :road), 0.0) > 0
                   for arc in road_arcs)
@@ -110,6 +116,12 @@ end
         Builder.write_nodes(joinpath(data, "nodes.csv"), nodes, routed)
         Builder.write_edge_modes(
             joinpath(data, "edge_modes.csv"), routed, road_arcs, gtfs.arcs)
+        bundle_summary = Builder.write_route_bundles(
+            joinpath(data, "route_bundles.csv"), gtfs.route_edges, routed)
+        @test bundle_summary.bundles == 2
+        @test bundle_summary.rows == 4
+        @test bundle_summary.excluded_incomplete_bundles == 0
+        @test bundle_summary.complete_bundle_share == 1.0
         modes = sort!(unique(key[3] for key in keys(routed.flows));
                       by=mode -> (mode == :road ? "" : String(mode)))
         Builder.write_config(joinpath(output, "config.toml"), modes; eta=1.4)
@@ -118,6 +130,17 @@ end
         @test report.valid
         @test report.stock_disagreement < 1e-12
         @test report.modes == ["road", "bus", "rail"]
+
+        Builder.write_config(
+            joinpath(output, "config_bus.toml"), modes; eta=1.099,
+            policy_mode=:bus, policy_unit=:directed_arc,
+            output_directory="output_bus")
+        bus_project = load_project(joinpath(output, "config_bus.toml"))
+        @test bus_project.policy.mode == :bus
+        @test bus_project.policy.unit == :directed_arc
+        entries = filter(entry -> entry.mode == :bus,
+            load_policy_bundles(joinpath(data, "route_bundles.csv")))
+        @test !isempty(bundle_welfare_effects(build_model(bus_project), entries))
     end
 end
 

@@ -85,6 +85,23 @@ julia --project=/path/to/TransportNetworkWelfare.jl \
 
 Validation checks schemas, identifiers, congestion-mode names, units, flow accounting, modal interiority, route contraction, policy pairing, and basic model regularity. It reports the approximate memory required by the dense fixed-route incidence object. `analyze` builds only the flexible full-model welfare closure. `decompose` additionally constructs the fixed-mode and fixed-route closures and is intended for moderate networks; its route-incidence memory grows as ``8N^2E`` bytes. The output directory is resolved relative to `config.toml`.
 
+## Coordinated policy bundles
+
+Sparse policy bundles combine directed primitive-cost derivatives without
+re-solving the equilibrium:
+
+```julia
+entries = load_policy_bundles("route_bundles.csv")
+results = bundle_welfare_effects(model, entries)
+```
+
+The CSV requires `bundle_id`, `edge_id`, `mode`, and a finite positive
+`weight`. A model-level evaluation requires one mode matching the project's
+policy mode. Duplicate components, missing edge-mode pairs, mixed modes, and
+invalid weights fail before aggregation. A unit weight applies the configured
+proportional primitive-cost shock to that edge-mode. The bundle elasticity is
+the exact first-order weighted sum of its component elasticities.
+
 For very large networks that use only edge-local congestion, run
 `analyze-edge-local`. It constructs the Proposition-2 Jacobian as a sparse core
 plus exact low-rank equilibrium terms and avoids route-incidence matrices. It

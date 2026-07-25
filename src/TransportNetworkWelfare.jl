@@ -26,6 +26,7 @@ include("SharedTransport.jl")
 include("UrbanEngine.jl")
 include("UrbanNonlinear.jl")
 include("Analysis.jl")
+include("PolicyBundles.jl")
 include("EdgeLocalEngine.jl")
 include("Sensitivity.jl")
 include("Output.jl")
@@ -37,9 +38,11 @@ export AbstractCongestionSpecification, NoCongestion, EdgeCongestion
 export EndpointTerminalCongestion, CompositeCongestion
 export AbstractRouteCurvature, TheoremRouteCurvature, IndependentRouteCurvature
 export Project, TransportModel, WelfareResults, DecompositionResults
+export PolicyBundleEntry
 export load_project, validate, build_model, welfare_effects
 export edge_local_welfare_effects
 export decompose_welfare, sensitivity_path, write_results, main
+export load_policy_bundles, bundle_welfare_effects
 export initialize_project
 export urban_finite_difference
 export urban_multimodal_finite_difference

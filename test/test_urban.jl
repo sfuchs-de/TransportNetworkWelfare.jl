@@ -133,6 +133,12 @@ end
     @test any(abs(row.d_terminal) > 1e-6 for row in result.directed)
     @test any(abs(row.d_mode) > 1e-6 for row in result.directed)
     @test any(abs(row.d_route) > 1e-6 for row in result.directed)
+    sensitivity = sensitivity_path(
+        TNW.build_welfare_model(project), :eta, [1.0, project.modal.eta])
+    @test length(sensitivity) == 2
+    @test all(row.verified for row in sensitivity)
+    @test all(row.aggregation_level == "physical_link" for row in sensitivity)
+    @test all(isfinite(row.mean_policy_elasticity) for row in sensitivity)
     mktempdir() do first
         mktempdir() do second
             first_paths = write_results(result, first; project)

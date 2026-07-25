@@ -8,6 +8,7 @@ grid_block_group_crosswalk_sha256 = "48f23cb82ddd1dba85f376a9f5868dda13364efcfbc
 expected_nodes = 217
 expected_road_arcs = 1384
 expected_road_links = 692
+terms = "Replication source; redistribution of the source archive is not asserted by this package."
 
 [acs_2017]
 dataset = "2017/acs/acs5"
@@ -16,6 +17,7 @@ variables = ["NAME", "B08301_001E", "B08301_010E"]
 total_variable = "B08301_001E"
 public_transit_variable = "B08301_010E"
 endpoint_without_key = "https://api.census.gov/data/2017/acs/acs5?get=NAME,B08301_001E,B08301_010E&for=block%20group:*&in=state:53%20county:033"
+terms = "U.S. Census Bureau public data."
 
 [king_county_gtfs_2017]
 feed_onestop_id = "f-c23-metrokingcounty"
@@ -26,12 +28,21 @@ service_end = "2017-09-22"
 original_url = "http://metro.kingcounty.gov/GTFS/google_transit.zip"
 archive_page = "https://www.transit.land/feeds/f-c23-metrokingcounty/versions/ad172e653aa881557a5f3cb84f2ace6819308600"
 attribution = "Transit scheduling and geographic data provided by permission of King County."
+terms = "King County GTFS terms and attribution apply; raw feed data are not redistributed."
+download_endpoint = "https://transit.land/api/v2/rest/feed_versions/ad172e653aa881557a5f3cb84f2ace6819308600/download"
+expected_agencies = 4
+expected_routes = 223
+expected_stops = 7718
+expected_trips = 33837
+expected_shapes = 442686
+expected_stop_times = 1193603
 
 [king_county_gtfs_2017.files]
 "agency.txt" = "bfaf3f8649f9617c8135e5194e0ba01405d2cf6f"
 "calendar.txt" = "fb0983abf06af87d8f7a978d7d03355b8c30cfee"
 "calendar_dates.txt" = "c39a92e819c694a90d4f89d611099d99893246f2"
 "routes.txt" = "7acad410f39fbf9560b3e6c6e9bf06f277727c41"
+"shapes.txt" = "fff09ca563d029f1709a053553e2dab6233747be"
 "stop_times.txt" = "42c822caea7f53094ff57ea094d4821c8f3de08e"
 "stops.txt" = "8ed4bd592eb170b4e88f1dcb5eed4cd04577bb1d"
 "trips.txt" = "67be499924adc25329749bf8a7fcf85c1c6dfe2f"
@@ -40,3 +51,19 @@ attribution = "Transit scheduling and geographic data provided by permission of 
 url = "https://cdn.kingcounty.gov/-/media/king-county/depts/metro/documents/about/data-and-reports/2017/2017-system-evaluation.pdf?hash=9CA512CEE97DEA922CDC19A1B2488D57&rev=1bc3f6e7caf2463393b753d6f03a6449"
 sha256 = "f5377e45d1ea1d7ede1c2ab936ac95be77fb129d7c8edf8d1328d07fb52e875e"
 role = "route-level ridership and passenger-load validation target; not an OD-to-route allocation input"
+terms = "Public King County report; the raw PDF is not redistributed."
+
+[census_tiger_2017.place]
+url = "https://www2.census.gov/geo/tiger/TIGER2017/PLACE/tl_2017_53_place.zip"
+sha256 = "fb07a17bf58bfc212fde9cd506720e2ae73a5f309dc08d982d136784f49d5f79"
+terms = "U.S. Census Bureau TIGER/Line public data."
+
+[census_tiger_2017.area_water]
+url = "https://www2.census.gov/geo/tiger/TIGER2017/AREAWATER/tl_2017_53033_areawater.zip"
+sha256 = "0008435ff135342b4c43b5fe84d470107396437f4f9371b3d27ec9a78636504b"
+terms = "U.S. Census Bureau TIGER/Line public data."
+
+[census_tiger_2017.county]
+url = "https://www2.census.gov/geo/tiger/TIGER2017/COUNTY/tl_2017_us_county.zip"
+sha256 = "0417e7ca7bb678e64221336f426fdd361d7ed8bb6f57dad9d85d446aa36df593"
+terms = "U.S. Census Bureau TIGER/Line public data."

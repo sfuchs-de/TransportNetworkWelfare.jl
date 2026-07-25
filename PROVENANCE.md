@@ -37,9 +37,20 @@ URLs, and the King County attribution are recorded in
 `examples/seattle_multimodal/sources.toml`.
 
 The official 2017 King County Metro System Evaluation is pinned as a
-route-level validation source. It is not used to infer OD-to-route ridership.
-The builder stores only hashes and generated aggregate diagnostics; raw GTFS,
-ACS responses, and the Allen-Arkolakis archive remain outside Git.
+route-level validation source. A deterministic `pdftotext -layout` parser
+extracts its Fall 2016 weekday route-ridership table and records the Poppler
+version and output hash. The table is not used to infer OD-to-route ridership.
+The Seattle map background uses hash-pinned 2017 Census TIGER place, King
+County area-water, and county files. The acquisition command verifies the full
+GTFS archive and every relied-on table, while the model builder records only
+hashes and generated diagnostics. Raw GTFS, ACS responses, geographic files,
+and the Allen-Arkolakis archive remain outside Git.
+
+Named route results are sparse bundles of edge-mode derivatives. Their
+incidence comes from the pinned GTFS trip and stop sequences. They represent a
+uniform improvement to the aggregate mode cost along a named route's mapped
+corridor, not route-exclusive passenger assignment on segments shared by
+multiple services.
 
 ## Census port-trade extension
 

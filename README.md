@@ -65,6 +65,9 @@ welfare = welfare_effects(model)
 components = decompose_welfare(model)
 sensitivity = sensitivity_path(model, :alpha, [0.06, 0.10, 0.14])
 write_results(welfare, "output/"; project)
+
+bundles = load_policy_bundles("route_bundles.csv")
+route_effects = bundle_welfare_effects(model, bundles)
 ```
 
 ## Command line interface

@@ -377,14 +377,45 @@ function read_gtfs_network(root::AbstractString, nodes;
     isfinite(wait_weight) && wait_weight >= 0 ||
         throw(ArgumentError("wait_weight must be finite and nonnegative"))
     sources = verify_gtfs_sources(root; manifest_path, verify)
+    source_counts = Dict(
+        "agencies" => countlines(sources.paths["agency.txt"])-1,
+        "routes" => countlines(sources.paths["routes.txt"])-1,
+        "stops" => countlines(sources.paths["stops.txt"])-1,
+        "trips" => countlines(sources.paths["trips.txt"])-1,
+        "shapes" => countlines(sources.paths["shapes.txt"])-1,
+        "stop_times" => countlines(sources.paths["stop_times.txt"])-1,
+    )
+    if verify
+        for (name, field) in (
+            "agencies" => "expected_agencies",
+            "routes" => "expected_routes",
+            "stops" => "expected_stops",
+            "trips" => "expected_trips",
+            "shapes" => "expected_shapes",
+            "stop_times" => "expected_stop_times",
+        )
+            source_counts[name] == Int(sources.specification[field]) ||
+                throw(ArgumentError(
+                    "2017 GTFS $name count mismatch: expected " *
+                    "$(sources.specification[field]), observed $(source_counts[name])"))
+        end
+    end
     services = active_services(sources.paths, service_date)
 
     route_modes = Dict{String,Symbol}()
     route_names = Dict{String,String}()
+    route_agencies = Dict{String,String}()
     for row in CSV.File(sources.paths["routes.txt"]; normalizenames=false)
         route = string(getproperty(row, :route_id))
         route_modes[route] = transit_mode(getproperty(row, :route_type))
-        route_names[route] = string(getproperty(row, :route_short_name))
+        short_name = getproperty(row, :route_short_name)
+        route_names[route] = short_name === missing ||
+                             isempty(strip(string(short_name))) ?
+                             route : string(short_name)
+        agency = :agency_id in propertynames(row) ?
+                 getproperty(row, :agency_id) : missing
+        route_agencies[route] =
+            agency === missing ? "" : string(agency)
     end
     trips = Dict{String,NamedTuple}()
     for row in CSV.File(sources.paths["trips.txt"]; normalizenames=false)
@@ -414,6 +445,7 @@ function read_gtfs_network(root::AbstractString, nodes;
     end
 
     connections = Dict{Tuple{Int,Int,Symbol},ConnectionStats}()
+    route_connections = Dict{Tuple{String,Int,Int,Symbol},Int}()
     previous = Dict{String,NamedTuple}()
     minimum_time = typemax(Int)
     maximum_time = typemin(Int)
@@ -443,6 +475,9 @@ function read_gtfs_network(root::AbstractString, nodes;
             stats.total_seconds += elapsed
             stats.count += 1
             push!(stats.routes, route_names[info.route])
+            route_key = (info.route, prior.node, node, info.mode)
+            route_connections[route_key] =
+                get(route_connections, route_key, 0)+1
         end
         previous[trip] = (; node, departure, sequence)
     end
@@ -459,11 +494,28 @@ function read_gtfs_network(root::AbstractString, nodes;
                     service_count=stats.count, route_count=length(stats.routes)))
     end
     sort!(arcs; by=a -> (a.origin, a.destination, String(a.mode)))
+    route_edges = NamedTuple[]
+    for ((route, origin, destination, mode), service_count) in route_connections
+        push!(route_edges, (;
+            bundle_id="route:$route",
+            route_id=route,
+            route_name=route_names[route],
+            agency_id=route_agencies[route],
+            mode,
+            origin,
+            destination,
+            service_count,
+        ))
+    end
+    sort!(route_edges; by=row ->
+        (String(row.mode), row.route_name, row.route_id, row.origin, row.destination))
     return (; arcs, source_hashes=sources.hashes,
             feed_version=String(sources.specification["feed_version_sha1"]),
+            source_counts,
             service_date=string(service_date), active_services=length(services),
             active_trips=length(trips), active_stop_times, mapped_stops,
             total_stops=length(stop_nodes), mapped_connections=length(arcs),
+            route_edges,
             service_window_seconds=service_window,
             max_snap_km=Float64(max_snap_km), wait_weight=Float64(wait_weight))
 end
@@ -552,6 +604,9 @@ function route_commuters(commute::AbstractMatrix, transit_shares,
     requested_transit = 0.0
     routed_transit = 0.0
     fallback_to_road = 0.0
+    requested_by_origin = zeros(N)
+    routed_by_origin = zeros(N)
+    fallback_by_origin = zeros(N)
     local_commuters = sum(commute[i, i] for i in 1:N)
     for origin in 1:N
         road_tree = shortest_path_tree(road_graph, origin)
@@ -562,12 +617,15 @@ function route_commuters(commute::AbstractMatrix, transit_shares,
             mass == 0 && continue
             transit_mass = mass*transit_shares[origin]
             requested_transit += transit_mass
+            requested_by_origin[origin] += transit_mass
             if transit_mass > 0 && isfinite(transit_tree.distances[destination])
                 add_path_flow!(
                     flows, transit_tree, origin, destination, transit_mass)
                 routed_transit += transit_mass
+                routed_by_origin[origin] += transit_mass
             else
                 fallback_to_road += transit_mass
+                fallback_by_origin[origin] += transit_mass
                 transit_mass = 0.0
             end
             road_mass = mass-transit_mass
@@ -598,8 +656,12 @@ function route_commuters(commute::AbstractMatrix, transit_shares,
         divergence[j] -= flow
     end
     balance_error = maximum(abs.(divergence .- (residents-employment)))
+    transit_assignment_error = maximum(abs.(
+        requested_by_origin .- routed_by_origin .- fallback_by_origin))
     return (; flows, residents, employment, balance_error,
             requested_transit, routed_transit, fallback_to_road,
+            requested_by_origin, routed_by_origin, fallback_by_origin,
+            transit_assignment_error,
             local_commuters, road_interiority_share=Float64(road_interiority_share),
             road_floor_per_arc=floor_per_arc)
 end
@@ -669,8 +731,69 @@ function write_edge_modes(path, routed, road_arcs, transit_arcs)
     end
 end
 
+function write_route_bundles(path, route_edges, routed)
+    active = Set(key for (key, flow) in routed.flows if flow > 0)
+    source_by_bundle = Dict{String,Vector{NamedTuple}}()
+    for row in route_edges
+        push!(get!(source_by_bundle, row.bundle_id, NamedTuple[]), row)
+    end
+    complete_bundles = Set(
+        bundle for (bundle, rows) in source_by_bundle
+        if all((row.origin, row.destination, row.mode) in active for row in rows))
+    retained = [row for row in route_edges if row.bundle_id in complete_bundles]
+    isempty(retained) &&
+        throw(ArgumentError(
+            "no complete GTFS route corridor lies on the active transit-flow support"))
+    open(path, "w") do io
+        println(io, join((
+            "bundle_id", "edge_id", "mode", "weight", "route_id",
+            "route_name", "agency_id", "origin", "destination", "service_count",
+        ), ','))
+        for row in retained
+            values = (
+                row.bundle_id,
+                "$(row.origin)_$(row.destination)",
+                String(row.mode),
+                1.0,
+                row.route_id,
+                row.route_name,
+                row.agency_id,
+                row.origin,
+                row.destination,
+                row.service_count,
+            )
+            println(io, join(TransportNetworkWelfare.csv_escape.(values), ','))
+        end
+    end
+    bundles = unique(row.bundle_id for row in retained)
+    return (; rows=length(retained), bundles=length(bundles),
+            source_rows=length(route_edges),
+            source_bundles=length(source_by_bundle),
+            excluded_incomplete_bundles=
+                length(source_by_bundle)-length(complete_bundles),
+            complete_bundle_share=
+                length(complete_bundles)/length(source_by_bundle))
+end
+
+function write_fallback_by_origin(path, routed)
+    open(path, "w") do io
+        println(io, "origin,requested_transit,routed_transit,fallback_to_road,fallback_share")
+        for origin in eachindex(routed.requested_by_origin)
+            requested = routed.requested_by_origin[origin]
+            fallback = routed.fallback_by_origin[origin]
+            share = requested > 0 ? fallback/requested : 0.0
+            @printf(io, "%d,%.17g,%.17g,%.17g,%.17g\n",
+                origin, requested, routed.routed_by_origin[origin], fallback, share)
+        end
+    end
+    return path
+end
+
 function write_config(path, modes; eta::Real,
-                      terminal_lambda::Union{Nothing,Real}=nothing)
+                      terminal_lambda::Union{Nothing,Real}=nothing,
+                      policy_mode::Symbol=:road,
+                      policy_unit::Symbol=:both,
+                      output_directory::AbstractString="output")
     isfinite(eta) && eta > 0 ||
         throw(ArgumentError("eta must be finite and positive"))
     if terminal_lambda !== nothing
@@ -678,6 +801,10 @@ function write_config(path, modes; eta::Real,
             throw(ArgumentError("terminal_lambda must be finite and nonnegative"))
     end
     transit_modes = [mode for mode in modes if mode != :road]
+    policy_mode in modes ||
+        throw(ArgumentError("policy mode $policy_mode is absent from generated modes"))
+    policy_unit in (:directed_arc, :physical_link, :both) ||
+        throw(ArgumentError("invalid policy unit $policy_unit"))
     open(path, "w") do io
         println(io, "schema_version = 1")
         println(io, "name = \"seattle-2017-multimodal-urban-candidate\"")
@@ -722,15 +849,18 @@ function write_config(path, modes; eta::Real,
         end
         println(io)
         println(io, "[policy]")
-        println(io, "mode = \"road\"")
-        println(io, "unit = \"both\"")
+        println(io, "mode = \"$(String(policy_mode))\"")
+        println(io, "unit = \"$(String(policy_unit))\"")
         println(io, "shock_fraction = 0.01")
         println(io)
         println(io, "[output]")
-        println(io, "directory = \"output\"")
+        println(io, "directory = \"$output_directory\"")
+        println(io)
+        println(io, "[sensitivity]")
+        println(io, "eta = [0.75, 0.90, 1.099, 1.25, 1.40]")
         println(io)
         println(io, "[diagnostics]")
-        println(io, "tolerance = 1.0e-9")
+        println(io, "tolerance = 1.0e-10")
         println(io, "condition_limit = 1.0e12")
     end
     return path
@@ -756,25 +886,72 @@ function build_example(aa_root::AbstractString, gtfs_root::AbstractString,
         manifest_path, verify=verify_gtfs)
     routed = route_commuters(
         commute, shares.shares, road_arcs, gtfs.arcs; road_interiority_share)
-    routed.balance_error <= 1e-8*sum(commute) || throw(ArgumentError(
+    routed.balance_error <= 1e-10*max(sum(commute), 1.0) || throw(ArgumentError(
         "routed commuter flows fail flow conservation by $(routed.balance_error)"))
+    routed.transit_assignment_error <= 1e-10*max(routed.requested_transit, 1.0) ||
+        throw(ArgumentError(
+            "transit assignment accounting error is $(routed.transit_assignment_error)"))
+    fallback_share = routed.requested_transit > 0 ?
+                     routed.fallback_to_road/routed.requested_transit : 0.0
+    fallback_share <= 0.05 || throw(ArgumentError(
+        "transit fallback share $(100*fallback_share)% exceeds the five-percent gate"))
 
     data = joinpath(output, "data")
     mkpath(data)
     nodes_path = joinpath(data, "nodes.csv")
     edges_path = joinpath(data, "edge_modes.csv")
+    bundles_path = joinpath(data, "route_bundles.csv")
+    fallback_path = joinpath(data, "transit_fallback_by_origin.csv")
     config_path = joinpath(output, "config.toml")
     write_nodes(nodes_path, nodes, routed)
     write_edge_modes(edges_path, routed, road_arcs, gtfs.arcs)
+    bundle_summary = write_route_bundles(bundles_path, gtfs.route_edges, routed)
+    write_fallback_by_origin(fallback_path, routed)
     modes = sort!(unique(key[3] for key in keys(routed.flows));
                   by=mode -> (mode == :road ? "" : String(mode)))
     first(modes) == :road ||
         throw(ArgumentError("generated mode order must start with road"))
+    required_modes = Set((:road, :bus, :rail, :ferry))
+    required_modes ⊆ Set(modes) || throw(ArgumentError(
+        "the exact Seattle exercise requires road, bus, rail, and ferry; " *
+        "observed $(join(String.(modes), ", "))"))
     write_config(config_path, modes; eta, terminal_lambda)
+    config_paths = Dict(:road => config_path)
+    for mode in (:bus, :rail, :ferry)
+        path = joinpath(output, "config_$(String(mode)).toml")
+        write_config(path, modes; eta, terminal_lambda, policy_mode=mode,
+                     policy_unit=:directed_arc,
+                     output_directory="output_$(String(mode))")
+        config_paths[mode] = path
+    end
 
-    validation = TransportNetworkWelfare.validate(
-        TransportNetworkWelfare.load_project(config_path))
-    validation.valid || throw(ArgumentError("generated Seattle project is invalid"))
+    validations = Dict{String,Any}()
+    for (mode, path) in config_paths
+        report = TransportNetworkWelfare.validate(
+            TransportNetworkWelfare.load_project(path))
+        report.valid || throw(ArgumentError(
+            "generated Seattle project is invalid for policy mode $mode"))
+        maximum((
+            report.stock_disagreement,
+            report.route_absorption_error,
+            report.route_bilateral_row_error,
+            report.route_bilateral_column_error,
+            report.route_edge_error,
+        )) <= 1e-10 || throw(ArgumentError(
+            "generated Seattle project exceeds the 1e-10 accounting gate " *
+            "for policy mode $mode"))
+        validations[String(mode)] = report
+    end
+    validation = validations["road"]
+    generated_hashes = Dict(
+        "nodes.csv" => sha256_file(nodes_path),
+        "edge_modes.csv" => sha256_file(edges_path),
+        "route_bundles.csv" => sha256_file(bundles_path),
+        "transit_fallback_by_origin.csv" => sha256_file(fallback_path),
+    )
+    for (mode, path) in config_paths
+        generated_hashes[basename(path)] = sha256_file(path)
+    end
     manifest = Dict{String,Any}(
         "specification_status" => "candidate",
         "verification_status" => "data_and_accounting_contract_passed",
@@ -785,16 +962,14 @@ function build_example(aa_root::AbstractString, gtfs_root::AbstractString,
             "gtfs_files_sha1" => gtfs.source_hashes,
             "gtfs_feed_version_sha1" => gtfs.feed_version,
         ),
-        "generated_hashes" => Dict(
-            "nodes.csv" => sha256_file(nodes_path),
-            "edge_modes.csv" => sha256_file(edges_path),
-            "config.toml" => sha256_file(config_path),
-        ),
+        "generated_hashes" => generated_hashes,
         "nodes" => length(nodes.ids),
         "road_arcs_available" => length(road_arcs),
         "road_links_available" => 692,
         "generated_directed_edges" => validation.directed_edges,
         "generated_active_edge_modes" => validation.active_edge_modes,
+        "policy_configurations" =>
+            Dict(String(mode) => relpath(path, output) for (mode, path) in config_paths),
         "modes" => String.(modes),
         "total_commuters" => sum(commute),
         "local_commuters" => routed.local_commuters,
@@ -810,9 +985,17 @@ function build_example(aa_root::AbstractString, gtfs_root::AbstractString,
             "service_date" => gtfs.service_date,
             "active_services" => gtfs.active_services,
             "active_trips" => gtfs.active_trips,
+            "source_counts" => gtfs.source_counts,
             "mapped_stops" => gtfs.mapped_stops,
             "total_stops" => gtfs.total_stops,
             "mapped_connections" => gtfs.mapped_connections,
+            "route_bundle_rows" => bundle_summary.rows,
+            "route_bundles" => bundle_summary.bundles,
+            "route_source_rows" => bundle_summary.source_rows,
+            "route_source_bundles" => bundle_summary.source_bundles,
+            "route_excluded_incomplete_bundles" =>
+                bundle_summary.excluded_incomplete_bundles,
+            "route_complete_bundle_share" => bundle_summary.complete_bundle_share,
             "max_snap_km" => gtfs.max_snap_km,
             "wait_weight" => gtfs.wait_weight,
         ),
@@ -820,6 +1003,8 @@ function build_example(aa_root::AbstractString, gtfs_root::AbstractString,
             "requested_nonlocal_transit_commuters" => routed.requested_transit,
             "routed_transit_commuters" => routed.routed_transit,
             "transit_fallback_to_road" => routed.fallback_to_road,
+            "transit_fallback_share" => fallback_share,
+            "transit_assignment_error" => routed.transit_assignment_error,
             "flow_balance_error" => routed.balance_error,
             "road_interiority_share" => routed.road_interiority_share,
             "road_floor_per_arc" => routed.road_floor_per_arc,
@@ -829,7 +1014,10 @@ function build_example(aa_root::AbstractString, gtfs_root::AbstractString,
                 sources.paths["nodes"], sources.paths["adjacency"]),
         "calibration" => Dict(
             "alpha" => -0.12, "beta" => -0.10, "theta" => 6.83,
-            "eta" => Float64(eta), "eta_status" => "user_supplied_candidate",
+            "eta" => Float64(eta),
+            "eta_status" =>
+                eta == 1.099 ? "transferred_economic_geography_baseline" :
+                "user_supplied_candidate",
             "road_congestion" => ROAD_CONGESTION,
             "terminal_congestion" =>
                 terminal_lambda === nothing ? missing : Float64(terminal_lambda),
@@ -867,10 +1055,20 @@ function option(args, name; default=nothing)
 end
 
 function main(args=ARGS)
+    data_root = option(args, "--data-root";
+        default=get(ENV, "SEATTLE_TRANSIT_DATA_ROOT", ""))
+    default_aa = isempty(data_root) ? "" :
+        joinpath(data_root, "raw", "allen_arkolakis", "extracted",
+                 "ReplicationFinal")
+    default_gtfs = isempty(data_root) ? "" :
+        joinpath(data_root, "raw", "king_county_gtfs_2017", "extracted")
+    default_acs = isempty(data_root) ?
+        joinpath(EXAMPLE_ROOT, "raw", "acs_2017_king_county_b08301.json") :
+        joinpath(data_root, "raw", "acs", "acs_2017_king_county_b08301.json")
     aa_root = option(args, "--aa-root";
-        default=get(ENV, "AA_REPLICATION_ROOT", ""))
+        default=get(ENV, "AA_REPLICATION_ROOT", default_aa))
     gtfs_root = option(args, "--gtfs-root";
-        default=get(ENV, "SEATTLE_GTFS_2017_ROOT", ""))
+        default=get(ENV, "SEATTLE_GTFS_2017_ROOT", default_gtfs))
     isempty(aa_root) && throw(ArgumentError(
         "set AA_REPLICATION_ROOT or pass --aa-root"))
     isempty(gtfs_root) && throw(ArgumentError(
@@ -882,7 +1080,7 @@ function main(args=ARGS)
     output = abspath(option(args, "--output";
         default=joinpath(EXAMPLE_ROOT, "generated")))
     acs_path = abspath(option(args, "--acs";
-        default=joinpath(EXAMPLE_ROOT, "raw", "acs_2017_king_county_b08301.json")))
+        default=default_acs))
     if !isfile(acs_path)
         "--offline" in args && throw(ArgumentError(
             "cached ACS response is missing in offline mode: $acs_path"))
