@@ -1,0 +1,42 @@
+[allen_arkolakis_replication]
+url = "https://dl.dropbox.com/s/mmux9ys035xi6iu/RESTUD26454_Replication.zip"
+archive_sha256 = "87c43d59be197c38c657625aca53cd3b5cfba19ec7177b8bcd3813e10b3429e1"
+nodes_sha256 = "be2e30db8e32890e939a7f1e6fe5f6f893e7140ecac74fd2ddec41d83684796f"
+adjacency_sha256 = "c8264f6e94c9a87084313cca19f297ebafc7253bb1b3ed054c7f6c079ffc47d7"
+commute_sha256 = "f8386574c7526e9df5a920369831efddce0b3318b0b0dfb63ce593527350c6cd"
+grid_block_group_crosswalk_sha256 = "48f23cb82ddd1dba85f376a9f5868dda13364efcfbc100d1d1840f4af06d8d94"
+expected_nodes = 217
+expected_road_arcs = 1384
+expected_road_links = 692
+
+[acs_2017]
+dataset = "2017/acs/acs5"
+geography = "block group:* in state:53 county:033"
+variables = ["NAME", "B08301_001E", "B08301_010E"]
+total_variable = "B08301_001E"
+public_transit_variable = "B08301_010E"
+endpoint_without_key = "https://api.census.gov/data/2017/acs/acs5?get=NAME,B08301_001E,B08301_010E&for=block%20group:*&in=state:53%20county:033"
+
+[king_county_gtfs_2017]
+feed_onestop_id = "f-c23-metrokingcounty"
+feed_version_sha1 = "ad172e653aa881557a5f3cb84f2ace6819308600"
+fetched_at = "2017-06-14T22:30:15.428864Z"
+service_start = "2017-06-08"
+service_end = "2017-09-22"
+original_url = "http://metro.kingcounty.gov/GTFS/google_transit.zip"
+archive_page = "https://www.transit.land/feeds/f-c23-metrokingcounty/versions/ad172e653aa881557a5f3cb84f2ace6819308600"
+attribution = "Transit scheduling and geographic data provided by permission of King County."
+
+[king_county_gtfs_2017.files]
+"agency.txt" = "bfaf3f8649f9617c8135e5194e0ba01405d2cf6f"
+"calendar.txt" = "fb0983abf06af87d8f7a978d7d03355b8c30cfee"
+"calendar_dates.txt" = "c39a92e819c694a90d4f89d611099d99893246f2"
+"routes.txt" = "7acad410f39fbf9560b3e6c6e9bf06f277727c41"
+"stop_times.txt" = "42c822caea7f53094ff57ea094d4821c8f3de08e"
+"stops.txt" = "8ed4bd592eb170b4e88f1dcb5eed4cd04577bb1d"
+"trips.txt" = "67be499924adc25329749bf8a7fcf85c1c6dfe2f"
+
+[king_county_metro_2017_system_evaluation]
+url = "https://cdn.kingcounty.gov/-/media/king-county/depts/metro/documents/about/data-and-reports/2017/2017-system-evaluation.pdf?hash=9CA512CEE97DEA922CDC19A1B2488D57&rev=1bc3f6e7caf2463393b753d6f03a6449"
+sha256 = "f5377e45d1ea1d7ede1c2ab936ac95be77fb129d7c8edf8d1328d07fb52e875e"
+role = "route-level ridership and passenger-load validation target; not an OD-to-route allocation input"

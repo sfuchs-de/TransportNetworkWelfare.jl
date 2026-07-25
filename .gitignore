@@ -22,5 +22,7 @@ examples/sioux_falls/generated/
 examples/sioux_falls/output-efficient/
 examples/sioux_falls/output-extended/
 examples/seattle_urban/generated/
+examples/seattle_multimodal/raw/
+examples/seattle_multimodal/generated/
 examples/westeros_urban/generated/
 examples/urban_toy/output/

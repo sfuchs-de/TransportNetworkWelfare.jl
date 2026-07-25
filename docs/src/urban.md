@@ -145,10 +145,19 @@ independently solved nonlinear equilibrium under `NC`, `NT`, `F`, `FM`, and
 zero-congestion limits, along with mode permutation and strict accounting
 failures.
 
-The synthetic example is in `examples/urban_multimodal`. Seattle GTFS and
-ridership integration is a later empirical step. The existing Seattle adapter
-remains a one-mode replication interface until a documented modal calibration
-and balancing transformation are supplied.
+The synthetic example is in `examples/urban_multimodal`. The empirical
+candidate in `examples/seattle_multimodal` uses the same transport block with
+2017 LODES OD commuters, ACS origin transit shares, and a hash-pinned June 2017
+King County GTFS network. It routes a common commuter population to produce
+model-consistent road and transit edge flows. This differs from the historical
+`examples/seattle_urban` adapter, which preserves HPMS AADT and therefore does
+not pass the strict LODES flow-accounting gate.
+
+The multimodal candidate is not an estimated Seattle transit model. GTFS
+provides schedules and paths, not passenger counts; ACS identifies residential
+mode shares, not route choices; and the modal elasticity remains user supplied.
+The builder reports these limits and fails closed if the historical feed or
+source hashes do not match.
 
 Sources: [Allen and Arkolakis paper](https://par.nsf.gov/servlets/purl/10383104),
 [replication archive](https://dl.dropbox.com/s/mmux9ys035xi6iu/RESTUD26454_Replication.zip).

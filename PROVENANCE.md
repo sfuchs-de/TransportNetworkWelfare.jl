@@ -26,6 +26,21 @@ Historical lineage is available in the private repositories `sfuchs-de/RSUE_AFW_
 
 The RSUE manuscript remains in Overleaf. Restricted data remain outside Git and are located through `RSUE_DATA_ROOT`. No manuscript source or restricted input is vendored here.
 
+## Seattle multimodal candidate
+
+The published Allen-Arkolakis Seattle inputs are retained outside Git. The
+candidate multimodal adapter relies on the 2017 LODES OD matrix and grid
+crosswalk in that archive, 2017 ACS five-year table B08301, and King County
+Metro GTFS feed version
+`ad172e653aa881557a5f3cb84f2ace6819308600`. Relied-on file hashes, dates,
+URLs, and the King County attribution are recorded in
+`examples/seattle_multimodal/sources.toml`.
+
+The official 2017 King County Metro System Evaluation is pinned as a
+route-level validation source. It is not used to infer OD-to-route ridership.
+The builder stores only hashes and generated aggregate diagnostics; raw GTFS,
+ACS responses, and the Allen-Arkolakis archive remain outside Git.
+
 ## Census port-trade extension
 
 The candidate port-trade adapter uses public monthly Census International Trade API aggregates. Its downloader and crosswalk design were adapted from an audited private discussion-simulation pipeline. The source is provenance only and is not a runtime dependency.

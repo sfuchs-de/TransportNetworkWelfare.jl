@@ -4,11 +4,13 @@
 
 `examples/urban_toy` is the self-contained one-mode Allen-Arkolakis regression
 fixture. `examples/urban_multimodal` adds road and transit, alternative routes,
-edge congestion, and terminal congestion. `examples/seattle_urban` converts
-the published 217-location Seattle inputs after verifying their hashes. The
-Seattle source archive remains external to Git.
+edge congestion, and terminal congestion. `examples/seattle_urban` diagnoses
+the published 217-location Seattle inputs after verifying their hashes.
+`examples/seattle_multimodal` constructs a separate candidate from LODES
+commuters, ACS commute-mode shares, and historical GTFS service. The Seattle
+sources remain external to Git.
 
-The repository includes eight examples with different purposes. All use the
+The repository includes nine examples with different purposes. All use the
 same public API and TOML schema.
 
 | Example | Purpose | Size | Typical command | External data |
@@ -19,7 +21,8 @@ same public API and TOML schema.
 | `sioux_falls` | Standard traffic-network adaptation with heterogeneous BPR elasticities | 24 nodes, 76 directed edges | `decompose examples/sioux_falls/config_extended.toml` | On-demand academic-use files |
 | `urban_toy` | Allen-Arkolakis residence-workplace IFT and exact-hat checks | 3 nodes, 6 directed edges | `analyze examples/urban_toy/config.toml` | None |
 | `urban_multimodal` | Shared recursive road/transit urban IFT | 4 nodes, 10 directed edges, 20 edge-modes | `decompose examples/urban_multimodal/config.toml` | None |
-| `seattle_urban` | Published urban commuting application | 217 nodes, 1,384 directed edges | `analyze examples/seattle_urban/generated/config.toml` | External replication archive |
+| `seattle_urban` | Published road-input accounting diagnostic | 217 nodes, 1,384 directed road edges | `validate examples/seattle_urban/generated/config.toml` | External replication archive |
+| `seattle_multimodal` | Seattle road/transit candidate on a common commuter population | 217 nodes; generated edge-modes | `analyze examples/seattle_multimodal/generated/config.toml` | Replication archive, ACS API/cache, pinned 2017 GTFS |
 | `westeros_urban` | Synthetic urban application on fictional geography | Generated on demand | `analyze examples/westeros_urban/generated/config.toml` | Public ArcGIS queries |
 
 Replace `decompose ...` above with
@@ -104,13 +107,23 @@ from exogenous productivity and amenity primitives.
 
 ## Seattle urban commuting
 
-The 217-location Seattle replication for [Allen and
+The 217-location Seattle exercise in [Allen and
 Arkolakis](https://academic.oup.com/restud/article-abstract/89/6/2911/6519332)
-uses the package's separate urban closure with residential and workplace
-distributions. Run `examples/seattle_urban/prepare.jl` after setting
-`AA_REPLICATION_ROOT`. The adapter verifies the published hashes and does not
-commit or download the 458 MB source archive. See [Urban commuting
-model](urban.md) for the derivation and model boundary.
+combines 2017 LODES residence/workplace data with 2016 HPMS/HERE road inputs.
+It contains no route-level public-transit network or ridership input. The
+hash-verified `seattle_urban` adapter preserves those inputs as a diagnostic,
+but it fails the strict recursive-flow accounting gate because AADT and LODES
+measure different traffic populations.
+
+The `seattle_multimodal` adapter instead routes the same LODES commuter matrix
+over road and transit networks. Origin transit shares come from 2017 ACS table
+B08301, while the exact June 2017 King County GTFS version supplies service,
+mode labels, and paths. This construction passes the accounting gate by design.
+It is a candidate model rather than a reproduction: GTFS does not contain
+ridership, ACS does not identify routes, and the modal elasticity must be
+supplied explicitly. The builder records transit-path failures, source and
+output hashes, and all transformations. See its README and [Urban commuting
+model](urban.md) for the data contract and model boundary.
 
 ## Westeros urban commuting
 
