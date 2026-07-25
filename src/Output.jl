@@ -124,15 +124,21 @@ function run_manifest(project::Project, diagnostics::AbstractDict, outputs; comm
         "input_hashes" => diagnostics["input_hashes"],
         "transformations" => diagnostics["transformations"],
         "model_variant" => Dict(
+            "spatial_closure" => spatial_name(project.spatial),
             "modal" => modal_name(project.modal),
             "congestion" => string(nameof(typeof(project.congestion))),
             "route_curvature" => "theorem",
+            "route_curvature_value" => project.spatial isa UrbanCommuting ?
+                commuting_theta(project.parameters) : project.parameters.sigma-1,
+            "policy_mode" => String(project.policy.mode),
             "policy_unit" => String(project.policy.unit),
         ),
         "parameters" => Dict(
             "alpha" => project.parameters.alpha,
             "beta" => project.parameters.beta,
             "sigma" => project.parameters.sigma,
+            "theta" => project.spatial isa UrbanCommuting ?
+                commuting_theta(project.parameters) : missing,
             "eta" => project.modal.eta,
             "edge_congestion" => Dict(string(k) => v for (k, v) in edge_lambdas(project.congestion)),
             "edge_congestion_source" => edge_congestion_source(project.congestion),

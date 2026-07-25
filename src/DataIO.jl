@@ -418,9 +418,6 @@ end
 function build_urban_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input_hashes)
     project.spatial isa UrbanCommuting ||
         throw(ArgumentError("urban network builder requires UrbanCommuting"))
-    project.congestion isa NoCongestion || throw(ArgumentError(
-        "urban_commuting includes Allen-Arkolakis congestion through model.lambda; " *
-        "the separate [congestion] block must use specification=none"))
     transforms = declared_urban_transformations(project)
     transforms.normalize_residents ||
         throw(ArgumentError("set input.transformations.normalize_residents=true"))
@@ -428,12 +425,13 @@ function build_urban_network(project::Project, nodes, rows::Vector{EdgeModeRow};
         throw(ArgumentError("set input.transformations.normalize_employment=true"))
     node_index = Dict(id => i for (i, id) in enumerate(nodes.ids))
     validate_edge_metadata(rows, node_index)
+    validate_congestion_modes(project, (row.mode for row in rows))
+    require_terminal_ids(project, rows)
     physical_policy_check(project, rows)
     modes = mode_order(project, rows)
-    length(modes) == 1 || throw(ArgumentError(
-        "the Allen-Arkolakis urban specification currently supports one transport mode"))
-    project.policy.mode == only(modes) ||
-        throw(ArgumentError("urban policy mode must equal the single observed mode"))
+    mode_index = Dict(mode => m for (m, mode) in enumerate(modes))
+    project.policy.mode in modes ||
+        throw(ArgumentError("urban policy mode $(project.policy.mode) is absent"))
 
     residence = nodes.residents ./ sum(nodes.residents)
     workplace = nodes.employment ./ sum(nodes.employment)
@@ -444,24 +442,28 @@ function build_urban_network(project::Project, nodes, rows::Vector{EdgeModeRow};
         row.flow / scale, row.origin_terminal_id, row.destination_terminal_id,
         row.congestion_elasticity,
     ) for row in rows]
-    any(row -> row.congestion_elasticity !== nothing, normalized_rows) && throw(ArgumentError(
-        "urban_commuting does not use edge-specific congestion_elasticity columns"))
 
     N = length(nodes.ids)
-    Xi = spzeros(N, N)
-    edge_rows = Dict{Tuple{Int,Int},EdgeModeRow}()
+    mode_flows = [spzeros(N, N) for _ in modes]
     for row in normalized_rows
-        edge = (node_index[row.origin], node_index[row.destination])
-        Xi[edge...] = row.flow
-        edge_rows[edge] = row
+        i, j, m = node_index[row.origin], node_index[row.destination], mode_index[row.mode]
+        mode_flows[m][i, j] = row.flow
+    end
+    Xi = spzeros(N, N)
+    for flow in mode_flows
+        Xi .+= flow
     end
     dropzeros!(Xi)
     origins, destinations, _ = findnz(Xi)
     edges = sort!(collect(zip(origins, destinations)))
     edge_index = Dict(edge => t for (t, edge) in enumerate(edges))
-    edge_ids = [edge_rows[edge].edge_id for edge in edges]
-    physical_ids = [edge_rows[edge].physical_link_id for edge in edges]
-    mode_flows = [copy(Xi)]
+    rows_by_edge = Dict{Tuple{Int,Int},Vector{EdgeModeRow}}()
+    for row in normalized_rows
+        edge = (node_index[row.origin], node_index[row.destination])
+        push!(get!(rows_by_edge, edge, EdgeModeRow[]), row)
+    end
+    edge_ids = [first(rows_by_edge[edge]).edge_id for edge in edges]
+    physical_ids = [first(rows_by_edge[edge]).physical_link_id for edge in edges]
 
     out_neighbors = [Int[] for _ in 1:N]
     in_neighbors = [Int[] for _ in 1:N]
@@ -472,10 +474,14 @@ function build_urban_network(project::Project, nodes, rows::Vector{EdgeModeRow};
     foreach(sort!, out_neighbors)
     foreach(sort!, in_neighbors)
 
-    # The two openness denominators need not coincide in empirical data because
-    # residence, workplace, and traffic moments are independently observed.
     T_out = workplace .+ vec(sum(Xi; dims=2))
     T_in = residence .+ vec(sum(Xi; dims=1))
+    stock_disagreement = maximum(abs.(T_out .- T_in))
+    stock_disagreement <= project.tolerance || throw(ArgumentError(
+        "urban residence, workplace, and edge flows imply inconsistent recursive stocks " *
+        "(maximum disagreement $stock_disagreement); declare a balancing transformation " *
+        "outside the package before loading the data"))
+    Tnode = T_out
     sx = workplace ./ T_out
     sy = residence ./ T_in
     all((0 .< sx) .& (sx .<= 1)) ||
@@ -489,24 +495,48 @@ function build_urban_network(project::Project, nodes, rows::Vector{EdgeModeRow};
         lam[i, j] = Xi[i, j] / T_in[j]
     end
 
-    s_edges = ones(length(edges), 1)
-    shares = Dict(edge => [1.0] for edge in edges)
+    s_edges = zeros(length(edges), length(modes))
+    shares = Dict{Tuple{Int,Int},Vector{Float64}}()
+    terminal_origin = Dict{Tuple{Int,Int},String}()
+    terminal_destination = Dict{Tuple{Int,Int},String}()
+    pair_edge_congestion = Dict{Tuple{Int,Int},Float64}()
+    active_modes = configured_active_modes(project, modes)
+    for (t, edge) in enumerate(edges)
+        i, j = edge
+        values = [flow[i, j] for flow in mode_flows] ./ Xi[i, j]
+        s_edges[t, :] .= values
+        shares[edge] = collect(values)
+        for row in rows_by_edge[edge]
+            m = mode_index[row.mode]
+            pkey = (t, m)
+            row.origin_terminal_id !== nothing &&
+                (terminal_origin[pkey] = row.origin_terminal_id)
+            row.destination_terminal_id !== nothing &&
+                (terminal_destination[pkey] = row.destination_terminal_id)
+            if row.congestion_elasticity !== nothing
+                row.congestion_elasticity > 0 && !(row.mode in active_modes) &&
+                    throw(ArgumentError(
+                        "edge congestion is positive for inactive mode '$(row.mode)'"))
+                pair_edge_congestion[pkey] = row.congestion_elasticity
+            end
+        end
+    end
+
     policy_rows = [row for row in normalized_rows if row.mode == project.policy.mode]
     policy_edges = sort!([(node_index[row.origin], node_index[row.destination]) for row in policy_rows])
     policy_lookup = Dict((node_index[row.origin], node_index[row.destination]) => row
                          for row in policy_rows)
     policy_edge_ids = [policy_lookup[edge].edge_id for edge in policy_edges]
     policy_physical_ids = [policy_lookup[edge].physical_link_id for edge in policy_edges]
-    stock_disagreement = maximum(abs.(T_out .- T_in))
     ledger = vcat(transforms.ledger, ["commuter_total=$(commuter_total)"])
 
     return NetworkData(
         N, nodes.ids, node_index, nodes.longitude, nodes.latitude, modes,
         residence, workplace, mode_flows, Xi, out_neighbors, in_neighbors,
-        (T_out .+ T_in) ./ 2, sx, sy, mu, lam, edges, edge_ids, physical_ids,
+        Tnode, sx, sy, mu, lam, edges, edge_ids, physical_ids,
         edge_index, s_edges, shares, policy_edges, policy_edge_ids,
-        policy_physical_ids, Dict{Tuple{Int,Int},String}(),
-        Dict{Tuple{Int,Int},String}(), Dict{Tuple{Int,Int},Float64}(), ledger,
+        policy_physical_ids, terminal_origin, terminal_destination,
+        pair_edge_congestion, ledger,
         Dict{String,String}(input_hashes), stock_disagreement, residence, workplace,
     )
 end
@@ -515,7 +545,8 @@ function load_generic_urban_network(project::Project)
     nodes_path = input_path(project, "nodes")
     edges_path = input_path(project, "edge_modes")
     nodes = read_urban_nodes(nodes_path)
-    rows = read_edge_modes(edges_path)
+    rows = read_edge_modes(
+        edges_path; congestion_column=edge_input_column(project.congestion))
     hashes = Dict(basename(nodes_path) => file_sha256(nodes_path),
                   basename(edges_path) => file_sha256(edges_path))
     return build_urban_network(project, nodes, rows; input_hashes=hashes)
@@ -571,26 +602,30 @@ function validate(project::Project)
         throw(ArgumentError("diagnostic tolerance must be finite and positive"))
     data = load_network(project)
     if project.spatial isa UrbanCommuting
-        coefficient = UrbanCommutingIFT.coefficients(
-            project.parameters.alpha, project.parameters.beta,
-            commuting_theta(project.parameters), project.spatial.congestion_elasticity)
-        spectral_radius = maximum(abs, eigvals(data.mu))
-        isfinite(spectral_radius) && spectral_radius < 1 ||
-            throw(ArgumentError("urban route kernel is not contractive"))
-        J = UrbanCommutingIFT.jacobian(data.sx, data.sy, data.mu, data.lam,
-                                       data.residence, data.workplace, coefficient)
-        condition = cond(J)
-        condition_within_limit(condition, project.condition_limit) ||
-            throw(ArgumentError("urban equilibrium Jacobian exceeds the condition-number gate"))
+        model = build_urban_welfare_model(project; data)
+        route = model.basis.diagnostics
+        regression = urban_oracle_regression(model)
+        regression.available &&
+            maximum((regression.state_response_error, regression.welfare_error)) >
+                project.tolerance &&
+            throw(ArgumentError(
+                "the shared urban transport system failed its one-mode regression gate"))
         return (;
             valid=true, spatial_specification=spatial_name(project.spatial),
             nodes=data.N, directed_edges=length(data.edges),
             active_edge_modes=sum(nnz, data.mode_flows),
             policy_arcs=length(data.policy_edges), modes=String.(data.modes),
-            theta=coefficient.theta, lambda=coefficient.lambda,
-            route_spectral_radius=spectral_radius,
+            theta=commuting_theta(project.parameters),
+            route_spectral_radius=route.spectral_radius,
+            route_absorption_error=route.absorption_error,
+            route_bilateral_row_error=route.row_error,
+            route_bilateral_column_error=route.column_error,
+            route_edge_error=route.edge_error,
             stock_disagreement=data.stock_disagreement,
-            condition_urban=condition, transformations=data.transformations,
+            condition_urban=model.closures.conditions.F,
+            condition_transport=model.closures.transport.F.condition,
+            one_mode_regression=regression,
+            transformations=data.transformations,
             input_hashes=data.input_hashes,
             edge_congestion=edge_congestion_metadata(project, data),
             decomposition_incidence_gib=missing,

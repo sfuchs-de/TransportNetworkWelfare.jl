@@ -22,7 +22,9 @@ include("ProjectConfig.jl")
 include("DataIO.jl")
 include("RSUEAdapter.jl")
 include("CompleteEngine.jl")
+include("SharedTransport.jl")
 include("UrbanEngine.jl")
+include("UrbanNonlinear.jl")
 include("Analysis.jl")
 include("EdgeLocalEngine.jl")
 include("Sensitivity.jl")
@@ -40,5 +42,6 @@ export edge_local_welfare_effects
 export decompose_welfare, sensitivity_path, write_results, main
 export initialize_project
 export urban_finite_difference
+export urban_multimodal_finite_difference
 
 end
