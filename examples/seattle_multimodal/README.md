@@ -135,13 +135,17 @@ and Arkolakis:
 
 - the observed 2017 road and GTFS networks beside the constructed multimodal
   network;
-- road, bus, rail/streetcar, and ferry welfare effects on a common scale; and
+- road, bus, rail/streetcar, and ferry welfare effects on a common scale;
+- a combined road and public-transit map in which color identifies the network
+  and line width records the extended welfare gain on one common scale; and
 - traditional and extended transit effects on a common scale.
 
 Node area reflects the sum of residence and workplace commuter mass. Line
 widths in the constructed-network panel reflect baseline model flow. Map
 colors in the welfare panels are gains from a one-percent improvement, not
-traffic shares. Figures are written as PDF and transparent PNG files. The
+traffic shares. The combined map sums reciprocal directed effects at the
+physical-corridor level; dashed transit links have a negative extended effect.
+Figures are written as PDF and transparent PNG files. The
 generated `analysis.md` distinguishes directed experiments from corridor sums
 and records the quantitative comparisons used to interpret the maps.
 

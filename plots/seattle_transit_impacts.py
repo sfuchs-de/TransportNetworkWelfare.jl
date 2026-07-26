@@ -27,6 +27,7 @@ COLORS = {
     "rail": "#B5483A",
     "ferry": "#2B6EA6",
     "all_transit": "#343A40",
+    "public_transit": "#087F6B",
 }
 LABELS = {
     "road": "Road",
@@ -336,6 +337,95 @@ def welfare_norm(values):
     return Normalize(vmin=lower, vmax=upper), "viridis"
 
 
+def welfare_widths(values, maximum):
+    values = np.asarray(values, dtype=float)
+    if maximum <= 0 or not np.isfinite(maximum):
+        raise ValueError("the common welfare scale must be positive and finite")
+    if not np.isfinite(values).all():
+        raise ValueError("welfare effects contain nonfinite values")
+    return 0.35 + 3.15 * np.sqrt(np.clip(np.abs(values) / maximum, 0, 1))
+
+
+def welfare_legend_levels(maximum):
+    exponent = 10 ** np.floor(np.log10(maximum))
+    candidates = exponent * np.asarray((1, 2, 5, 10), dtype=float)
+    top = float(candidates[candidates <= maximum][-1])
+    return np.asarray((top/10, top/2, top), dtype=float)
+
+
+def combined_road_transit_map(artifacts, nodes, masses, geography_root):
+    rows = {
+        "road": read_rows(Path(artifacts) / "links_road.csv"),
+        "public_transit": read_rows(
+            Path(artifacts) / "links_all_transit.csv"),
+    }
+    values = {
+        category: numeric(category_rows, "extended_gain_pct")
+        for category, category_rows in rows.items()
+    }
+    maximum = max(float(np.max(np.abs(item))) for item in values.values())
+
+    figure, axis = plt.subplots(figsize=(6.1, 6.7))
+    add_geography(axis, geography_root)
+
+    road_widths = welfare_widths(values["road"], maximum)
+    axis.add_collection(LineCollection(
+        corridor_segments(rows["road"], nodes),
+        colors=COLORS["road"], linewidths=road_widths,
+        alpha=0.64, zorder=2))
+
+    transit_segments = corridor_segments(rows["public_transit"], nodes)
+    transit_widths = welfare_widths(values["public_transit"], maximum)
+    axis.add_collection(LineCollection(
+        transit_segments, colors="white", linewidths=transit_widths + 1.15,
+        alpha=0.88, zorder=3))
+    for negative, linestyle in ((False, "solid"), (True, (0, (3, 2)))):
+        indices = np.flatnonzero(
+            (values["public_transit"] < 0) == negative)
+        if len(indices) == 0:
+            continue
+        axis.add_collection(LineCollection(
+            [transit_segments[index] for index in indices],
+            colors=COLORS["public_transit"],
+            linewidths=transit_widths[indices],
+            linestyles=linestyle, alpha=0.96, zorder=4))
+
+    add_nodes(axis, nodes, masses, alpha=0.56)
+    finish_map(axis, nodes)
+
+    category_legend = axis.legend(
+        handles=[
+            Line2D([0], [0], color=COLORS["road"], linewidth=2.0,
+                   label="Road"),
+            Line2D([0], [0], color=COLORS["public_transit"],
+                   linewidth=2.0, label="Public transit"),
+            Line2D([0], [0], color=COLORS["public_transit"],
+                   linewidth=2.0, linestyle=(0, (3, 2)),
+                   label="Negative transit effect"),
+        ],
+        loc="upper left", frameon=True, facecolor="white",
+        edgecolor="none", framealpha=0.82, fontsize=7.2,
+        handlelength=2.6)
+    axis.add_artist(category_legend)
+
+    levels = welfare_legend_levels(maximum)
+    width_legend = [
+        Line2D(
+            [0], [0], color="#202428",
+            linewidth=float(welfare_widths([level], maximum)[0]),
+            label=f"{level:.3g}%")
+        for level in levels
+    ]
+    axis.legend(
+        handles=width_legend, loc="lower right", frameon=True,
+        facecolor="white", edgecolor="none", framealpha=0.82,
+        title="Extended welfare gain", fontsize=7.2, title_fontsize=7.2,
+        handlelength=2.8)
+    figure.subplots_adjust(left=0.01, right=0.99, bottom=0.01, top=0.99)
+    return save_pair(
+        figure, artifacts, "seattle_combined_road_transit_welfare")
+
+
 def add_corridors(axis, rows, nodes, field, norm, cmap, geography_root):
     add_geography(axis, geography_root)
     segments = corridor_segments(rows, nodes)
@@ -634,6 +724,8 @@ def build_figures(artifacts, nodes_path, geography_root=None, *,
         artifacts, nodes, geography_root, "extended_minus_traditional_pct",
         "seattle_transit_extended_minus_traditional",
         "Extended minus traditional welfare gain (percentage points)"))
+    outputs.extend(combined_road_transit_map(
+        artifacts, nodes, masses, geography_root))
     outputs.extend(scatter_figure(artifacts))
     outputs.extend(route_figure(artifacts))
     outputs.extend(sensitivity_figure(artifacts))

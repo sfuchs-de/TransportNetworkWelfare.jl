@@ -25,6 +25,16 @@ def write_rows(path, fields, rows):
 
 
 class SeattleTransitFigureTests(unittest.TestCase):
+    def test_common_welfare_width_scale(self):
+        MODULE.np.testing.assert_allclose(
+            MODULE.welfare_widths([0.0, 0.064], 0.064),
+            [0.35, 3.50])
+        MODULE.np.testing.assert_allclose(
+            MODULE.welfare_legend_levels(0.0647),
+            [0.005, 0.025, 0.05])
+        with self.assertRaises(ValueError):
+            MODULE.welfare_widths([0.0], 0.0)
+
     def test_complete_transparent_figure_set(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -121,7 +131,7 @@ class SeattleTransitFigureTests(unittest.TestCase):
             geography = os.environ.get("SEATTLE_TEST_GEOGRAPHY_ROOT")
             outputs = MODULE.build_figures(
                 root, nodes, Path(geography) if geography else None)
-            self.assertEqual(len(outputs), 12)
+            self.assertEqual(len(outputs), 14)
             self.assertTrue(all(path.is_file() for path in outputs))
             first_hashes = {
                 path.name: hashlib.sha256(path.read_bytes()).hexdigest()
@@ -136,6 +146,10 @@ class SeattleTransitFigureTests(unittest.TestCase):
             self.assertEqual(first_hashes, repeated_hashes)
             png = mpimg.imread(root / "seattle_transit_welfare_map.png")
             self.assertEqual(png.shape[-1], 4)
+            combined_png = mpimg.imread(
+                root / "seattle_combined_road_transit_welfare.png")
+            self.assertEqual(combined_png.shape[-1], 4)
+            self.assertLess(combined_png[..., -1].min(), 1.0)
 
             edge_modes = root / "edge_modes.csv"
             edge_rows = []
@@ -208,7 +222,7 @@ class SeattleTransitFigureTests(unittest.TestCase):
                 root, nodes, Path(geography) if geography else None,
                 edge_modes_path=edge_modes, gtfs_root=gtfs,
                 observed_roads=observed_roads)
-            self.assertEqual(len(detailed_outputs), 18)
+            self.assertEqual(len(detailed_outputs), 20)
             aa_png = mpimg.imread(root / "seattle_aa_mode_welfare.png")
             self.assertEqual(aa_png.shape[-1], 4)
 
