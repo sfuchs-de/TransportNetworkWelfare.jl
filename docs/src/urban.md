@@ -184,9 +184,11 @@ The generated map suite parallels the Allen--Arkolakis Seattle displays. It
 places the observed road and GTFS networks beside the constructed multimodal
 network, maps road and transit welfare effects on a common scale, and aligns
 traditional and extended transit maps. A combined map distinguishes road, bus,
-rail/streetcar, and ferry links by color and uses a common line-width scale for
-the extended welfare gain. Node area reflects residence plus workplace
-commuter mass; welfare colors never encode traffic.
+Link light rail, Seattle Streetcar, and ferry links by color and uses a common
+line-width scale for the extended welfare gain. Link and streetcar remain one
+economic rail mode; the visual split uses the pinned GTFS route identities.
+Node area reflects residence plus workplace commuter mass; welfare colors
+never encode traffic.
 
 Sources: [Allen and Arkolakis paper](https://par.nsf.gov/servlets/purl/10383104),
 [replication archive](https://dl.dropbox.com/s/mmux9ys035xi6iu/RESTUD26454_Replication.zip).

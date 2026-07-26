@@ -25,6 +25,8 @@ COLORS = {
     "road": "#656D73",
     "bus": "#26734D",
     "rail": "#B5483A",
+    "subway": "#7A4DA3",
+    "streetcar": "#C64E36",
     "ferry": "#2B6EA6",
     "all_transit": "#343A40",
 }
@@ -32,6 +34,8 @@ LABELS = {
     "road": "Road",
     "bus": "Bus",
     "rail": "Rail / streetcar",
+    "subway": "Link light rail",
+    "streetcar": "Seattle Streetcar",
     "ferry": "Ferry",
     "all_transit": "All transit",
 }
@@ -39,9 +43,13 @@ AA_CMAP = LinearSegmentedColormap.from_list(
     "aa_blue_red", ("#2166AC", "#7B6CB4", "#D6604D", "#B2182B"))
 
 
-def read_rows(path):
+def iter_rows(path):
     with Path(path).open(newline="", encoding="utf-8") as handle:
-        return list(csv.DictReader(handle))
+        yield from csv.DictReader(handle)
+
+
+def read_rows(path):
+    return list(iter_rows(path))
 
 
 def read_nodes(path):
@@ -260,6 +268,80 @@ def route_type_mode(value):
     return None
 
 
+def rail_route_category(row):
+    if route_type_mode(row["route_type"]) != "rail":
+        return None
+    short_name = row.get("route_short_name", "").strip().upper()
+    long_name = row.get("route_long_name", "").strip().upper()
+    if short_name == "LINK" or "LINK LIGHT RAIL" in long_name:
+        return "subway"
+    if short_name.startswith("STCR") or "STREETCAR" in long_name:
+        return "streetcar"
+    return "rail"
+
+
+def nearest_model_node(longitude, latitude, nodes, max_distance_km=2.0):
+    identifiers = list(nodes)
+    coordinates = np.asarray([nodes[key] for key in identifiers], dtype=float)
+    phi = np.deg2rad(latitude)
+    node_phi = np.deg2rad(coordinates[:, 1])
+    delta_phi = node_phi - phi
+    delta_lambda = np.deg2rad(coordinates[:, 0] - longitude)
+    haversine = (
+        np.sin(delta_phi/2)**2 +
+        np.cos(phi)*np.cos(node_phi)*np.sin(delta_lambda/2)**2
+    )
+    distances = 2*6371.0088*np.arcsin(
+        np.minimum(1.0, np.sqrt(haversine)))
+    index = int(np.argmin(distances))
+    return identifiers[index] if distances[index] <= max_distance_km else None
+
+
+def gtfs_rail_corridor_classes(root, nodes):
+    root = Path(root)
+    required = ("routes.txt", "trips.txt", "stops.txt", "stop_times.txt")
+    if any(not (root / name).is_file() for name in required):
+        return {}
+
+    services = active_gtfs_services(root)
+    route_classes = {}
+    for row in read_rows(root / "routes.txt"):
+        category = rail_route_category(row)
+        if category is not None:
+            route_classes[row["route_id"]] = category
+    trips = {
+        row["trip_id"]: route_classes[row["route_id"]]
+        for row in read_rows(root / "trips.txt")
+        if row["service_id"] in services and row["route_id"] in route_classes
+    }
+
+    stop_nodes = {}
+    for row in read_rows(root / "stops.txt"):
+        location_type = row.get("location_type", "").strip()
+        if location_type not in ("", "0"):
+            continue
+        stop_nodes[row["stop_id"]] = nearest_model_node(
+            float(row["stop_lon"]), float(row["stop_lat"]), nodes)
+
+    corridors = {}
+    previous = {}
+    for row in iter_rows(root / "stop_times.txt"):
+        trip = row["trip_id"]
+        if trip not in trips:
+            continue
+        sequence = int(row["stop_sequence"])
+        node = stop_nodes.get(row["stop_id"])
+        prior = previous.get(trip)
+        if prior is not None and sequence <= prior[0]:
+            raise ValueError(f"GTFS stop_sequence is not increasing for {trip}")
+        if prior is not None and prior[1] is not None and node is not None:
+            if prior[1] != node:
+                key = tuple(sorted((prior[1], node)))
+                corridors.setdefault(key, set()).add(trips[trip])
+        previous[trip] = (sequence, node)
+    return corridors
+
+
 def gtfs_shapes(root):
     root = Path(root)
     services = active_gtfs_services(root)
@@ -352,11 +434,30 @@ def welfare_legend_levels(maximum):
     return np.asarray((top/10, top/2, top), dtype=float)
 
 
-def combined_road_transit_map(artifacts, nodes, masses, geography_root):
+def combined_road_transit_map(
+        artifacts, nodes, masses, geography_root, gtfs_root=None):
+    rail_rows = read_rows(Path(artifacts) / "links_rail.csv")
+    rail_classes = (
+        gtfs_rail_corridor_classes(gtfs_root, nodes)
+        if gtfs_root is not None else {})
     rows = {
         mode: read_rows(Path(artifacts) / f"links_{mode}.csv")
-        for mode in ("road", "bus", "rail", "ferry")
+        for mode in ("road", "bus", "ferry")
     }
+    for category in ("subway", "streetcar", "rail"):
+        rows[category] = []
+    for row in rail_rows:
+        categories = rail_classes.get(
+            tuple(sorted((row["origin"], row["destination"]))), set())
+        if "subway" in categories:
+            category = "subway"
+        elif "streetcar" in categories:
+            category = "streetcar"
+        else:
+            category = "rail"
+        rows[category].append(row)
+    rows = {category: category_rows for category, category_rows in rows.items()
+            if category_rows}
     values = {
         category: numeric(category_rows, "extended_gain_pct")
         for category, category_rows in rows.items()
@@ -372,7 +473,11 @@ def combined_road_transit_map(artifacts, nodes, masses, geography_root):
         colors=COLORS["road"], linewidths=road_widths,
         alpha=0.64, zorder=2))
 
-    for layer, mode in enumerate(("bus", "ferry", "rail")):
+    transit_categories = [
+        mode for mode in ("bus", "ferry", "streetcar", "rail", "subway")
+        if mode in rows
+    ]
+    for layer, mode in enumerate(transit_categories):
         transit_segments = corridor_segments(rows[mode], nodes)
         transit_widths = welfare_widths(values[mode], maximum)
         axis.add_collection(LineCollection(
@@ -395,9 +500,10 @@ def combined_road_transit_map(artifacts, nodes, masses, geography_root):
     category_handles = [
         Line2D([0], [0], color=COLORS[mode], linewidth=2.0,
                label=LABELS[mode])
-        for mode in ("road", "bus", "rail", "ferry")
+        for mode in ("road", "bus", "subway", "streetcar", "rail", "ferry")
+        if mode in rows
     ]
-    if any(np.any(values[mode] < 0) for mode in ("bus", "rail", "ferry")):
+    if any(np.any(values[mode] < 0) for mode in transit_categories):
         category_handles.append(
             Line2D([0], [0], color="#202428", linewidth=2.0,
                    linestyle=(0, (3, 2)), label="Negative effect"))
@@ -725,7 +831,7 @@ def build_figures(artifacts, nodes_path, geography_root=None, *,
         "seattle_transit_extended_minus_traditional",
         "Extended minus traditional welfare gain (percentage points)"))
     outputs.extend(combined_road_transit_map(
-        artifacts, nodes, masses, geography_root))
+        artifacts, nodes, masses, geography_root, gtfs_root))
     outputs.extend(scatter_figure(artifacts))
     outputs.extend(route_figure(artifacts))
     outputs.extend(sensitivity_figure(artifacts))

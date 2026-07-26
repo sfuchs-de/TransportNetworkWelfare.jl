@@ -35,6 +35,67 @@ class SeattleTransitFigureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.welfare_widths([0.0], 0.0)
 
+    def test_gtfs_distinguishes_link_from_streetcar(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            write_rows(
+                root / "calendar.txt",
+                ["service_id", "monday", "tuesday", "wednesday", "thursday",
+                 "friday", "saturday", "sunday", "start_date", "end_date"],
+                [{"service_id": "weekday", "monday": 1, "tuesday": 1,
+                  "wednesday": 1, "thursday": 1, "friday": 1,
+                  "saturday": 0, "sunday": 0, "start_date": "20170601",
+                  "end_date": "20170630"}])
+            write_rows(
+                root / "calendar_dates.txt",
+                ["service_id", "date", "exception_type"], [])
+            write_rows(
+                root / "routes.txt",
+                ["route_id", "route_short_name", "route_long_name",
+                 "route_type"], [
+                    {"route_id": "link", "route_short_name": "LINK",
+                     "route_long_name": "", "route_type": 0},
+                    {"route_id": "streetcar", "route_short_name": "Stcr SLU",
+                     "route_long_name": "", "route_type": 0},
+                ])
+            write_rows(
+                root / "trips.txt",
+                ["route_id", "service_id", "trip_id"], [
+                    {"route_id": "link", "service_id": "weekday",
+                     "trip_id": "link_trip"},
+                    {"route_id": "streetcar", "service_id": "weekday",
+                     "trip_id": "streetcar_trip"},
+                ])
+            write_rows(
+                root / "stops.txt",
+                ["stop_id", "stop_lon", "stop_lat", "location_type"], [
+                    {"stop_id": "one", "stop_lon": -122.35,
+                     "stop_lat": 47.58, "location_type": 0},
+                    {"stop_id": "two", "stop_lon": -122.30,
+                     "stop_lat": 47.62, "location_type": 0},
+                    {"stop_id": "three", "stop_lon": -122.25,
+                     "stop_lat": 47.57, "location_type": 0},
+                ])
+            write_rows(
+                root / "stop_times.txt",
+                ["trip_id", "stop_id", "stop_sequence"], [
+                    {"trip_id": "link_trip", "stop_id": "one",
+                     "stop_sequence": 1},
+                    {"trip_id": "link_trip", "stop_id": "two",
+                     "stop_sequence": 2},
+                    {"trip_id": "streetcar_trip", "stop_id": "two",
+                     "stop_sequence": 1},
+                    {"trip_id": "streetcar_trip", "stop_id": "three",
+                     "stop_sequence": 2},
+                ])
+            classes = MODULE.gtfs_rail_corridor_classes(root, {
+                "1": (-122.35, 47.58),
+                "2": (-122.30, 47.62),
+                "3": (-122.25, 47.57),
+            })
+            self.assertEqual(classes[("1", "2")], {"subway"})
+            self.assertEqual(classes[("2", "3")], {"streetcar"})
+
     def test_complete_transparent_figure_set(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
