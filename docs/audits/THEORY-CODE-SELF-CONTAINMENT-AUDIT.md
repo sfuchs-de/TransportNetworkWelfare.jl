@@ -215,8 +215,8 @@ rank-reduction fit or ridge regularization is used.
   All generated analytical tables, claims, TeX macros, and figures had
   identical hashes. The run manifest itself differed only because it records
   its creation time; its embedded output-hash map was unchanged.
-- The practitioner guide compiled to 67 pages without undefined citations or
-  references. Visual inspection covered the title page, theory, worked
+- The compact practitioner guide compiled to 43 pages without undefined
+  citations or references. Visual inspection covered the title page, theory, worked
   example, code crosswalk, and provenance appendix.
 - The prose lint found no P0 or P1 issues. Its strict technical-source scan
   flags repeated TOML section names, schema headings, and quantified words such

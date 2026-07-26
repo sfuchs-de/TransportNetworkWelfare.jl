@@ -1,7 +1,7 @@
-\chapter{Configuration and schema reference}
+\section{Configuration and schema reference}
 \label{app:config}
 
-\section{Minimal economic-geography configuration}
+\subsection{Minimal economic-geography configuration}
 
 \begin{lstlisting}
 schema_version = 1
@@ -39,7 +39,7 @@ tolerance = 1.0e-10
 condition_limit = 1.0e12
 \end{lstlisting}
 
-\section{Spatial specification}
+\subsection{Spatial specification}
 
 \begin{description}
   \item[\code{economic\_geography}.] Requires \(\alpha,\beta,\sigma\). Route
@@ -49,7 +49,7 @@ condition_limit = 1.0e12
   workplace columns replace labor and income shares.
 \end{description}
 
-\section{Modal specification}
+\subsection{Modal specification}
 
 \begin{description}
   \item[\code{choice\_logsum}.] Negative-power modal cost index. This is the
@@ -59,15 +59,15 @@ condition_limit = 1.0e12
 \end{description}
 Both require finite \(\eta>0\).
 
-\section{Congestion specification}
+\subsection{Congestion specification}
 
-\subsection*{None}
+\subsubsection*{None}
 \begin{lstlisting}
 [congestion]
 specification = "none"
 \end{lstlisting}
 
-\subsection*{Mode-level edge congestion}
+\subsubsection*{Mode-level edge congestion}
 \begin{lstlisting}
 [congestion]
 specification = "edge"
@@ -75,7 +75,7 @@ specification = "edge"
 road = 0.092
 \end{lstlisting}
 
-\subsection*{Edge-specific congestion}
+\subsubsection*{Edge-specific congestion}
 \begin{lstlisting}
 [congestion]
 specification = "edge"
@@ -86,7 +86,7 @@ scale = 1.0
 Every active edge-mode row must contain a finite nonnegative value in the
 selected column. Mode-level and column-based values cannot be mixed.
 
-\subsection*{Endpoint-terminal congestion}
+\subsubsection*{Endpoint-terminal congestion}
 \begin{lstlisting}
 [congestion]
 specification = "endpoint_terminal"
@@ -96,7 +96,7 @@ rail = 0.096
 \end{lstlisting}
 Every positive-congestion pair must identify both endpoint terminals.
 
-\subsection*{Composite congestion}
+\subsubsection*{Composite congestion}
 \begin{lstlisting}
 [congestion]
 specification = "composite"
@@ -107,7 +107,7 @@ road = 0.092
 transit = 0.04
 \end{lstlisting}
 
-\section{Policy units}
+\subsection{Policy units}
 
 \begin{description}
   \item[\code{directed\_arc}.] Write directed results only.
@@ -116,7 +116,7 @@ transit = 0.04
   \item[\code{both}.] Write both result sets.
 \end{description}
 
-\section{Economic-geography node schema}
+\subsection{Economic-geography node schema}
 
 \begin{longtable}{p{0.24\textwidth}p{0.16\textwidth}p{0.50\textwidth}}
 \toprule
@@ -131,7 +131,7 @@ Column & Required & Meaning \\
 \bottomrule
 \end{longtable}
 
-\section{Urban node schema}
+\subsection{Urban node schema}
 
 \begin{longtable}{p{0.24\textwidth}p{0.16\textwidth}p{0.50\textwidth}}
 \toprule
@@ -146,7 +146,7 @@ Column & Required & Meaning \\
 \bottomrule
 \end{longtable}
 
-\section{Edge-mode schema}
+\subsection{Edge-mode schema}
 
 \begin{longtable}{p{0.27\textwidth}p{0.14\textwidth}p{0.48\textwidth}}
 \toprule
@@ -169,7 +169,7 @@ edge-congestion source \\
 \bottomrule
 \end{longtable}
 
-\section{Sensitivity}
+\subsection{Sensitivity}
 
 \begin{lstlisting}
 [sensitivity]

@@ -21,7 +21,7 @@ fi
 
 pages="$(pdfinfo "${pdf}" | awk '/^Pages:/ {print $2}')"
 test -n "${pages}"
-if [ "${pages}" -lt 45 ]; then
+if [ "${pages}" -lt 40 ]; then
     echo "practitioner guide is unexpectedly short: ${pages} pages" >&2
     exit 1
 fi

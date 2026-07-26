@@ -1,24 +1,21 @@
-\documentclass[11pt,oneside]{book}
+\documentclass[11pt]{article}
 
 \input{docs/practitioner-guide/preamble}
 
-\title{\textbf{Transport Network Welfare}\\[0.4em]
-\Large Theory, Computation, and Practice with
+\title{\textbf{Transport Network Welfare}\\[0.25em]
+\large Theory, Computation, and Practice with
 \texttt{TransportNetworkWelfare.jl}}
 \author{Treb Allen \and Simon Fuchs \and Woan Foong Wong}
 \date{Practitioner guide, July 2026}
 
 \begin{document}
-\pagenumbering{gobble}
 \maketitle
-\frontmatter
 
-\chapter*{Purpose and status}
-\addcontentsline{toc}{chapter}{Purpose and status}
+\begin{abstract}
 This guide explains how to measure the local welfare effect of a transport-cost
 change in a spatial equilibrium model and how to carry out that calculation
 with \texttt{TransportNetworkWelfare.jl}. It is written for applied researchers
-who want to understand the economic object before running the code.
+seeking to understand the economic object before running the code.
 
 The economic-geography model is the guide's main specification. It corresponds
 to Allen, Fuchs, and Wong, ``From Social Savings to Spatial Equilibrium:
@@ -32,38 +29,30 @@ the Julia package, run the examples, and rebuild this PDF without private data.
 The U.S. freight and Seattle applications require external inputs. Their
 adapters, hashes, assumptions, and aggregate results are documented, but the
 restricted files are not included.
+\end{abstract}
 
-\chapter*{Reading paths}
-\addcontentsline{toc}{chapter}{Reading paths}
-\begin{description}
-  \item[Applied user.] Read Chapters \ref{ch:question}, \ref{ch:data},
-  \ref{ch:code}, \ref{ch:worked}, and \ref{ch:diagnostics}.
-  \item[Researcher checking the statistic.] Read Chapters \ref{ch:equilibrium}
-  through \ref{ch:ift}, followed by Appendix \ref{app:crosswalk}.
-  \item[Package contributor.] Read Chapters \ref{ch:code},
-  \ref{ch:diagnostics}, and Appendices \ref{app:algorithm}--\ref{app:verification}.
-  \item[Empirical replicator.] Read Chapters \ref{ch:data}, \ref{ch:rsue}, and
-  \ref{ch:extensions}, paying particular attention to the external-data
-  boundary.
-\end{description}
+\paragraph{Reading guide.}
+Applied users can begin with Sections \ref{ch:question}, \ref{ch:data},
+\ref{ch:code}, and \ref{ch:worked}. The derivation runs from Sections
+\ref{ch:equilibrium} through \ref{ch:ift}. Package contributors should also
+consult Section \ref{ch:diagnostics} and Appendices
+\ref{app:algorithm}--\ref{app:verification}. The empirical adapters are
+described in Sections \ref{ch:rsue} and \ref{ch:extensions}.
 
 \tableofcontents
-\listoffigures
-\listoftables
 
-\mainmatter
-\input{docs/practitioner-guide/chapters/01-question}
-\input{docs/practitioner-guide/chapters/02-equilibrium}
-\input{docs/practitioner-guide/chapters/03-routing-modes}
-\input{docs/practitioner-guide/chapters/04-hulten}
-\input{docs/practitioner-guide/chapters/05-ift}
-\input{docs/practitioner-guide/chapters/06-decomposition}
-\input{docs/practitioner-guide/chapters/07-data}
-\input{docs/practitioner-guide/chapters/08-code}
-\input{docs/practitioner-guide/chapters/09-worked-example}
-\input{docs/practitioner-guide/chapters/10-diagnostics}
-\input{docs/practitioner-guide/chapters/11-rsue}
-\input{docs/practitioner-guide/chapters/12-extensions}
+\input{docs/practitioner-guide/sections/01-question}
+\input{docs/practitioner-guide/sections/02-equilibrium}
+\input{docs/practitioner-guide/sections/03-routing-modes}
+\input{docs/practitioner-guide/sections/04-hulten}
+\input{docs/practitioner-guide/sections/05-ift}
+\input{docs/practitioner-guide/sections/06-decomposition}
+\input{docs/practitioner-guide/sections/07-data}
+\input{docs/practitioner-guide/sections/08-code}
+\input{docs/practitioner-guide/sections/09-worked-example}
+\input{docs/practitioner-guide/sections/10-diagnostics}
+\input{docs/practitioner-guide/sections/11-rsue}
+\input{docs/practitioner-guide/sections/12-extensions}
 
 \appendix
 \input{docs/practitioner-guide/appendices/A-notation-code}
@@ -72,7 +61,6 @@ restricted files are not included.
 \input{docs/practitioner-guide/appendices/D-verification}
 \input{docs/practitioner-guide/appendices/E-provenance}
 
-\backmatter
 \bibliographystyle{plainnat}
 \bibliography{docs/practitioner-guide/references}
 

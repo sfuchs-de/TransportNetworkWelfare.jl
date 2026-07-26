@@ -1,7 +1,7 @@
-\chapter{Verification matrix}
+\section{Verification matrix}
 \label{app:verification}
 
-\section{Acceptance tolerances}
+\subsection{Acceptance tolerances}
 
 \begin{table}[H]
 \centering
@@ -20,7 +20,7 @@ Maximum accepted condition number & \(10^{12}\) \\
 \end{tabular}
 \end{table}
 
-\section{Modal tests}
+\subsection{Modal tests}
 
 For both \code{ChoiceLogsum} and \code{ComponentCES}, tests differentiate the
 nonlinear modal cost index independently and compare it with the analytical
@@ -31,7 +31,7 @@ are restored.
 One-mode cases must satisfy \(\code{FM}=\code{F}\). A zero-flow mode is not an
 interior active pair and cannot be a policy target.
 
-\section{Route tests}
+\subsection{Route tests}
 
 Route tests check contraction, absorption, bilateral margins, and edge traffic.
 Flexible-route derivatives are compared with central differences of the
@@ -41,7 +41,7 @@ In a unique-route network, \(\code{FR}=\code{F}\). Parallel-route fixtures must
 produce a verified nonzero route wedge. Node permutations must preserve the
 economic result.
 
-\section{Congestion tests}
+\subsection{Congestion tests}
 
 Edge and terminal congestion are tested separately and jointly. Zero
 congestion implies:
@@ -62,7 +62,7 @@ Edge-specific BPR elasticities in the Sioux Falls builder are checked against
 \]
 Their analytical derivative is compared with finite differences.
 
-\section{Spatial and welfare tests}
+\subsection{Spatial and welfare tests}
 
 The Python oracle provides 55 checks of the corrected transformed
 economic-geography system. Julia fixtures compare Jacobian blocks, the welfare
@@ -73,7 +73,7 @@ equilibria. The RSUE verification chooses a deterministic traffic-stratified
 set of arcs, solves positive and negative primitive shocks, and binds the
 report to configuration, input, and source hashes.
 
-\section{Urban tests}
+\subsection{Urban tests}
 
 The one-mode urban oracle checks the Allen--Arkolakis state response and
 welfare derivative. The shared multimodal engine is then compared with
@@ -83,7 +83,7 @@ Tests cover \code{NC}, \code{NT}, \code{F}, \code{FM}, and \code{FR};
 distinct residence and workplace margins; road and transit; terminal
 congestion; and mode and node permutation.
 
-\section{Output tests}
+\subsection{Output tests}
 
 Output tests verify:
 \begin{itemize}
@@ -95,7 +95,7 @@ Output tests verify:
   \item full Census CBSA labels, including hyphenated names.
 \end{itemize}
 
-\section{Clean-clone acceptance}
+\subsection{Clean-clone acceptance}
 
 A release candidate must pass:
 \begin{lstlisting}[language=bash]

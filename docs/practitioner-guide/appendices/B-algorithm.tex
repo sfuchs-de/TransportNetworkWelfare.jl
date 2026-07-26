@@ -1,7 +1,7 @@
-\chapter{Algorithm and pseudocode}
+\section{Algorithm and pseudocode}
 \label{app:algorithm}
 
-\section{Validation algorithm}
+\subsection{Validation algorithm}
 
 \begin{lstlisting}[language=Julia]
 function validate_project(config)
@@ -28,7 +28,7 @@ end
 Validation builds only the objects needed for the welfare closure. It does not
 construct the full fixed-route incidence matrix.
 
-\section{Economic-geography welfare algorithm}
+\subsection{Economic-geography welfare algorithm}
 
 \begin{lstlisting}[language=Julia]
 function all_welfare_effects(project)
@@ -59,7 +59,7 @@ end
 The implementation uses sparse matrices where possible. The schematic
 \code{solve} represents a factorization and backsolve, not an explicit inverse.
 
-\section{Full decomposition algorithm}
+\subsection{Full decomposition algorithm}
 
 \begin{lstlisting}[language=Julia]
 function decompose(project)
@@ -92,7 +92,7 @@ function decompose(project)
 end
 \end{lstlisting}
 
-\section{Route reconstruction}
+\subsection{Route reconstruction}
 
 For distinct source and destination margins:
 \begin{lstlisting}[language=Julia]
@@ -107,7 +107,7 @@ require(edge_incidence(Xod, K) matches observed_edge_traffic)
 The code uses linear solves rather than materializing \code{inverse(I-K)} when
 possible. The notation highlights the resolvent identity.
 
-\section{Primitive forcing}
+\subsection{Primitive forcing}
 
 Let \(p\) index active edge-mode pairs and let \(D\) select policy pairs.
 For the full closure:
@@ -132,7 +132,7 @@ and the spatial forcing is
 These operations are implemented in \code{primitive\_forcing}. Shared terminal
 congestion can therefore make primitive pass-through nonlocal.
 
-\section{Complexity}
+\subsection{Complexity}
 
 Let \(N\) be nodes, \(E\) active directed edges, \(P\) active edge-mode pairs,
 and \(Q\) congestion states. The welfare path requires route reconstruction,

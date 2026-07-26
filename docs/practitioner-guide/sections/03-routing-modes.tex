@@ -1,7 +1,7 @@
-\chapter{Recursive routes, modes, and congestion}
+\section{Recursive routes, modes, and congestion}
 \label{ch:routing}
 
-\section{From paths to a recursion}
+\subsection{From paths to a recursion}
 
 A path from \(i\) to \(j\) is a sequence of directed edges. If
 \(\kappa_{kl}\) is an iceberg cost factor, a path cost is the product of its
@@ -34,7 +34,7 @@ The resolvent sums all weighted walks. It also makes route derivatives
 tractable: a change to one edge affects all origin-destination pairs whose
 weighted walks use that edge.
 
-\section{Recovering the baseline route object}
+\subsection{Recovering the baseline route object}
 
 The package starts from directed edge traffic and location margins, not an
 unobserved path table. It reconstructs the route kernel from the continuation
@@ -63,7 +63,7 @@ The flexible-route closure differentiates the resolvent. Both are evaluated at
 the same observed baseline, which makes their difference an exact local route
 wedge rather than a comparison of two separately calibrated models.
 
-\section{Choice-consistent modal aggregation}
+\subsection{Choice-consistent modal aggregation}
 
 Each directed edge can carry several modes. The active paper specification
 uses
@@ -91,7 +91,7 @@ The implementation represents the sign through a modal power:
 The positive-power alternative is retained for legacy replication only. It is
 not interchangeable with the paper's choice model.
 
-\section{Congestion maps}
+\subsection{Congestion maps}
 
 Realized edge-mode cost can differ from the primitive infrastructure cost:
 \[

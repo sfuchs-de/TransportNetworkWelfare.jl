@@ -1,7 +1,7 @@
-\chapter{Notation and equation-to-code crosswalk}
+\section{Notation and equation-to-code crosswalk}
 \label{app:crosswalk}
 
-\section{Core notation}
+\subsection{Core notation}
 
 \begin{longtable}{p{0.18\textwidth}p{0.42\textwidth}p{0.31\textwidth}}
 \toprule
@@ -53,7 +53,7 @@ specification \\
 \bottomrule
 \end{longtable}
 
-\section{Main equations}
+\subsection{Main equations}
 
 \begin{longtable}{p{0.24\textwidth}p{0.30\textwidth}p{0.36\textwidth}}
 \toprule
@@ -94,7 +94,7 @@ Physical aggregation & Sum reciprocal policies before normalization &
 \bottomrule
 \end{longtable}
 
-\section{Orientation conventions}
+\subsection{Orientation conventions}
 
 An edge tuple \((i,j)\) means origin \(i\), destination \(j\). In the
 row-oriented continuation matrix \(\mu\), the element \(\mu_{ij}\) is the share
@@ -107,7 +107,7 @@ matrix cell. The directed result retains both integer indices and source IDs.
 Physical aggregation relies on endpoint IDs and the declared
 \code{physical\_link\_id}, not adjacency-matrix symmetry alone.
 
-\section{Signs}
+\subsection{Signs}
 
 Costs enter as log increases, while reported benefits correspond to cost
 reductions:
@@ -122,7 +122,7 @@ The coefficient \(\rho\) can be negative. Do not replace signed products by
 absolute values. A negative \(\rho\) and negative access multiplier sum can
 produce a positive benefit.
 
-\section{Legacy aliases}
+\subsection{Legacy aliases}
 
 The mathematical audit and early code use ``node-visit stock'' or
 ``occupation stock'' for \(\mathcal T_i\). These are technical descriptions of

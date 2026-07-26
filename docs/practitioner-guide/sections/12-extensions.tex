@@ -1,7 +1,7 @@
-\chapter{Extensions: urban commuting, terminals, and Seattle}
+\section{Extensions: urban commuting, terminals, and Seattle}
 \label{ch:extensions}
 
-\section{One transport block, different spatial closures}
+\subsection{One transport block, different spatial closures}
 
 The package shares route, modal, congestion, and primitive pass-through
 operators across economic geography and urban commuting. The models differ in
@@ -28,7 +28,7 @@ The shared Schur complement eliminates route, mode, and congestion quantities,
 while the urban Jacobian \(J_U^0\) and welfare row \(q_U\) replace the trade
 model's spatial block.
 
-\section{Urban verification}
+\subsection{Urban verification}
 
 The one-mode regression oracle is a separate implementation of the
 Allen--Arkolakis urban derivative \citep{AA_2022restud}. The shared engine must
@@ -54,7 +54,7 @@ julia --project=. bin/tnw.jl decompose \
   examples/urban_multimodal/config.toml
 \end{lstlisting}
 
-\section{Endpoint-terminal congestion}
+\subsection{Endpoint-terminal congestion}
 
 Edge congestion assigns traffic feedback to a particular edge-mode. Terminal
 congestion aggregates affected flows using a terminal and applies the cost
@@ -66,7 +66,7 @@ elasticity \(0.096\). The main paper result keeps this channel off. Sensitivity
 to terminal congestion is therefore an extension diagnostic, not a headline
 parameter sensitivity.
 
-\section{Seattle multimodal candidate}
+\subsection{Seattle multimodal candidate}
 
 The Seattle workflow combines:
 \begin{itemize}
@@ -89,7 +89,7 @@ ridership. The builder routes a common commuter population to obtain a
 model-consistent road and transit baseline, records fallback and coverage, and
 uses the Metro table only as an external comparison.
 
-\section{Transit policies}
+\subsection{Transit policies}
 
 The workflow evaluates bus, Link light rail and streetcar, and ferry policies
 separately and together. A link policy lowers primitive generalized cost on
@@ -108,7 +108,7 @@ color. Line width represents the extended welfare gain, not ridership.
 Subway or light-rail vision maps that include proposed future lines are not a
 baseline description of the 2017 network.
 
-\section{What remains empirical work}
+\subsection{What remains empirical work}
 
 The package supplies a verified multimodal urban derivative. A publication
 quality Seattle transit application would still benefit from:

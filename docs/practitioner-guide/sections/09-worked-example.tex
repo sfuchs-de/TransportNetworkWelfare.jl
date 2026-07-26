@@ -1,7 +1,7 @@
-\chapter{A complete worked example}
+\section{A complete worked example}
 \label{ch:worked}
 
-\section{The three-location project}
+\subsection{The three-location project}
 
 The committed toy project has three locations and reciprocal road links. Each
 directed edge also carries a second mode, which makes modal reallocation and
@@ -25,7 +25,7 @@ julia --project=. bin/tnw.jl decompose examples/toy/config.toml
 \end{lstlisting}
 No environment variable, downloaded input, or source edit is required.
 
-\section{Configuration}
+\subsection{Configuration}
 
 The project declares its inputs and model:
 \begin{lstlisting}
@@ -55,7 +55,7 @@ The complete file also declares edge and terminal congestion, diagnostics, and
 sensitivity paths. Paths are resolved relative to the configuration file, so
 the project can be moved without editing absolute directories.
 
-\section{Validation}
+\subsection{Validation}
 
 \code{validate} loads the input, builds the welfare-only closure, and prints a
 machine-readable summary. The baseline has:
@@ -70,7 +70,7 @@ machine-readable summary. The baseline has:
 These checks do not establish that the toy calibration is empirically
 plausible. They establish that it is a well-defined input to the model.
 
-\section{Directed results}
+\subsection{Directed results}
 
 Table \ref{tab:toy-results} reports the main directed quantities. All six road
 edges have the same Hulten traffic share, but their extended effects differ
@@ -103,7 +103,7 @@ in log welfare, or \(0.007678\) percent. The derivative and the percentage
 effect happen to share the same displayed number only because the policy
 change is one percent.
 
-\section{Traditional versus extended}
+\subsection{Traditional versus extended}
 
 \begin{figure}[H]
 \centering
@@ -119,7 +119,7 @@ Parameters and network position determine the sign. The useful observation is
 that equal traffic does not imply equal extended welfare once the baseline is
 distorted.
 
-\section{Decomposition}
+\subsection{Decomposition}
 
 \begin{figure}[H]
 \centering
@@ -134,7 +134,7 @@ error is zero at displayed precision, and the maximum analytical channel
 reconstruction error is \(2.8\times10^{-14}\). These diagnostics should be
 checked before interpreting the bars.
 
-\section{A routing-specific example}
+\subsection{A routing-specific example}
 
 The Braess-style project has four locations, reciprocal parallel routes, and a
 connector. It is not a Wardrop-paradox replication; it is a controlled
@@ -155,7 +155,7 @@ The route wedge is nonzero on the parallel branches. In the corresponding
 unique-route test fixture, \code{FR=F} within \(10^{-10}\), as the theory
 requires.
 
-\section{Adapting the example}
+\subsection{Adapting the example}
 
 Create a project skeleton:
 \begin{lstlisting}[language=bash]

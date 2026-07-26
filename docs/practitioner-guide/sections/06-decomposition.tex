@@ -1,7 +1,7 @@
-\chapter{Exact closure and welfare decompositions}
+\section{Exact closure and welfare decompositions}
 \label{ch:decomposition}
 
-\section{Common-baseline comparisons}
+\subsection{Common-baseline comparisons}
 
 An extended welfare elasticity can differ from traffic for several reasons.
 To separate them, every comparison must use the same observed baseline and the
@@ -27,7 +27,7 @@ The labels describe local derivatives, not finite counterfactual models. In
 particular, \code{FR} holds the differentiated route incidence fixed while
 retaining modal response and the remaining equilibrium system.
 
-\section{Normalized multipliers}
+\subsection{Normalized multipliers}
 
 For a realized-friction shock on edge \(e\), define
 \[
@@ -47,7 +47,7 @@ the full model separately with fixed modes and fixed routes. Mode and route
 wedges are not added to the congestion ladder because each is an alternative
 closure comparison.
 
-\section{Inverse-gap identity}
+\subsection{Inverse-gap identity}
 
 For two Jacobians \(J_A\) and \(J_B\), welfare row \(q\), and forcing \(b\),
 \[
@@ -58,7 +58,7 @@ The package checks this identity for the edge, terminal, mode, and route
 comparisons. It is a direct algebraic test of the signs, orientation, and
 closure construction.
 
-\section{Analytical Jacobian blocks}
+\subsection{Analytical Jacobian blocks}
 
 Each closure Jacobian is represented as
 \[
@@ -94,7 +94,7 @@ some channels evaluate to exact structural zeros. The code evaluates the
 general formulas and checks the reconstruction rather than writing zeros by
 convention.
 
-\section{The Hulten gap}
+\subsection{The Hulten gap}
 
 The realized-friction comparison is
 \[
@@ -116,7 +116,7 @@ Using the congestion ladder and primitive pass-through gives
 The output reports each term in levels. Signed percentages can be misleading
 when large positive and negative components nearly cancel.
 
-\section{Physical-link aggregation}
+\subsection{Physical-link aggregation}
 
 The model is directed. To obtain a two-direction physical-link experiment, the
 software first sums:
@@ -134,7 +134,7 @@ policy arcs have opposite endpoints and a common physical-link identifier.
 Transit services and one-way links that lack such a pair remain directed
 policies.}
 
-\section{Reading a decomposition}
+\subsection{Reading a decomposition}
 
 A useful interpretation sequence is:
 \begin{enumerate}

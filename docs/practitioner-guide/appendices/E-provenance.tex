@@ -1,7 +1,7 @@
-\chapter{Provenance and reproducibility boundary}
+\section{Provenance and reproducibility boundary}
 \label{app:provenance}
 
-\section{Authority}
+\subsection{Authority}
 
 The journal manuscript is authoritative for the paper-facing model and claims.
 The Julia package is authoritative for executable behavior and tested
@@ -13,7 +13,7 @@ This guide uses the active manuscript at Overleaf commit
 \code{cef3a13b} and the package feature baseline
 \code{de708f2}. The tracked self-containment audit records the detailed mapping.
 
-\section{Kernel lineage}
+\subsection{Kernel lineage}
 
 The package was initialized from the frozen
 \code{IFT\_Complete\_Decomposition\_2026-07-12.zip} audit bundle. The repository
@@ -25,7 +25,7 @@ validation errors replace assertions, route reconstruction allows distinct
 margins, and the urban engine uses the shared multimodal transport basis. The
 provenance record is descriptive; it does not substitute for tests.
 
-\section{Paper result vintage}
+\subsection{Paper result vintage}
 
 Restricted domestic inputs are identified by SHA-256 in the RSUE manifest.
 The accepted result vintage uses the choice logsum, directional Census port
@@ -37,7 +37,7 @@ Rebuilding the paper artifacts requires the external files. This PDF includes
 only aggregate non-sensitive statistics and hashes. It cannot reconstruct the
 restricted raw data and does not claim to do so.
 
-\section{Seattle sources}
+\subsection{Seattle sources}
 
 The Seattle candidate depends on a published urban replication archive, LODES,
 ACS, a pinned historical GTFS feed, and Census geography. Raw downloads remain
@@ -45,7 +45,7 @@ outside Git. Their manifests record URLs, versions, retrieval dates, licenses,
 and hashes. If the exact historical feed is unavailable or a hash changes, the
 workflow fails rather than substituting current service.
 
-\section{Guide build}
+\subsection{Guide build}
 
 The PDF source, bibliography, and figures are committed under
 \code{docs/practitioner-guide}. The displayed tutorial figures are generated
@@ -59,7 +59,7 @@ make practitioner-guide-check
 The check rejects undefined references, missing figures, private absolute
 paths, credential-like strings, and an unexpectedly short PDF.
 
-\section{Citation and release status}
+\subsection{Citation and release status}
 
 The package is MIT licensed subject to coauthor approval before public release.
 The preferred paper citation is:
@@ -74,7 +74,7 @@ The software citation should use the tagged release and commit corresponding
 to the analysis. Feature branches and draft pull requests are not archival
 releases.
 
-\section{Reproducibility statement}
+\subsection{Reproducibility statement}
 
 A fresh user can install the package from a clone, run the committed synthetic
 examples, reproduce their numerical outputs, and build this guide without

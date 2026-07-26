@@ -2,24 +2,25 @@
 \usepackage[utf8]{inputenc}
 \usepackage{lmodern}
 \usepackage{microtype}
-\usepackage[margin=1.08in]{geometry}
+\usepackage[margin=1in]{geometry}
 \usepackage{setspace}
-\setstretch{1.06}
+\setstretch{1.03}
 \usepackage{amsmath,amssymb,amsthm,mathtools}
 \usepackage{booktabs,longtable,tabularx,array}
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage[font=small,labelfont=bf]{caption}
 \usepackage{xcolor}
-\usepackage{listings}
-\usepackage[round,authoryear]{natbib}
-\usepackage[hidelinks]{hyperref}
-\usepackage[nameinlink,noabbrev]{cleveref}
-\usepackage{fancyhdr}
-\usepackage{enumitem}
-
 \definecolor{guideblue}{RGB}{13,102,166}
 \definecolor{guidegray}{RGB}{245,246,247}
 \definecolor{codegreen}{RGB}{20,110,65}
+\usepackage{listings}
+\usepackage[round,authoryear]{natbib}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=guideblue]{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
 
 \pagestyle{fancy}
 \fancyhf{}
@@ -27,6 +28,15 @@
 \fancyhead[R]{\small Practitioner Guide}
 \fancyfoot[C]{\thepage}
 \setlength{\headheight}{14pt}
+\setlength{\parskip}{0.15em}
+
+\titleformat{\section}{\large\bfseries}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection.}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{1.35em plus 0.3em minus 0.1em}{0.7em}
+\titlespacing*{\subsection}{0pt}{1em plus 0.2em minus 0.1em}{0.45em}
+\titlespacing*{\subsubsection}{0pt}{0.8em plus 0.2em minus 0.1em}{0.35em}
+\setcounter{tocdepth}{1}
 
 \lstdefinestyle{guidecode}{
   basicstyle=\ttfamily\small,
@@ -71,11 +81,12 @@
   \begin{center}\fcolorbox{guideblue!45}{guideblue!4}{%
   \parbox{0.91\textwidth}{\textbf{Implementation.} #1}}\end{center}}
 
-\newtheorem{proposition}{Proposition}[chapter]
+\newtheorem{proposition}{Proposition}[section]
 \newtheorem{corollary}[proposition]{Corollary}
 \newtheorem{lemma}[proposition]{Lemma}
 \theoremstyle{definition}
 \newtheorem{definition}[proposition]{Definition}
+\numberwithin{equation}{section}
 
 \graphicspath{{docs/practitioner-guide/figures/}}
 

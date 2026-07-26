@@ -1,7 +1,7 @@
-\chapter{Data and calibration contract}
+\section{Data and calibration contract}
 \label{ch:data}
 
-\section{Model-ready inputs}
+\subsection{Model-ready inputs}
 
 The generic economic-geography adapter reads two CSV files and one TOML
 configuration. The files are deliberately narrow. They contain a baseline
@@ -25,7 +25,7 @@ The terminal and edge-specific congestion columns are optional unless selected
 by the configuration. Edge identifiers must be unique at the edge-mode level.
 Every endpoint must exist in the node table.
 
-\section{Value flows and units}
+\subsection{Value flows and units}
 
 The theory uses value traffic normalized by world income. Vehicle counts,
 passenger trips, tons, and scheduled services are not automatically equivalent
@@ -47,7 +47,7 @@ The unit contract extends to congestion. A log elasticity such as
 matched flow measure. It is not invariant to replacing value traffic with an
 unrelated vehicle-flow concept.
 
-\section{Accounting checks}
+\subsection{Accounting checks}
 
 For each location, outgoing and incoming traffic must be consistent with the
 declared local absorption and exposure stock. The loader checks:
@@ -66,7 +66,7 @@ generic adapter. If empirical sources do not agree, create a preprocessing
 artifact that states the transformation and supply its output to the package.
 The run manifest records the hashes of the transformed inputs.
 
-\section{Parameters}
+\subsection{Parameters}
 
 The economic-geography model uses:
 \[
@@ -89,7 +89,7 @@ The package rejects points too close to \(e=0\), changes that violate the
 maintained net-dispersion branch, unsupported independent route curvature, or
 singular closure systems.
 
-\section{Policy definition}
+\subsection{Policy definition}
 
 The configuration must state:
 \begin{itemize}
@@ -107,7 +107,7 @@ bundle_id,edge_id,mode,weight
 The first-order welfare effect is linear in these weights. Duplicate entries,
 unknown edges, inactive modes, and nonfinite weights are rejected.
 
-\section{External-data adapters}
+\subsection{External-data adapters}
 
 The RSUE adapter performs transformations required to reproduce a historical
 research pipeline. Unlike the generic adapter, it may pad, symmetrize, filter,

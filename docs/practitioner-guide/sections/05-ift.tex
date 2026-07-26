@@ -1,7 +1,7 @@
-\chapter{The extended statistic and the adjoint method}
+\section{The extended statistic and the adjoint method}
 \label{ch:ift}
 
-\section{Why an implicit derivative is needed}
+\subsection{Why an implicit derivative is needed}
 
 With externalities or congestion, the welfare effect of a link improvement is
 not exhausted by its direct resource saving. The improvement changes realized
@@ -35,7 +35,7 @@ Let \(q^\top=d\log W/dz\) be the welfare row. For a policy \(p\),
 The sign convention makes a reduction in cost a positive benefit when the
 reported elasticity is positive.
 
-\section{The adjoint solve}
+\subsection{The adjoint solve}
 
 There may be hundreds or thousands of candidate links but only one welfare
 criterion. Solving \(Jx_p=b_p\) separately for each policy repeats most of the
@@ -54,7 +54,7 @@ The package never forms an explicit matrix inverse. It factorizes the relevant
 systems and uses linear solves. This matters for numerical stability and for
 moderately large sparse networks.
 
-\section{Spatial and transport blocks}
+\subsection{Spatial and transport blocks}
 
 The equilibrium has a sparse spatial block and a route-modal-congestion block.
 For closure \(S\), write the transport response as
@@ -84,7 +84,7 @@ This Schur complement is not a numerical shortcut detached from the theory. It
 is the result of eliminating the differentiated transport quantities from the
 uneliminated residual system. Tests compare the two systems directly.
 
-\section{Realized and primitive shocks}
+\subsection{Realized and primitive shocks}
 
 Two derivatives must be distinguished. A realized-friction shock changes the
 cost users face after congestion:
@@ -122,7 +122,7 @@ If the denominator is numerically zero, the ratio is missing and the
 pass-through contribution is still reported in levels. A zero derivative is a
 valid result, not an exception.
 
-\section{The economics-facing proposition}
+\subsection{The economics-facing proposition}
 
 The algebraic IFT expression can be written as traffic times equilibrium
 multipliers. Define
@@ -156,7 +156,7 @@ alone does not determine the sign of the welfare effect because the multiplier
 sum is also signed. The reported gains remain positive at the accepted
 baseline.
 
-\section{Observable and constructed objects}
+\subsection{Observable and constructed objects}
 
 Traffic, labor shares, and mode shares can be observed or constructed directly.
 Route shares and trade exposure depend on the recursive network accounting.
@@ -176,7 +176,7 @@ complement. \code{primitive\_forcing} differentiates the primitive policy.
 edge-local application without constructing the dense fixed-route incidence
 needed for the full decomposition.}
 
-\section{Regularity and failure}
+\subsection{Regularity and failure}
 
 The derivative is local and conditional on:
 \begin{itemize}

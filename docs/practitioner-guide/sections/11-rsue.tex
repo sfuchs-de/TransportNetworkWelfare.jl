@@ -1,7 +1,7 @@
-\chapter{The U.S. freight application}
+\section{The U.S. freight application}
 \label{ch:rsue}
 
-\section{Purpose}
+\subsection{Purpose}
 
 The paper applies the statistic to the U.S. freight network. The reproducible
 network has 234 nodes: 228 domestic locations and six foreign regions. The
@@ -15,7 +15,7 @@ model-ready domestic trade and modal flow matrices, location shares, the road
 network, and directional 2017 Census port trade. It then checks and constructs
 the objects required by the derivative.
 
-\section{International flows}
+\subsection{International flows}
 
 The headline vintage preserves separate import and export directions from
 public 2017 Census containerized vessel trade. Port values are mapped to
@@ -35,7 +35,7 @@ The raw monthly API cache is not committed. The repository includes:
 The API key is read from the environment and is never written to a URL, log,
 manifest, or output.
 
-\section{Headline specification}
+\subsection{Headline specification}
 
 The accepted configuration uses:
 \[
@@ -49,7 +49,7 @@ The policy is a primitive road-cost improvement. The traditional statistic is
 the two-direction road traffic share. The extended statistic includes route,
 mode, congestion, and spatial-equilibrium responses.
 
-\section{Accepted aggregate results}
+\subsection{Accepted aggregate results}
 
 The current package reproduces the accepted paper ledger:
 \begin{table}[H]
@@ -76,7 +76,7 @@ two top-ten lists in the accepted result vintage. The paper reports names only
 where endpoints can be assigned by point-in-polygon matching to public 2018
 Census CBSA geography.
 
-\section{Result provenance}
+\subsection{Result provenance}
 
 The paper artifact builder writes directed and physical results, a claim
 ledger, TeX macros, figures, map geometry, sensitivity paths, diagnostics, and
@@ -96,7 +96,7 @@ hashes of the expanded CSV files must be updated. For this reason the guide
 reports both numerical equality and artifact hashes rather than treating one
 as a substitute for the other.
 
-\section{Reproducing with external inputs}
+\subsection{Reproducing with external inputs}
 
 Set the external data root and run the locked environment:
 \begin{lstlisting}[language=bash]
@@ -113,7 +113,7 @@ julia --project=replication/rsue/environment \
 The manifest rejects files whose hashes differ from the declared data vintage.
 There is no fallback to the legacy port matrix.
 
-\section{Interpretation}
+\subsection{Interpretation}
 
 The result ranks local model-implied benefits, not project net present values.
 A high-ranked link may be expensive to build, face environmental constraints,

@@ -1,7 +1,7 @@
-\chapter{Diagnostics, failure modes, and interpretation}
+\section{Diagnostics, failure modes, and interpretation}
 \label{ch:diagnostics}
 
-\section{Three layers of verification}
+\subsection{Three layers of verification}
 
 A credible result needs three different checks:
 \begin{description}
@@ -15,7 +15,7 @@ A credible result needs three different checks:
 The package automates the first two. The third requires application-specific
 evidence.
 
-\section{Route diagnostics}
+\subsection{Route diagnostics}
 
 The run manifest records:
 \begin{itemize}
@@ -33,7 +33,7 @@ Large margin or edge errors usually indicate inconsistent inputs, reversed
 orientation, duplicated arcs, or an undeclared transformation. They should not
 be repaired by increasing the tolerance.
 
-\section{Linear-system diagnostics}
+\subsection{Linear-system diagnostics}
 
 Every closure reports the condition numbers of its transport and spatial
 systems. The default upper gate is \(10^{12}\). This is a permissive numerical
@@ -44,7 +44,7 @@ The package also records solve residuals and finiteness checks. A low residual
 with a very high condition number does not establish a stable economic
 derivative. Both should be examined.
 
-\section{Identity diagnostics}
+\subsection{Identity diagnostics}
 
 For \code{decompose}, inspect:
 \begin{itemize}
@@ -59,7 +59,7 @@ The package acceptance target for algebraic identities is \(10^{-10}\). An
 identity failure is a code or model-construction problem. It is not an
 interesting economic result.
 
-\section{Finite differences}
+\subsection{Finite differences}
 
 An analytical derivative should be compared with independently solved
 nonlinear equilibria. For a central difference with step \(h\),
@@ -77,7 +77,7 @@ deterministic traffic-stratified sample of road arcs. The absolute derivative
 error must be below \(10^{-6}\), and nonlinear solve residuals below
 \(10^{-10}\).
 
-\section{First-order accuracy}
+\subsection{First-order accuracy}
 
 Finite-difference verification establishes the derivative at the baseline. To
 assess a one-percent policy, compare:
@@ -92,7 +92,7 @@ The package does not automatically bless a five-percent intervention because
 the one-percent derivative is accurate. The analyst must report the scale at
 which the approximation is used.
 
-\section{Sensitivity}
+\subsection{Sensitivity}
 
 A sensitivity path should report both average effects and rank stability. A
 parameter can scale all links similarly while leaving the ordering nearly
@@ -103,7 +103,7 @@ road congestion in the headline model. Common road/terminal and terminal-only
 paths are extension diagnostics. Each point must remain on the declared
 regular branch and pass all closure gates.
 
-\section{Common failures}
+\subsection{Common failures}
 
 \begin{longtable}{p{0.30\textwidth}p{0.29\textwidth}p{0.33\textwidth}}
 \toprule
@@ -127,7 +127,7 @@ Report directed policies or correct the physical-link identifier. \\
 \bottomrule
 \end{longtable}
 
-\section{What to report}
+\subsection{What to report}
 
 At minimum, an empirical application should disclose:
 \begin{itemize}
