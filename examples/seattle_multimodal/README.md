@@ -136,8 +136,9 @@ and Arkolakis:
 - the observed 2017 road and GTFS networks beside the constructed multimodal
   network;
 - road, bus, rail/streetcar, and ferry welfare effects on a common scale;
-- a combined road and public-transit map in which color identifies the network
-  and line width records the extended welfare gain on one common scale; and
+- a combined map in which color distinguishes road, bus, rail/streetcar, and
+  ferry links, while line width records the extended welfare gain on one common
+  scale; and
 - traditional and extended transit effects on a common scale.
 
 Node area reflects the sum of residence and workplace commuter mass. Line

@@ -27,7 +27,6 @@ COLORS = {
     "rail": "#B5483A",
     "ferry": "#2B6EA6",
     "all_transit": "#343A40",
-    "public_transit": "#087F6B",
 }
 LABELS = {
     "road": "Road",
@@ -166,14 +165,14 @@ def node_sizes(masses, maximum=34.0, minimum=2.0):
     return dict(zip(masses, minimum+(maximum-minimum)*scale))
 
 
-def add_nodes(axis, nodes, masses, *, alpha=0.78):
+def add_nodes(axis, nodes, masses, *, alpha=0.78, zorder=5):
     sizes = node_sizes(masses)
     axis.scatter(
         [nodes[key][0] for key in nodes],
         [nodes[key][1] for key in nodes],
         s=[sizes[key] for key in nodes],
         color="#111111", edgecolors="white", linewidths=0.18,
-        alpha=alpha, zorder=5)
+        alpha=alpha, zorder=zorder)
 
 
 def unique_mode_segments(rows, nodes, mode=None):
@@ -355,9 +354,8 @@ def welfare_legend_levels(maximum):
 
 def combined_road_transit_map(artifacts, nodes, masses, geography_root):
     rows = {
-        "road": read_rows(Path(artifacts) / "links_road.csv"),
-        "public_transit": read_rows(
-            Path(artifacts) / "links_all_transit.csv"),
+        mode: read_rows(Path(artifacts) / f"links_{mode}.csv")
+        for mode in ("road", "bus", "rail", "ferry")
     }
     values = {
         category: numeric(category_rows, "extended_gain_pct")
@@ -374,35 +372,37 @@ def combined_road_transit_map(artifacts, nodes, masses, geography_root):
         colors=COLORS["road"], linewidths=road_widths,
         alpha=0.64, zorder=2))
 
-    transit_segments = corridor_segments(rows["public_transit"], nodes)
-    transit_widths = welfare_widths(values["public_transit"], maximum)
-    axis.add_collection(LineCollection(
-        transit_segments, colors="white", linewidths=transit_widths + 1.15,
-        alpha=0.88, zorder=3))
-    for negative, linestyle in ((False, "solid"), (True, (0, (3, 2)))):
-        indices = np.flatnonzero(
-            (values["public_transit"] < 0) == negative)
-        if len(indices) == 0:
-            continue
+    for layer, mode in enumerate(("bus", "ferry", "rail")):
+        transit_segments = corridor_segments(rows[mode], nodes)
+        transit_widths = welfare_widths(values[mode], maximum)
         axis.add_collection(LineCollection(
-            [transit_segments[index] for index in indices],
-            colors=COLORS["public_transit"],
-            linewidths=transit_widths[indices],
-            linestyles=linestyle, alpha=0.96, zorder=4))
+            transit_segments, colors="white",
+            linewidths=transit_widths + 1.15,
+            alpha=0.88, zorder=3 + 2*layer))
+        for negative, linestyle in ((False, "solid"), (True, (0, (3, 2)))):
+            indices = np.flatnonzero((values[mode] < 0) == negative)
+            if len(indices) == 0:
+                continue
+            axis.add_collection(LineCollection(
+                [transit_segments[index] for index in indices],
+                colors=COLORS[mode], linewidths=transit_widths[indices],
+                linestyles=linestyle, alpha=0.96,
+                zorder=4 + 2*layer))
 
-    add_nodes(axis, nodes, masses, alpha=0.56)
+    add_nodes(axis, nodes, masses, alpha=0.56, zorder=10)
     finish_map(axis, nodes)
 
+    category_handles = [
+        Line2D([0], [0], color=COLORS[mode], linewidth=2.0,
+               label=LABELS[mode])
+        for mode in ("road", "bus", "rail", "ferry")
+    ]
+    if any(np.any(values[mode] < 0) for mode in ("bus", "rail", "ferry")):
+        category_handles.append(
+            Line2D([0], [0], color="#202428", linewidth=2.0,
+                   linestyle=(0, (3, 2)), label="Negative effect"))
     category_legend = axis.legend(
-        handles=[
-            Line2D([0], [0], color=COLORS["road"], linewidth=2.0,
-                   label="Road"),
-            Line2D([0], [0], color=COLORS["public_transit"],
-                   linewidth=2.0, label="Public transit"),
-            Line2D([0], [0], color=COLORS["public_transit"],
-                   linewidth=2.0, linestyle=(0, (3, 2)),
-                   label="Negative transit effect"),
-        ],
+        handles=category_handles,
         loc="upper left", frameon=True, facecolor="white",
         edgecolor="none", framealpha=0.82, fontsize=7.2,
         handlelength=2.6)
