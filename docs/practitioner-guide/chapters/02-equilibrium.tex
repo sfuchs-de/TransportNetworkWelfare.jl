@@ -1,0 +1,125 @@
+\chapter{Spatial equilibrium and market access}
+\label{ch:equilibrium}
+
+\section{Locations, production, and consumption}
+
+There are \(N\) locations. Location \(i\) has labor \(L_i\), wage \(w_i\),
+productivity \(A_i\), and amenity \(u_i\). A differentiated variety is produced
+with labor under constant returns and perfect competition. Consumers have CES
+preferences with elasticity \(\sigma>1\). Indirect utility in location \(i\)
+is proportional to
+\[
+  U_i=\frac{w_i u_i}{P_i},
+\]
+where \(P_i\) is the CES price index.
+
+The economic-geography specification allows local activity to affect
+productivity and amenities:
+\[
+  A_i=\bar A_i L_i^\alpha,
+  \qquad
+  u_i=\bar u_i L_i^\beta.
+\]
+The parameter \(\alpha\) captures a productivity agglomeration force and
+\(\beta\) an amenity or dispersion force. Labor is perfectly mobile across
+locations, aggregate labor is fixed, and each worker supplies one unit
+inelastically. The spatial equilibrium equalizes utility across occupied
+locations and clears goods and labor markets.
+
+These assumptions are not innocuous labels. Perfect mobility determines the
+welfare closure used in the paper. Fixed aggregate labor and labor-only
+production rule out additional factor-income and labor-supply channels. The
+software's urban specification uses a different state and welfare row rather
+than relabeling these objects.
+
+\section{Bilateral trade and network costs}
+
+Let \(\tau_{ij}\) be the composite iceberg cost of delivering a good from
+\(i\) to \(j\). Bilateral expenditure has the gravity form
+\[
+ X_{ij}
+ =W^{1-\sigma}
+ \left(\frac{A_i u_j}{\tau_{ij}}\right)^{\sigma-1}
+ w_i^{1-\sigma}w_j^\sigma L_j,
+\]
+where \(W\) is aggregate welfare in the normalization used by the paper. The
+network determines \(\tau_{ij}\); the spatial equilibrium determines the
+levels of wages, labor, productivity, and amenities that enter bilateral
+trade.
+
+The model admits a useful recursive representation. Define transformed inward
+and outward market-access stocks
+\[
+  \mathcal P_i=P_i^{1-\sigma},
+  \qquad
+  \mathcal Q_i=\Pi_i^{1-\sigma}.
+\]
+Their exact construction is given in the paper's Appendix A. Each object
+satisfies a local recursion. Market access at one node equals a local absorption
+term plus weighted market access at adjacent nodes. This converts a dense
+bilateral object into a sparse network system.
+
+\section{Trade exposure and traffic factorization}
+
+Define location \(i\)'s trade exposure by
+\[
+  \mathcal T_i=\frac{\mathcal P_i\mathcal Q_i}{Y^W},
+  \qquad
+  Y^W=\sum_i w_iL_i.
+\]
+The term is a stock of trade opportunities reaching the location before local
+absorption. In older computational notes it is called a node-visit or
+occupation stock. The guide uses the economics-facing term ``trade exposure.''
+
+Let \(\mu_{ij}\) be the outward continuation share from \(i\) to \(j\), and
+let \(\lambda^{in}_{ij}\) be the corresponding inward share at \(j\). Directed
+edge traffic factors as
+\[
+  \Xi_{ij}=\mu_{ij}\mathcal T_i
+          =\lambda^{in}_{ij}\mathcal T_j
+          =\frac{\kappa_{ij}^{1-\sigma}
+                  \mathcal P_i\mathcal Q_j}{Y^W}.
+\]
+This identity connects the theoretical recursion to observed flows. Outgoing
+and incoming traffic totals satisfy
+\[
+ O_i=\sum_j\Xi_{ij}=(1-s_i^x)\mathcal T_i,
+ \qquad
+ I_i=\sum_j\Xi_{ji}=(1-s_i^y)\mathcal T_i,
+\]
+where \(s_i^x\) and \(s_i^y\) are local absorption shares.
+
+In theory, either side recovers \(\mathcal T_i\). In empirical work the two
+recoveries can disagree because flows and margins come from different
+sources. The generic loader rejects disagreement beyond the declared
+tolerance. Any balancing or projection must occur in a documented
+preprocessing step.
+
+\section{The transformed equilibrium}
+
+The appendix works with two transformed location-level variables,
+\[
+ x_i=w_i^\sigma L_i^{1+\beta(\sigma-1)},\qquad
+ y_i=W^{\sigma-1}w_i^{1-\sigma}L_i^{\alpha(\sigma-1)}.
+\]
+The transformation isolates the sparse market-access propagation from the
+aggregate labor constraint. Define
+\[
+ e=1+\beta(\sigma-1)+\alpha\sigma,
+ \qquad
+ \rho=\frac{1+\alpha+\beta}{e}.
+\]
+The inverse map from \((x,y)\) to wages, labor, and welfare exists only if
+\(e\neq0\), and the welfare normalization also requires
+\(1+\alpha+\beta\neq0\).
+
+The code enforces these restrictions before constructing the model. It also
+checks the condition number of each equilibrium closure. A finite formula on
+paper is not enough when the corresponding numerical system is almost
+singular.
+
+\implementationbox{The coefficient map is implemented by
+\code{AdjointRSUE.coefs}. The no-congestion Jacobian is assembled by
+\code{AdjointRSUE.assemble\_J}. The generic economic-geography builder then
+adds route, modal, and congestion feedback through the common transport
+closure.}

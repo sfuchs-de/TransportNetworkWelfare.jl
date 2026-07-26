@@ -1,0 +1,167 @@
+\chapter{A complete worked example}
+\label{ch:worked}
+
+\section{The three-location project}
+
+The committed toy project has three locations and reciprocal road links. Each
+directed edge also carries a second mode, which makes modal reallocation and
+terminal congestion nontrivial. The inputs are small enough to inspect by
+hand but use the same loader and closure engine as the empirical adapters.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{toy-network.pdf}
+\caption{Extended welfare elasticities in the three-location example. Line
+width and color represent the model-implied benefit of a one-percent primitive
+road-cost improvement.}
+\label{fig:toy-network}
+\end{figure}
+
+Start from a fresh clone:
+\begin{lstlisting}[language=bash]
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. bin/tnw.jl validate examples/toy/config.toml
+julia --project=. bin/tnw.jl decompose examples/toy/config.toml
+\end{lstlisting}
+No environment variable, downloaded input, or source edit is required.
+
+\section{Configuration}
+
+The project declares its inputs and model:
+\begin{lstlisting}
+schema_version = 1
+name = "toy"
+
+[input]
+adapter = "generic_csv_v1"
+nodes = "data/nodes.csv"
+edge_modes = "data/edge_modes.csv"
+
+[model]
+spatial_specification = "economic_geography"
+alpha = 0.10
+beta = -0.30
+sigma = 9.0
+modal_specification = "choice_logsum"
+eta = 1.099
+route_curvature = "theorem"
+
+[policy]
+mode = "road"
+unit = "both"
+shock_fraction = 0.01
+\end{lstlisting}
+The complete file also declares edge and terminal congestion, diagnostics, and
+sensitivity paths. Paths are resolved relative to the configuration file, so
+the project can be moved without editing absolute directories.
+
+\section{Validation}
+
+\code{validate} loads the input, builds the welfare-only closure, and prints a
+machine-readable summary. The baseline has:
+\begin{itemize}
+  \item three nodes and six directed road policies;
+  \item a route spectral radius of approximately \(0.0663\);
+  \item a full spatial condition number of approximately \(1.16\times10^3\);
+  \item matching bilateral margins and directed-edge traffic within the
+  configured tolerance.
+\end{itemize}
+
+These checks do not establish that the toy calibration is empirically
+plausible. They establish that it is a well-defined input to the model.
+
+\section{Directed results}
+
+Table \ref{tab:toy-results} reports the main directed quantities. All six road
+edges have the same Hulten traffic share, but their extended effects differ
+because their equilibrium incidence and pass-through differ.
+
+\begin{table}[H]
+\centering
+\caption{Directed toy welfare elasticities}
+\label{tab:toy-results}
+\begin{tabular}{lrrr}
+\toprule
+Edge & Traditional & Extended primitive & Extended/traditional \\
+\midrule
+\(B\to C\) & 0.010000 & 0.007678 & 0.768 \\
+\(C\to B\) & 0.010000 & 0.007644 & 0.764 \\
+\(A\to C\) & 0.010000 & 0.006986 & 0.699 \\
+\(A\to B\) & 0.010000 & 0.006817 & 0.682 \\
+\(C\to A\) & 0.010000 & 0.006736 & 0.674 \\
+\(B\to A\) & 0.010000 & 0.006597 & 0.660 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For a one-percent primitive cost reduction on \(B\to C\), the local welfare
+gain is approximately
+\[
+  0.01\times0.007678=0.00007678
+\]
+in log welfare, or \(0.007678\) percent. The derivative and the percentage
+effect happen to share the same displayed number only because the policy
+change is one percent.
+
+\section{Traditional versus extended}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{toy-scatter.pdf}
+\caption{Traditional and extended welfare elasticities for the physical links
+in the toy project. The 45-degree line is the efficient traffic benchmark.}
+\label{fig:toy-scatter}
+\end{figure}
+
+The points lie below the 45-degree line in this calibration. This does not
+imply a general theorem that equilibrium adjustment lowers benefits.
+Parameters and network position determine the sign. The useful observation is
+that equal traffic does not imply equal extended welfare once the baseline is
+distorted.
+
+\section{Decomposition}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth]{toy-decomposition.pdf}
+\caption{Exact closure components for the directed toy policies. Components
+are signed levels, not percentage shares.}
+\label{fig:toy-decomposition}
+\end{figure}
+
+The maximum inverse-gap error is \(3.3\times10^{-16}\), the closure-ladder
+error is zero at displayed precision, and the maximum analytical channel
+reconstruction error is \(2.8\times10^{-14}\). These diagnostics should be
+checked before interpreting the bars.
+
+\section{A routing-specific example}
+
+The Braess-style project has four locations, reciprocal parallel routes, and a
+connector. It is not a Wardrop-paradox replication; it is a controlled
+demonstration that flexible and fixed route derivatives differ.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{braess-network.pdf}
+\caption{Extended welfare elasticities in the Braess-style routing example.}
+\label{fig:braess}
+\end{figure}
+
+Run:
+\begin{lstlisting}[language=bash]
+julia --project=. bin/tnw.jl decompose examples/braess/config.toml
+\end{lstlisting}
+The route wedge is nonzero on the parallel branches. In the corresponding
+unique-route test fixture, \code{FR=F} within \(10^{-10}\), as the theory
+requires.
+
+\section{Adapting the example}
+
+Create a project skeleton:
+\begin{lstlisting}[language=bash]
+julia --project=. bin/tnw.jl init /path/to/my-network
+\end{lstlisting}
+Replace the CSV rows with model-ready data, retain the schema, and edit the
+TOML values. The first successful milestone should be \code{validate}, not a
+map or ranking. Once validation passes, run \code{analyze}; use
+\code{decompose} only when the fixed-route memory estimate is acceptable.

@@ -1,0 +1,85 @@
+\chapter{Provenance and reproducibility boundary}
+\label{app:provenance}
+
+\section{Authority}
+
+The journal manuscript is authoritative for the paper-facing model and claims.
+The Julia package is authoritative for executable behavior and tested
+interfaces. The Mathdown project curates derivations and records unresolved
+decisions. Meeting notes and correspondence document intent but do not
+override a verified equation or result.
+
+This guide uses the active manuscript at Overleaf commit
+\code{cef3a13b} and the package feature baseline
+\code{de708f2}. The tracked self-containment audit records the detailed mapping.
+
+\section{Kernel lineage}
+
+The package was initialized from the frozen
+\code{IFT\_Complete\_Decomposition\_2026-07-12.zip} audit bundle. The repository
+\code{provenance.toml} stores each relied-on kernel's source hash, current hash,
+and relationship to the frozen file. CI verifies the current hashes.
+
+Some kernels remain byte-for-byte frozen. Others have explicit divergences:
+validation errors replace assertions, route reconstruction allows distinct
+margins, and the urban engine uses the shared multimodal transport basis. The
+provenance record is descriptive; it does not substitute for tests.
+
+\section{Paper result vintage}
+
+Restricted domestic inputs are identified by SHA-256 in the RSUE manifest.
+The accepted result vintage uses the choice logsum, directional Census port
+flows, edge-local road congestion, and bidirectional physical-link policies.
+The claim ledger records numerical summaries separately from output-file
+hashes.
+
+Rebuilding the paper artifacts requires the external files. This PDF includes
+only aggregate non-sensitive statistics and hashes. It cannot reconstruct the
+restricted raw data and does not claim to do so.
+
+\section{Seattle sources}
+
+The Seattle candidate depends on a published urban replication archive, LODES,
+ACS, a pinned historical GTFS feed, and Census geography. Raw downloads remain
+outside Git. Their manifests record URLs, versions, retrieval dates, licenses,
+and hashes. If the exact historical feed is unavailable or a hash changes, the
+workflow fails rather than substituting current service.
+
+\section{Guide build}
+
+The PDF source, bibliography, and figures are committed under
+\code{docs/practitioner-guide}. The displayed tutorial figures are generated
+from committed synthetic projects. The PDF build reads only those files and
+requires no external data or Python process.
+
+The build command is:
+\begin{lstlisting}[language=bash]
+make practitioner-guide-check
+\end{lstlisting}
+The check rejects undefined references, missing figures, private absolute
+paths, credential-like strings, and an unexpectedly short PDF.
+
+\section{Citation and release status}
+
+The package is MIT licensed subject to coauthor approval before public release.
+The preferred paper citation is:
+
+\begin{quote}
+Allen, Treb, Simon Fuchs, and Woan Foong Wong. ``From Social Savings to
+Spatial Equilibrium: Evaluating Transportation Improvements in Quantitative
+Spatial Models.'' 2026.
+\end{quote}
+
+The software citation should use the tagged release and commit corresponding
+to the analysis. Feature branches and draft pull requests are not archival
+releases.
+
+\section{Reproducibility statement}
+
+A fresh user can install the package from a clone, run the committed synthetic
+examples, reproduce their numerical outputs, and build this guide without
+private files.
+
+Reproducing the U.S. freight or Seattle empirical results additionally requires
+their external inputs. Those applications are hash-bound external-data
+replications.

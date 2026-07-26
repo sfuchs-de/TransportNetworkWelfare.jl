@@ -2,6 +2,7 @@
 Manifest.toml
 !replication/rsue/environment/Manifest.toml
 docs/build/
+docs/practitioner-guide/build/
 output/
 replication/rsue/staging/
 replication/rsue/census_ports/cache/

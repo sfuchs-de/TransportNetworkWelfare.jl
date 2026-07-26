@@ -1,0 +1,107 @@
+\chapter{What the calculation answers}
+\label{ch:question}
+
+\section{The policy experiment}
+
+Suppose an analyst can lower the underlying transport cost on one network
+link. Which link produces the largest economic benefit? A traditional answer
+multiplies the cost reduction by the traffic using that link. This is the
+social-savings calculation associated with \citet{fogel1962quantitative} and
+\citet{Fogel1964Railroads}. It is transparent and often informative. It also
+raises a natural question: what happens when users change routes, switch
+modes, move across locations, or change the congestion faced by other users?
+
+The package evaluates a local version of that question. A policy is a small
+change in the primitive cost of a declared edge--mode. For a directed road
+edge \(e=(k,l)\), mode \(m\), write
+\[
+  \theta_{klm}=\log\bar\kappa_{kl,m},
+\]
+where \(\bar\kappa_{kl,m}\) is the cost supplied by infrastructure before
+endogenous congestion. The main output is
+\[
+  -\frac{d\log W}{d\theta_{klm}},
+\]
+the elasticity of aggregate welfare with respect to a reduction in that
+primitive cost. A one-percent improvement is the derivative multiplied by
+0.01. The software reports the derivative itself and records the shock size in
+the run manifest.
+
+The distinction between a directed edge and a physical link matters. A
+directed policy changes one direction. A physical-link policy changes the two
+reciprocal directions simultaneously and sums their first-order effects. The
+package never treats an unpaired directed edge as bidirectional.
+
+\section{Traditional and extended measures}
+
+Let \(\Xi_{kl,m}\) be value traffic on the edge--mode, normalized by world
+income. The traditional statistic is
+\[
+  H_{klm}=\Xi_{kl,m}.
+\]
+It is a welfare elasticity, not a raw vehicle count. Multiplying by world
+income converts the share to currency units before applying a small
+proportional cost change.
+
+The extended statistic lets routes, modes, congestion, prices, and the
+distribution of economic activity respond. It is still a local derivative.
+The calculation does not solve a finite construction project, assign a
+construction cost, or predict a transition path. It asks how welfare changes
+at the observed equilibrium when one primitive cost changes marginally.
+
+This local focus has three advantages. First, it separates the economic
+mechanism from assumptions about project scale. Second, the same derivative
+can rank many candidate links. Third, the adjoint method computes all link
+derivatives after one equilibrium linearization. The limitation is equally
+important: a large project can leave the neighborhood in which the derivative
+is accurate. Chapter \ref{ch:diagnostics} explains how to compare the
+first-order prediction with finite changes.
+
+\section{Benefits rather than a complete appraisal}
+
+The welfare measure covers channels represented in the model: resource costs
+of moving goods, route and mode substitution, congestion, spatial
+externalities, and changes in the location of economic activity. It does not
+include a construction budget, maintenance, financing, pollution, safety,
+neighborhood disruption, displacement, segregation, or distributional
+incidence. These objects can be important and should be reported separately.
+
+\warningbox{Do not label the output ``net social benefit'' unless every
+material project cost and externality has been brought into the welfare
+criterion. In the paper application, ``model-implied economic benefit'' is the
+accurate description.}
+
+The package therefore complements conventional transport appraisal rather
+than replacing it. Conventional analysis supplies engineering costs, demand
+evidence, safety effects, and local externalities. The spatial statistic shows
+how observed network use and equilibrium adjustment alter the benefit side of
+that ledger. Useful introductions to conventional practice include
+\citet{SmallVerhoefLindsey2024} and \citet{dePalmaEtAl2011Handbook}; spatial
+channels are reviewed by \citet{ReddingTurner2015} and
+\citet{donaldson2025transport}.
+
+\section{A sufficient-statistic workflow}
+
+The application is best understood as a sufficient-statistic exercise. The
+inputs are model-ready labor and income shares, directed value flows by mode,
+network incidence, and a small set of elasticities. From these inputs the
+software reconstructs the recursive routing system and the exposure of each
+location to inward and outward markets. It does not estimate the entire model
+from raw administrative records.
+
+The practical workflow is:
+\begin{enumerate}
+  \item state the policy unit and the primitive being changed;
+  \item construct a directed, mode-specific value-flow network;
+  \item verify the accounting identities required by the recursive model;
+  \item choose and document the spatial, modal, and congestion
+  specifications;
+  \item validate the baseline and condition numbers;
+  \item compute traditional and extended elasticities;
+  \item inspect the decomposition and numerical diagnostics;
+  \item assess sensitivity and compare the ranking with external policy
+  evidence.
+\end{enumerate}
+
+The order matters. A derivative from an inconsistent flow network is not made
+credible by a sophisticated solver.

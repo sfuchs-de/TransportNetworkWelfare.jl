@@ -26,6 +26,12 @@ Historical lineage is available in the private repositories `sfuchs-de/RSUE_AFW_
 
 The RSUE manuscript remains in Overleaf. Restricted data remain outside Git and are located through `RSUE_DATA_ROOT`. No manuscript source or restricted input is vendored here.
 
+The practitioner guide and theory--code audit use the active manuscript at
+Overleaf commit `cef3a13b539555bd568cb13332b5835d074afe18` as the authority for
+the paper-facing model statement. The software repository remains authoritative
+for executable behavior. The audit records any difference between those two
+sources rather than silently reconciling it.
+
 ## Seattle multimodal candidate
 
 The published Allen-Arkolakis Seattle inputs are retained outside Git. The

@@ -58,6 +58,24 @@ jobs:
       - name: Build documentation
         run: julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate(); include("docs/make.jl")'
 
+  practitioner-guide:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Install TeX and PDF checks
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y latexmk lmodern poppler-utils texlive-fonts-recommended texlive-latex-extra
+      - name: Build and check practitioner guide
+        run: make practitioner-guide-check
+      - name: Upload practitioner guide
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: TransportNetworkWelfare-Practitioner-Guide
+          path: docs/practitioner-guide/build/TransportNetworkWelfare-Practitioner-Guide.pdf
+
   census-data:
     runs-on: ubuntu-latest
     steps:

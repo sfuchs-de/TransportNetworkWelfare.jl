@@ -1,0 +1,125 @@
+\chapter{Data and calibration contract}
+\label{ch:data}
+
+\section{Model-ready inputs}
+
+The generic economic-geography adapter reads two CSV files and one TOML
+configuration. The files are deliberately narrow. They contain a baseline
+that already satisfies the model's accounting identities; they are not a
+warehouse for raw transport records.
+
+The node file contains:
+\begin{lstlisting}
+node_id,labor_share,income_share,longitude,latitude
+\end{lstlisting}
+Labor and income shares must be finite, nonnegative, and normalized. Coordinates
+are optional for analysis and useful for maps.
+
+The edge-mode file contains one row for each active mode on each directed edge:
+\begin{lstlisting}
+edge_id,physical_link_id,origin,destination,mode,flow,
+origin_terminal_id,destination_terminal_id,
+congestion_elasticity
+\end{lstlisting}
+The terminal and edge-specific congestion columns are optional unless selected
+by the configuration. Edge identifiers must be unique at the edge-mode level.
+Every endpoint must exist in the node table.
+
+\section{Value flows and units}
+
+The theory uses value traffic normalized by world income. Vehicle counts,
+passenger trips, tons, and scheduled services are not automatically equivalent
+to value flows. A preprocessing pipeline may convert a physical measure to the
+model's economic flow, but that conversion must be explicit and defensible.
+
+All active modal flows on an edge sum to aggregate edge traffic:
+\[
+ \Xi_{ij}=\sum_m\Xi_{ij,m},
+ \qquad
+ s_{ij,m}=\frac{\Xi_{ij,m}}{\Xi_{ij}}.
+\]
+The package constructs modal shares from the input baseline. It does not use
+\(\eta\) to overwrite those baseline shares. The elasticity controls the local
+response after a shock.
+
+The unit contract extends to congestion. A log elasticity such as
+\(\lambda=0.092\) is invariant to proportional rescaling of a correctly
+matched flow measure. It is not invariant to replacing value traffic with an
+unrelated vehicle-flow concept.
+
+\section{Accounting checks}
+
+For each location, outgoing and incoming traffic must be consistent with the
+declared local absorption and exposure stock. The loader checks:
+\begin{itemize}
+  \item node and mode identifiers;
+  \item positivity and finiteness;
+  \item flow conservation and exposure-stock agreement;
+  \item reciprocal physical-link pairing when requested;
+  \item modal coverage of the policy mode;
+  \item terminal identifiers for terminal-congested modes;
+  \item congestion keys against observed and active modes.
+\end{itemize}
+
+There is no silent symmetrization, padding, modal rescaling, or balancing in the
+generic adapter. If empirical sources do not agree, create a preprocessing
+artifact that states the transformation and supply its output to the package.
+The run manifest records the hashes of the transformed inputs.
+
+\section{Parameters}
+
+The economic-geography model uses:
+\[
+ (\alpha,\beta,\sigma,\eta,\lambda_m).
+\]
+The route curvature is \(\sigma-1\). The paper baseline uses
+\[
+ \alpha=0.10,\quad
+ \beta=-0.30,\quad
+ \sigma=9,\quad
+ \eta=1.099,\quad
+ \lambda_{\mathrm{road}}=0.092.
+\]
+These values are external calibration inputs, not parameters estimated by the
+package. The paper follows \citet{FuchsWong2024Multimodal} for the spatial and
+modal elasticities and \citet{AA_2022restud} for road congestion.
+
+Sensitivity should vary one parameter while remaining on a regular branch.
+The package rejects points too close to \(e=0\), changes that violate the
+maintained net-dispersion branch, unsupported independent route curvature, or
+singular closure systems.
+
+\section{Policy definition}
+
+The configuration must state:
+\begin{itemize}
+  \item the policy mode;
+  \item whether outputs are directed arcs, physical links, or both;
+  \item the proportional shock used to translate elasticities into reported
+  gains;
+  \item whether a bundle contains several edge-mode shocks.
+\end{itemize}
+
+A policy bundle is a sparse list:
+\begin{lstlisting}
+bundle_id,edge_id,mode,weight
+\end{lstlisting}
+The first-order welfare effect is linear in these weights. Duplicate entries,
+unknown edges, inactive modes, and nonfinite weights are rejected.
+
+\section{External-data adapters}
+
+The RSUE adapter performs transformations required to reproduce a historical
+research pipeline. Unlike the generic adapter, it may pad, symmetrize, filter,
+or rescale because those operations are part of the declared replication
+contract. Each transformation is listed in TOML and written to the manifest.
+
+The Seattle adapter combines a published urban archive with LODES commuting,
+ACS mode shares, and a pinned historical GTFS network. The raw sources remain
+outside Git. Schedule data identify service paths and frequency, not observed
+route ridership. The model builder therefore reports its construction and
+external comparisons without presenting schedule counts as passenger flows.
+
+\warningbox{A successful schema check establishes internal consistency, not
+external validity. Validation against untargeted traffic, ridership, prices,
+or location outcomes is a separate empirical exercise.}

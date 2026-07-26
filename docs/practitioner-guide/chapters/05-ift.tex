@@ -1,0 +1,191 @@
+\chapter{The extended statistic and the adjoint method}
+\label{ch:ift}
+
+\section{Why an implicit derivative is needed}
+
+With externalities or congestion, the welfare effect of a link improvement is
+not exhausted by its direct resource saving. The improvement changes realized
+costs, routes, modal allocation, bilateral trade, wages, and the location of
+labor. These outcomes are determined jointly. Differentiating one equation at
+a time while holding the remaining equilibrium objects fixed would omit the
+feedback that motivates the exercise.
+
+Collect the transformed equilibrium variables in \(z\) and write the residual
+system as
+\[
+  G(z,\theta)=0.
+\]
+The vector \(\theta\) contains primitive edge-mode log costs. Around an
+interior differentiable baseline,
+\[
+ J\,dz+G_\theta\,d\theta=0,
+ \qquad
+ J=G_z.
+\]
+If \(J\) is nonsingular, the Implicit Function Theorem gives
+\[
+ \frac{dz}{d\theta}=-J^{-1}G_\theta.
+\]
+Let \(q^\top=d\log W/dz\) be the welfare row. For a policy \(p\),
+\[
+ -\frac{d\log W}{d\theta_p}
+ =q^\top J^{-1}b_p,
+ \qquad b_p=G_{\theta_p}.
+\]
+The sign convention makes a reduction in cost a positive benefit when the
+reported elasticity is positive.
+
+\section{The adjoint solve}
+
+There may be hundreds or thousands of candidate links but only one welfare
+criterion. Solving \(Jx_p=b_p\) separately for each policy repeats most of the
+linear algebra. The adjoint method instead solves
+\[
+ J^\top a=q
+\]
+once and evaluates
+\[
+ E_p=a^\top b_p
+\]
+for each policy. The result is identical to the direct IFT calculation. After
+the adjoint solve, each policy evaluation requires only sparse matrix products.
+
+The package never forms an explicit matrix inverse. It factorizes the relevant
+systems and uses linear solves. This matters for numerical stability and for
+moderately large sparse networks.
+
+\section{Spatial and transport blocks}
+
+The equilibrium has a sparse spatial block and a route-modal-congestion block.
+For closure \(S\), write the transport response as
+\[
+ x=Q_z^S z+C^S a,\qquad
+ a=\theta+\Gamma^Sx.
+\]
+Eliminating the congestion state gives the reduced spatial Jacobian
+\[
+ J_S
+ =J_0+B_\kappa S_{\mathrm{agg}}
+ (I-\Gamma^SC^S)^{-1}
+ \Gamma^SQ_z^S.
+\]
+Here:
+\begin{itemize}
+  \item \(J_0\) is the no-congestion spatial Jacobian;
+  \item \(B_\kappa\) loads aggregate edge costs into spatial residuals;
+  \item \(S_{\mathrm{agg}}\) aggregates edge-mode costs to physical directed
+  edges;
+  \item \(Q_z^S\) maps the spatial state into edge-mode traffic;
+  \item \(C^S\) maps congestion states into traffic;
+  \item \(\Gamma^S\) maps traffic into realized costs.
+\end{itemize}
+
+This Schur complement is not a numerical shortcut detached from the theory. It
+is the result of eliminating the differentiated transport quantities from the
+uneliminated residual system. Tests compare the two systems directly.
+
+\section{Realized and primitive shocks}
+
+Two derivatives must be distinguished. A realized-friction shock changes the
+cost users face after congestion:
+\[
+ \vartheta_{klm}=\log\kappa_{kl,m}.
+\]
+A primitive policy shock changes the infrastructure component:
+\[
+ \theta_{klm}=\log\bar\kappa_{kl,m}.
+\]
+With congestion, these are not the same experiment. Traffic induced by a
+primitive improvement can attenuate the fall in realized cost.
+
+Let
+\[
+ \zeta_{klm}
+ =\left.
+ \frac{\partial\log\kappa_{kl}}
+      {\partial\theta_{klm}}
+ \right|_{dz=0},
+ \qquad
+ \chi_{klm}=\frac{\zeta_{klm}}{s_{kl,m}}.
+\]
+The derivative is taken through the modal and congestion system while holding
+the spatial state fixed. The spatial equilibrium then responds through
+\(J^{-1}\). The implementation constructs the full primitive forcing rather
+than assigning \(\chi\) separately.
+
+When the realized welfare derivative is nonzero, the output reports the
+welfare-effective ratio
+\[
+ \chi_e^{eff}=\frac{\Eprimitive_{e,F}}{\Ereal_{e,F}}.
+\]
+If the denominator is numerically zero, the ratio is missing and the
+pass-through contribution is still reported in levels. A zero derivative is a
+valid result, not an exception.
+
+\section{The economics-facing proposition}
+
+The algebraic IFT expression can be written as traffic times equilibrium
+multipliers. Define
+\[
+ \rho=\frac{1+\alpha+\beta}
+ {1+\beta(\sigma-1)+\alpha\sigma}.
+\]
+Let \(\mathcal M_i^{in}\) and \(\mathcal M_i^{out}\) be the adjoint
+market-access multipliers normalized by trade exposure \(\mathcal T_i\). Then
+the primitive edge-mode welfare elasticity is
+\[
+ -\frac{d\log W}{d\theta_{klm}}
+ =\chi_{klm}\rho\Xi_{kl,m}
+ \left(\mathcal M_k^{in}+\mathcal M_l^{out}\right).
+\]
+
+The terms have distinct roles:
+\begin{description}
+  \item[Traffic \(\Xi_{kl,m}\).] The scale of economic activity directly
+  exposed to the improvement.
+  \item[Externality scale \(\rho\).] A common transformation of welfare and
+  spatial responses for a given parameter vector.
+  \item[Pass-through \(\chi_{klm}\).] The part of the primitive change that
+  reaches the aggregate edge cost after modal and congestion responses.
+  \item[Market-access multipliers.] The link-specific incidence of the shock
+  through inward and outward equilibrium propagation.
+\end{description}
+
+At the paper calibration, \(e=-0.5\) and \(\rho=-1.6\). The sign of \(\rho\)
+alone does not determine the sign of the welfare effect because the multiplier
+sum is also signed. The reported gains remain positive at the accepted
+baseline.
+
+\section{Observable and constructed objects}
+
+Traffic, labor shares, and mode shares can be observed or constructed directly.
+Route shares and trade exposure depend on the recursive network accounting.
+Using outgoing or incoming traffic,
+\[
+ \mathcal T_i=\frac{O_i}{1-s_i^x}
+             =\frac{I_i}{1-s_i^y}.
+\]
+This is an identity in the model. Empirical implementation requires a
+model-consistent flow network. The package reports stock disagreement rather
+than hiding it through an automatic balancing step.
+
+\implementationbox{\code{build\_transport\_closure} constructs the Schur
+complement. \code{primitive\_forcing} differentiates the primitive policy.
+\code{operator\_gain} performs the adjoint projection. The sparse
+\code{edge\_local\_welfare\_effects} path computes the paper's headline
+edge-local application without constructing the dense fixed-route incidence
+needed for the full decomposition.}
+
+\section{Regularity and failure}
+
+The derivative is local and conditional on:
+\begin{itemize}
+  \item an interior baseline with positive active edge-mode flows;
+  \item a contractive route kernel;
+  \item positive exposure stocks;
+  \item \(e\neq0\) and \(1+\alpha+\beta\neq0\);
+  \item nonsingular modal-congestion and spatial systems;
+  \item a condition number below the configured gate.
+\end{itemize}
+The software fails explicitly when these conditions are violated. It never
+uses a ridge term to turn an unidentified derivative into a number.

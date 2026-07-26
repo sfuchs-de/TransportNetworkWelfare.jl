@@ -1,0 +1,137 @@
+\chapter{Package architecture and computational algorithm}
+\label{ch:code}
+
+\section{Public interface}
+
+The package exposes a small typed API:
+\begin{lstlisting}[language=Julia]
+using TransportNetworkWelfare
+
+project = load_project("examples/toy/config.toml")
+validate(project)
+model = build_model(project)
+welfare = welfare_effects(model)
+components = decompose_welfare(model)
+sensitivity = sensitivity_path(model, :eta, [0.9, 1.099, 1.25])
+write_results(components, "examples/toy/output/guide-api/"; project)
+\end{lstlisting}
+
+The configuration determines the spatial, modal, congestion, and policy
+types. Users adapting a dataset should change CSV and TOML inputs rather than
+editing the solver.
+
+The CLI calls the same public functions:
+\begin{lstlisting}[language=bash]
+julia --project=. bin/tnw.jl validate examples/toy/config.toml
+julia --project=. bin/tnw.jl analyze examples/toy/config.toml
+julia --project=. bin/tnw.jl decompose examples/toy/config.toml
+julia --project=. bin/tnw.jl sensitivity examples/toy/config.toml
+\end{lstlisting}
+
+\section{Module responsibilities}
+
+\begin{longtable}{p{0.29\textwidth}p{0.63\textwidth}}
+\toprule
+Module & Responsibility \\
+\midrule
+\endhead
+\code{Specifications.jl} & Typed spatial, modal, congestion, route-curvature,
+and policy specifications. \\
+\code{ProjectConfig.jl} & TOML parsing, environment-path expansion, and
+configuration validation. \\
+\code{DataIO.jl} & CSV schemas, accounting checks, active mode construction,
+and generic network loading. \\
+\code{RSUEAdapter.jl} & Hash-bound external-data transformations for the paper
+replication. \\
+\code{SharedTransport.jl} & Spatial-model-neutral route reconstruction and
+flexible/fixed route operators. \\
+\code{CompleteEngine.jl} & Economic-geography closure construction, Schur
+elimination, primitive forcing, and exact decomposition. \\
+\code{EdgeLocalEngine.jl} & Sparse headline derivative for edge-local
+congestion without dense fixed-route incidence. \\
+\code{UrbanEngine.jl} & Urban residual, welfare row, and shared transport
+closures. \\
+\code{UrbanNonlinear.jl} & Independently solved nonlinear urban
+counterfactuals used for finite differences. \\
+\code{Analysis.jl} & Directed and physical results, diagnostics, and
+aggregation. \\
+\code{Output.jl} & Strict CSV/JSON serialization and run manifests. \\
+\bottomrule
+\end{longtable}
+
+\section{Build stages}
+
+For economic geography, \code{build\_model} performs:
+\begin{enumerate}
+  \item load and validate the project and network;
+  \item enumerate positive-flow edge-mode pairs;
+  \item reconstruct the route kernel and bilateral flow matrix;
+  \item build flexible and fixed route derivatives;
+  \item assemble the no-congestion spatial Jacobian and welfare row;
+  \item construct modal and congestion maps for each closure;
+  \item eliminate congestion quantities by the Schur complement;
+  \item check route, transport, and equilibrium condition numbers;
+  \item expose the closure system for welfare and decomposition.
+\end{enumerate}
+
+\code{analyze} uses a welfare-only builder. It constructs the full flexible
+closure but omits the dense fixed-route incidence object. \code{decompose}
+constructs all closures. This distinction is important for moderate networks:
+the fixed-route object scales with origins, destinations, and edges.
+
+\section{Policy derivatives}
+
+For all directed policy arcs, the code constructs a sparse selector matrix.
+The realized forcing changes the aggregate cost on the selected edge. The
+primitive forcing passes the edge-mode shock through:
+\begin{enumerate}
+  \item the modal response;
+  \item route response;
+  \item edge or terminal congestion;
+  \item aggregation to the directed edge;
+  \item loading into the spatial residual.
+\end{enumerate}
+
+The adjoint gain function solves the transposed Jacobian and multiplies the
+forcing matrix. It returns one elasticity per policy arc. The decomposition
+then applies inverse-gap and structured-update identities to the same forcing.
+
+\section{Outputs and manifests}
+
+Analysis writes:
+\begin{itemize}
+  \item \code{welfare\_directed.csv} and, when requested,
+  \code{welfare\_physical.csv};
+  \item decomposition tables for \code{decompose};
+  \item \code{diagnostics.json};
+  \item \code{run\_manifest.json}.
+\end{itemize}
+
+The manifest records the package version and Git state, Julia and BLAS
+environment, configuration hash, input hashes, model variants, parameters,
+transformations, output hashes, and verification status. JSON serialization is
+strict: unsupported values and colliding stringified keys are errors rather
+than silently converted strings.
+
+\section{Legacy kernels}
+
+The \code{src/kernels} directory retains frozen or adapted mathematical
+kernels for provenance and regression testing. The active paper path uses
+\code{ChoiceLogsum} through \code{modal\_power=-eta}. The functions
+\code{AdjointRSUE.congestion\_J} and \code{AdjointRSUE.chi\_wedge} implement
+the older positive-power component system and are legacy validation helpers.
+They should not be called to construct a choice-logsum application.
+
+\section{Computational cost}
+
+The sparse welfare calculation is appropriate for many candidate edges on a
+moderate network. The exact route decomposition is more demanding because it
+constructs baseline origin-destination edge incidence. Before decomposition,
+the validator reports an incidence-memory estimate. Large traffic-assignment
+benchmarks may be suitable for the welfare derivative but not the full
+fixed-route decomposition on a laptop.
+
+The package fails rather than changing the model through low-rank fitting,
+ridge regularization, or dropped routes. A user who needs a larger problem
+should exploit sparsity or derive an alternative route comparison, not relax
+the verification gates silently.

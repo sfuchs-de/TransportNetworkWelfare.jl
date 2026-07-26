@@ -1,0 +1,115 @@
+\chapter{Verification matrix}
+\label{app:verification}
+
+\section{Acceptance tolerances}
+
+\begin{table}[H]
+\centering
+\caption{Default verification gates}
+\begin{tabular}{lr}
+\toprule
+Check & Tolerance \\
+\midrule
+Efficient Hulten collapse & \(10^{-8}\) \\
+Algebraic closure and decomposition identities & \(10^{-10}\) \\
+Route margins and edge reconstruction & \(10^{-10}\) \\
+Choice-logsum nonlinear finite differences & \(10^{-6}\) absolute \\
+Nonlinear equilibrium residual & \(10^{-10}\) \\
+Maximum accepted condition number & \(10^{12}\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Modal tests}
+
+For both \code{ChoiceLogsum} and \code{ComponentCES}, tests differentiate the
+nonlinear modal cost index independently and compare it with the analytical
+matrix. The choice specification must shift traffic toward a mode whose cost
+falls. Mode permutation must leave aggregate results unchanged after labels
+are restored.
+
+One-mode cases must satisfy \(\code{FM}=\code{F}\). A zero-flow mode is not an
+interior active pair and cannot be a policy target.
+
+\section{Route tests}
+
+Route tests check contraction, absorption, bilateral margins, and edge traffic.
+Flexible-route derivatives are compared with central differences of the
+resolvent. Fixed-route incidence is reconstructed independently.
+
+In a unique-route network, \(\code{FR}=\code{F}\). Parallel-route fixtures must
+produce a verified nonzero route wedge. Node permutations must preserve the
+economic result.
+
+\section{Congestion tests}
+
+Edge and terminal congestion are tested separately and jointly. Zero
+congestion implies:
+\[
+ \code{NC}=\code{NT}=\code{F},
+ \qquad
+ \Eprimitive=\Ereal.
+\]
+Zero terminal congestion implies \(\code{NT}=\code{F}\). Unknown congestion
+keys, positive values for inactive modes, and missing terminal identifiers
+must fail during validation.
+
+Edge-specific BPR elasticities in the Sioux Falls builder are checked against
+\[
+ \lambda_e=
+ \frac{p_eB_e(v_e/c_e)^{p_e}}
+ {1+B_e(v_e/c_e)^{p_e}}.
+\]
+Their analytical derivative is compared with finite differences.
+
+\section{Spatial and welfare tests}
+
+The Python oracle provides 55 checks of the corrected transformed
+economic-geography system. Julia fixtures compare Jacobian blocks, the welfare
+row, the Hulten limit, and the legacy result interfaces.
+
+The active choice-logsum path is checked independently using nonlinear
+equilibria. The RSUE verification chooses a deterministic traffic-stratified
+set of arcs, solves positive and negative primitive shocks, and binds the
+report to configuration, input, and source hashes.
+
+\section{Urban tests}
+
+The one-mode urban oracle checks the Allen--Arkolakis state response and
+welfare derivative. The shared multimodal engine is then compared with
+\code{UrbanNonlinear.jl}, which solves the nonlinear equilibrium independently.
+
+Tests cover \code{NC}, \code{NT}, \code{F}, \code{FM}, and \code{FR};
+distinct residence and workplace margins; road and transit; terminal
+congestion; and mode and node permutation.
+
+\section{Output tests}
+
+Output tests verify:
+\begin{itemize}
+  \item directed, physical, and both policy-unit behavior;
+  \item reciprocal aggregation without dropped or duplicated directions;
+  \item strict JSON treatment of missing values and key collisions;
+  \item shock-fraction scaling of generated TeX macros;
+  \item deterministic output hashes;
+  \item full Census CBSA labels, including hyphenated names.
+\end{itemize}
+
+\section{Clean-clone acceptance}
+
+A release candidate must pass:
+\begin{lstlisting}[language=bash]
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. -e 'using Pkg; Pkg.test()'
+julia --project=. bin/tnw.jl validate examples/toy/config.toml
+julia --project=. bin/tnw.jl decompose examples/toy/config.toml
+julia --project=docs -e \
+  'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+julia --project=docs docs/make.jl
+make practitioner-guide-check
+python3 scripts/verify_provenance.py
+python3 scripts/scan_secrets.py
+git diff --check
+\end{lstlisting}
+The toy and guide commands may not depend on restricted inputs, Overleaf,
+Dropbox, credentials, or Python plotting packages.

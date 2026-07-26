@@ -5,8 +5,8 @@ source_package_sha256 = "0ba8a28c75987529ab77c882d55da3559c494bbbfa6adc2908feef7
 [[kernel]]
 path = "src/kernels/AdjointRSUE.jl"
 origin_sha256 = "d843f3ed260f2af56aa5e163d0d3b144498507a48c0edf90313b6d5c9603fd7d"
-current_sha256 = "c4bc25027fad2e16a950fbf7a0c7395a424c1f207bedcc056b87834d4c2fb5fb"
-relationship = "validation-only divergence: explicit finite-input errors replaced assertions"
+current_sha256 = "f147e630598876bf3d1ba90ea97b72953464706da107b3370a650588c2a89442"
+relationship = "validation-only divergence: explicit finite-input errors replaced assertions; documentation labels the positive-power helpers as legacy-only"
 
 [[kernel]]
 path = "src/kernels/IFTDecomposition.jl"

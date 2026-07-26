@@ -1,0 +1,143 @@
+\chapter{Diagnostics, failure modes, and interpretation}
+\label{ch:diagnostics}
+
+\section{Three layers of verification}
+
+A credible result needs three different checks:
+\begin{description}
+  \item[Accounting.] Do input margins, exposure stocks, routes, and edge flows
+  describe one baseline?
+  \item[Mathematics.] Does the code implement the derivative and closure
+  identities?
+  \item[Empirics.] Does the calibrated model describe outcomes not imposed by
+  construction?
+\end{description}
+The package automates the first two. The third requires application-specific
+evidence.
+
+\section{Route diagnostics}
+
+The run manifest records:
+\begin{itemize}
+  \item route spectral radius;
+  \item absorption error;
+  \item bilateral row and column errors;
+  \item flexible-route edge reconstruction error;
+  \item fixed-route edge reconstruction error.
+\end{itemize}
+The spectral radius must be below one. A value close to one can produce a
+well-defined but poorly conditioned resolvent in which traffic circulates for
+many expected steps before absorption.
+
+Large margin or edge errors usually indicate inconsistent inputs, reversed
+orientation, duplicated arcs, or an undeclared transformation. They should not
+be repaired by increasing the tolerance.
+
+\section{Linear-system diagnostics}
+
+Every closure reports the condition numbers of its transport and spatial
+systems. The default upper gate is \(10^{12}\). This is a permissive numerical
+ceiling rather than a target. Results near the gate can be sensitive to small
+changes in data or parameters.
+
+The package also records solve residuals and finiteness checks. A low residual
+with a very high condition number does not establish a stable economic
+derivative. Both should be examined.
+
+\section{Identity diagnostics}
+
+For \code{decompose}, inspect:
+\begin{itemize}
+  \item maximum inverse-gap error;
+  \item closure-ladder error;
+  \item realized and primitive Hulten-accounting errors;
+  \item closure-Jacobian reconstruction error;
+  \item analytical channel reconstruction error;
+  \item primitive transport residual.
+\end{itemize}
+The package acceptance target for algebraic identities is \(10^{-10}\). An
+identity failure is a code or model-construction problem. It is not an
+interesting economic result.
+
+\section{Finite differences}
+
+An analytical derivative should be compared with independently solved
+nonlinear equilibria. For a central difference with step \(h\),
+\[
+ E_p^{FD}
+ =-\frac{\log W(\theta_p+h)-\log W(\theta_p-h)}{2h}.
+\]
+The nonlinear solver must re-solve all equilibrium and transport quantities.
+Reusing the analytical derivative inside the counterfactual would make the
+test circular.
+
+The package tests efficient, externality, congestion, asymmetric, multiple
+mode, unique-route, and parallel-route cases. The accepted RSUE report uses a
+deterministic traffic-stratified sample of road arcs. The absolute derivative
+error must be below \(10^{-6}\), and nonlinear solve residuals below
+\(10^{-10}\).
+
+\section{First-order accuracy}
+
+Finite-difference verification establishes the derivative at the baseline. To
+assess a one-percent policy, compare:
+\[
+ \Delta\log W_{\mathrm{linear}}=-E_p\Delta\theta_p
+\]
+with a nonlinear counterfactual at \(0.1\), \(1\), and \(5\) percent where
+feasible. Errors that shrink quadratically as the shock shrinks are consistent
+with a correct local derivative.
+
+The package does not automatically bless a five-percent intervention because
+the one-percent derivative is accurate. The analyst must report the scale at
+which the approximation is used.
+
+\section{Sensitivity}
+
+A sensitivity path should report both average effects and rank stability. A
+parameter can scale all links similarly while leaving the ordering nearly
+unchanged, or leave the average stable while reshuffling the top links.
+
+The paper exercises vary \(\alpha\), \(\beta\), net dispersion, \(\eta\), and
+road congestion in the headline model. Common road/terminal and terminal-only
+paths are extension diagnostics. Each point must remain on the declared
+regular branch and pass all closure gates.
+
+\section{Common failures}
+
+\begin{longtable}{p{0.30\textwidth}p{0.29\textwidth}p{0.33\textwidth}}
+\toprule
+Message or symptom & Likely cause & Correct response \\
+\midrule
+\endhead
+Route kernel is not contractive & Cyclic continuation shares do not absorb &
+Revisit flow accounting or local absorption; do not truncate paths silently. \\
+Stock disagreement & Incoming and outgoing flows imply different exposure &
+Document and perform a balancing transformation outside the package. \\
+Policy edge lacks active mode & Zero or missing policy-mode flow & Remove the
+policy or provide a defensible positive-flow baseline. \\
+Missing terminal ID & Positive terminal congestion on an unidentified terminal
+& Add explicit endpoint terminal identifiers. \\
+Condition-number gate & Near-singular modal, transport, or spatial system &
+Review parameters, baseline support, and model identification. \\
+Undefined effective pass-through & Realized derivative is numerically zero &
+Use the level pass-through component; do not force a ratio. \\
+Physical link rejected & Missing or inconsistent reciprocal direction &
+Report directed policies or correct the physical-link identifier. \\
+\bottomrule
+\end{longtable}
+
+\section{What to report}
+
+At minimum, an empirical application should disclose:
+\begin{itemize}
+  \item network and flow construction;
+  \item units and every transformation;
+  \item policy primitive, direction, mode, and scale;
+  \item parameter sources;
+  \item modal and congestion specifications;
+  \item route, accounting, condition, and identity diagnostics;
+  \item sensitivity of levels and ranks;
+  \item external-validation evidence and its limitations.
+\end{itemize}
+This information is part of the economic result, not software housekeeping.

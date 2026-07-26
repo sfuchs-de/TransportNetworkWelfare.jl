@@ -1,0 +1,182 @@
+\chapter{Configuration and schema reference}
+\label{app:config}
+
+\section{Minimal economic-geography configuration}
+
+\begin{lstlisting}
+schema_version = 1
+name = "my-network"
+
+[input]
+adapter = "generic_csv_v1"
+nodes = "data/nodes.csv"
+edge_modes = "data/edge_modes.csv"
+
+[model]
+spatial_specification = "economic_geography"
+alpha = 0.10
+beta = -0.30
+sigma = 9.0
+modal_specification = "choice_logsum"
+eta = 1.099
+route_curvature = "theorem"
+
+[congestion]
+specification = "edge"
+[congestion.edge]
+road = 0.092
+
+[policy]
+mode = "road"
+unit = "both"
+shock_fraction = 0.01
+
+[output]
+directory = "output"
+
+[diagnostics]
+tolerance = 1.0e-10
+condition_limit = 1.0e12
+\end{lstlisting}
+
+\section{Spatial specification}
+
+\begin{description}
+  \item[\code{economic\_geography}.] Requires \(\alpha,\beta,\sigma\). Route
+  curvature is \(\sigma-1\).
+  \item[\code{urban\_commuting}.] Requires \(\alpha,\beta,\theta\). Internally
+  \(\sigma=\theta+1\) supplies the shared route curvature. Residence and
+  workplace columns replace labor and income shares.
+\end{description}
+
+\section{Modal specification}
+
+\begin{description}
+  \item[\code{choice\_logsum}.] Negative-power modal cost index. This is the
+  active paper and urban extension.
+  \item[\code{component\_ces}.] Positive-power legacy component index. Use only
+  for declared provenance replications.
+\end{description}
+Both require finite \(\eta>0\).
+
+\section{Congestion specification}
+
+\subsection*{None}
+\begin{lstlisting}
+[congestion]
+specification = "none"
+\end{lstlisting}
+
+\subsection*{Mode-level edge congestion}
+\begin{lstlisting}
+[congestion]
+specification = "edge"
+[congestion.edge]
+road = 0.092
+\end{lstlisting}
+
+\subsection*{Edge-specific congestion}
+\begin{lstlisting}
+[congestion]
+specification = "edge"
+source = "input_column"
+column = "congestion_elasticity"
+scale = 1.0
+\end{lstlisting}
+Every active edge-mode row must contain a finite nonnegative value in the
+selected column. Mode-level and column-based values cannot be mixed.
+
+\subsection*{Endpoint-terminal congestion}
+\begin{lstlisting}
+[congestion]
+specification = "endpoint_terminal"
+endpoint_scale = 1.0
+[congestion.terminal]
+rail = 0.096
+\end{lstlisting}
+Every positive-congestion pair must identify both endpoint terminals.
+
+\subsection*{Composite congestion}
+\begin{lstlisting}
+[congestion]
+specification = "composite"
+endpoint_scale = 1.0
+[congestion.edge]
+road = 0.092
+[congestion.terminal]
+transit = 0.04
+\end{lstlisting}
+
+\section{Policy units}
+
+\begin{description}
+  \item[\code{directed\_arc}.] Write directed results only.
+  \item[\code{physical\_link}.] Require reciprocal pairs and write physical
+  results only.
+  \item[\code{both}.] Write both result sets.
+\end{description}
+
+\section{Economic-geography node schema}
+
+\begin{longtable}{p{0.24\textwidth}p{0.16\textwidth}p{0.50\textwidth}}
+\toprule
+Column & Required & Meaning \\
+\midrule
+\endhead
+\code{node\_id} & Yes & Stable unique identifier \\
+\code{labor} & Yes & Positive normalized labor share \\
+\code{income} & Yes & Positive normalized income share \\
+\code{longitude} & No & Finite map coordinate \\
+\code{latitude} & No & Finite map coordinate \\
+\bottomrule
+\end{longtable}
+
+\section{Urban node schema}
+
+\begin{longtable}{p{0.24\textwidth}p{0.16\textwidth}p{0.50\textwidth}}
+\toprule
+Column & Required & Meaning \\
+\midrule
+\endhead
+\code{node\_id} & Yes & Stable unique identifier \\
+\code{residents} & Yes & Normalized residence margin \(l^R\) \\
+\code{employment} & Yes & Normalized workplace margin \(l^F\) \\
+\code{longitude} & No & Finite map coordinate \\
+\code{latitude} & No & Finite map coordinate \\
+\bottomrule
+\end{longtable}
+
+\section{Edge-mode schema}
+
+\begin{longtable}{p{0.27\textwidth}p{0.14\textwidth}p{0.48\textwidth}}
+\toprule
+Column & Required & Meaning \\
+\midrule
+\endhead
+\code{edge\_id} & Yes & Directed edge identifier, common across modal rows
+when appropriate \\
+\code{physical\_link\_id} & Yes & Identifier used for reciprocal aggregation \\
+\code{origin} & Yes & Existing node ID \\
+\code{destination} & Yes & Existing node ID, distinct from origin \\
+\code{mode} & Yes & Nonempty mode name \\
+\code{flow} & Yes & Finite positive normalized value flow \\
+\code{origin\_terminal\_id} & Conditional & Required for endpoint-terminal
+congestion \\
+\code{destination\_}\newline\code{terminal\_id} & Conditional & Required for
+endpoint-terminal congestion \\
+\code{congestion\_elasticity} & Conditional & Required when selected as the
+edge-congestion source \\
+\bottomrule
+\end{longtable}
+
+\section{Sensitivity}
+
+\begin{lstlisting}
+[sensitivity]
+alpha = [0.06, 0.08, 0.10, 0.12, 0.14]
+beta = [-0.38, -0.34, -0.30, -0.26, -0.22]
+eta = [0.75, 0.90, 1.099, 1.25, 1.40]
+lambda_road = [0.00, 0.04, 0.092, 0.14]
+\end{lstlisting}
+Column-based congestion uses \code{edge\_congestion\_scale} rather than a
+mode-specific lambda path.

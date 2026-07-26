@@ -2,9 +2,11 @@
 AdjointRSUE — corrected Proposition-2 estimator (2026-07-10).
 
 Implements the coefficient map, residual Jacobian, welfare row, market-access
-exposure stock, congestion block, modal pass-through, and edge elasticity used in
-the repaired derivation. The implementation is checked against the independent
-oracle in `lab/verify_prop2.py` and the fixtures in `test/fixtures/`.
+exposure stock, and edge elasticity used in the repaired derivation. The active
+`ChoiceLogsum` transport system is assembled in `CompleteEngine.jl` and
+`EdgeLocalEngine.jl`. The `congestion_J` and `chi_wedge` functions below are
+legacy `ComponentCES` validation helpers retained for the frozen July 2026
+oracle; they are not the paper specification.
 
   C1  no anchored Woodbury / singular ridge  → the Jacobian is the verified four-block
                                                + rank-1 labor feedback + normalization row;
@@ -178,6 +180,10 @@ end
 """
     congestion_J(N, edges, s_edges, μ, λ, ω, ν, γ, η, c::Coef) -> Jc (2N×2N)
 
+Legacy positive-power `ComponentCES` validation helper. The active
+`ChoiceLogsum` implementation uses the signed modal-power system in
+`CompleteEngine.jl`.
+
 The endogenous congestion feedback block of J = J⁰ + J^𝒜 + J^cong. Appendix rows
 (directed neighbor sets, per I-028):
 
@@ -232,6 +238,10 @@ end
 # ── congestion wedge χ (verify_prop2.py: chi_wedge) ────────────────────────────
 """
     chi_wedge(s, γ, η, σ) -> χ (vector over modes)
+
+Legacy positive-power `ComponentCES` pass-through helper. The active
+`ChoiceLogsum` implementation obtains primitive pass-through from
+`primitive_forcing` in `CompleteEngine.jl`.
 
 D_m = 1 − ηγ_m ;  B = (1−σ−η)Σ_m s_m γ_m/D_m ;  χ_m = 1/(D_m(1−B)).  χ = 1 when γ = 0.
 """

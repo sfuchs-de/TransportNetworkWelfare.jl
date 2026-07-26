@@ -1,0 +1,77 @@
+\chapter{Traditional social savings and the efficient benchmark}
+\label{ch:hulten}
+
+\section{The accounting statistic}
+
+Social savings holds the observed shipment pattern fixed and asks how much
+less it would cost to move the same bundle after an infrastructure
+improvement. For a marginal proportional reduction in one edge--mode cost,
+homothetic demand and iceberg costs give the welfare elasticity
+\[
+ H_{klm}=\Xi_{kl,m}.
+\]
+The expression is attractive because it needs only the baseline value flow.
+It does not require solving a counterfactual spatial equilibrium.
+
+This statistic is often described as a partial-equilibrium approximation.
+That description is incomplete. Under the maintained efficient benchmark it
+is the exact first-order general-equilibrium effect even though trade, routes,
+modes, prices, and locations adjust.
+
+\begin{proposition}[Efficient social savings]
+\label{prop:hulten}
+Suppose \(\alpha=\beta=0\) and all congestion elasticities are zero. At an
+interior efficient equilibrium,
+\[
+ -\frac{d\log W}{d\log\bar\kappa_{kl,m}}=\Xi_{kl,m}.
+\]
+\end{proposition}
+
+\section{Envelope logic}
+
+The result is an application of the envelope theorem and the network version
+of Hulten's theorem \citep{hulten1978growth,baqaee2019macroeconomic}. At an
+efficient allocation, the planner is locally indifferent to reallocations
+that preserve feasibility. A lower transport cost directly saves resources.
+The induced changes in routes, modes, trade, and location are responses along
+the feasible set. Their first-order welfare effects vanish at the optimum.
+
+The statement is stronger than saying that adjustment is quantitatively
+small. Adjustment can be large. What vanishes is its first-order contribution
+to welfare at an efficient baseline. This distinction explains why adding a
+rich spatial equilibrium to the model does not, by itself, invalidate social
+savings.
+
+\section{When the result fails}
+
+Congestion and spatial externalities make the decentralized allocation
+inefficient. Then a transport improvement changes the exposure of agents to
+pre-existing wedges. Route diversion can relieve or worsen congestion.
+Relocation can raise productivity through agglomeration or affect amenities
+through dispersion. These responses need not vanish at first order.
+
+The result also depends on the welfare and mobility closure. The paper
+formally proves it under perfect labor mobility and the stated aggregate
+welfare criterion. Similar envelope logic can apply under other mobility
+settings only when the allocation is efficient in the enlarged problem and
+welfare is aggregated consistently. Fixed factors, taxes, heterogeneous
+households, or endogenous labor supply can add incidence terms.
+
+\section{A diagnostic benchmark}
+
+The package retains the Hulten statistic even when the full model is
+distorted. It serves three purposes:
+\begin{enumerate}
+  \item a transparent traffic-based benchmark;
+  \item an exact unit test in the efficient limit;
+  \item a basis for decomposing why the extended result differs.
+\end{enumerate}
+
+If the efficient fixture does not collapse to traffic, the calculation has a
+sign, normalization, or indexing error. If the distorted model remains close
+to Hulten, that is an empirical result rather than a maintained theorem.
+
+\implementationbox{The output column \code{hulten} is the policy-mode traffic
+share. The extended realized and primitive elasticities are reported
+separately. Physical-link results sum opposite directions before computing
+link-level comparisons.}

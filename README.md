@@ -111,6 +111,19 @@ julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
+The self-contained practitioner guide covers the paper's theory, the adjoint
+and decomposition algorithms, the data contract, worked examples, and the
+urban extensions:
+
+```bash
+make practitioner-guide-check
+```
+
+The resulting PDF is
+`docs/practitioner-guide/build/TransportNetworkWelfare-Practitioner-Guide.pdf`.
+Its source and figures are committed; the build does not require Overleaf,
+restricted data, credentials, or Python.
+
 See [PROVENANCE.md](PROVENANCE.md) for the frozen source hashes and [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the private-to-public gates.
 
 ## License

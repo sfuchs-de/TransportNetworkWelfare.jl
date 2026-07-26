@@ -1,0 +1,149 @@
+\chapter{Exact closure and welfare decompositions}
+\label{ch:decomposition}
+
+\section{Common-baseline comparisons}
+
+An extended welfare elasticity can differ from traffic for several reasons.
+To separate them, every comparison must use the same observed baseline and the
+same policy forcing. Recalibrating each alternative closure would mix the
+mechanism of interest with a change in starting values.
+
+The package constructs six objects:
+\begin{longtable}{p{0.10\textwidth}p{0.22\textwidth}p{0.25\textwidth}p{0.28\textwidth}}
+\toprule
+Closure & Routes & Modes & Congestion \\
+\midrule
+\endhead
+\code{H} & Not solved & Not solved & Traffic-only benchmark \\
+\code{NC} & Flexible & Flexible & None \\
+\code{NT} & Flexible & Flexible & Edge congestion \\
+\code{F} & Flexible & Flexible & All declared channels \\
+\code{FM} & Flexible & Fixed at baseline shares & All declared channels \\
+\code{FR} & Baseline OD-edge incidence fixed & Flexible & All declared channels \\
+\bottomrule
+\end{longtable}
+
+The labels describe local derivatives, not finite counterfactual models. In
+particular, \code{FR} holds the differentiated route incidence fixed while
+retaining modal response and the remaining equilibrium system.
+
+\section{Normalized multipliers}
+
+For a realized-friction shock on edge \(e\), define
+\[
+ m_{e,S}=\frac{\Ereal_{e,S}}{\rho\Xi_e}.
+\]
+The closures obey
+\[
+ m_F=m_{NC}-d_{edge}-d_{terminal}
+    =m_{FM}+d_{mode}
+    =m_{FR}+d_{route}.
+\]
+The terms are signed. A positive road wedge in multiplier units need not imply
+a positive contribution to the welfare elasticity when \(\rho<0\).
+
+The first equality gives an additive congestion ladder. The other two compare
+the full model separately with fixed modes and fixed routes. Mode and route
+wedges are not added to the congestion ladder because each is an alternative
+closure comparison.
+
+\section{Inverse-gap identity}
+
+For two Jacobians \(J_A\) and \(J_B\), welfare row \(q\), and forcing \(b\),
+\[
+ q^\top J_A^{-1}b-q^\top J_B^{-1}b
+ =q^\top J_A^{-1}(J_B-J_A)J_B^{-1}b.
+\]
+The package checks this identity for the edge, terminal, mode, and route
+comparisons. It is a direct algebraic test of the signs, orientation, and
+closure construction.
+
+\section{Analytical Jacobian blocks}
+
+Each closure Jacobian is represented as
+\[
+ J_S=D_S+u_Sv_S^\top
+     +\Delta_{edge,S}
+     +\Delta_{terminal,S}.
+\]
+The sparse block \(D_S\) contains local allocation and route shares. The
+rank-one term imposes aggregate labor feedback and normalization. The last
+two terms are analytically constructed congestion updates.
+
+For road and terminal rungs the inverse difference is evaluated with a
+structured parallel-sum formula. Their allocation and equilibrium-correction
+components are zero under the common-baseline construction; the scarcity
+component carries the wedge.
+
+For mode and route comparisons, the package evaluates the mixed update
+\[
+ \widetilde K_{A:F}=J_F+S_{A:F}+C_{A:F},
+ \qquad
+ J_A=\widetilde K_{A:F}+R_{A:F}Q_{A:F}^\top.
+\]
+The welfare gap is divided into:
+\[
+ d_r=d_r^{alloc}+d_r^{scar}+d_r^{eq},
+ \qquad r\in\{mode,route\}.
+\]
+The allocation term changes the sparse core, the scarcity term changes
+congestion exposure, and the equilibrium term is the Woodbury correction
+associated with aggregate feedback. In the current common-baseline model, the
+sparse and aggregate-feedback terms are common across transport closures, so
+some channels evaluate to exact structural zeros. The code evaluates the
+general formulas and checks the reconstruction rather than writing zeros by
+convention.
+
+\section{The Hulten gap}
+
+The realized-friction comparison is
+\[
+ \Xi_e-\Ereal_{e,F}
+ =\Xi_e(1-\rho)+\rho\Xi_e(1-m_{e,F}).
+\]
+The first term is the common externality scaling. The second is equilibrium
+propagation relative to the traffic-only benchmark.
+
+Using the congestion ladder and primitive pass-through gives
+\begin{align*}
+ \Xi_e-\Eprimitive_{e,F}
+ ={}&\Xi_e(1-\rho)
+ +\rho\Xi_e(1-m_{e,NC})\\
+ &+\rho\Xi_e d_{edge,e}
+ +\rho\Xi_e d_{terminal,e}
+ +\rho\Xi_e m_{e,F}(1-\chi_e).
+\end{align*}
+The output reports each term in levels. Signed percentages can be misleading
+when large positive and negative components nearly cancel.
+
+\section{Physical-link aggregation}
+
+The model is directed. To obtain a two-direction physical-link experiment, the
+software first sums:
+\begin{itemize}
+  \item primitive and realized elasticities;
+  \item Hulten traffic;
+  \item each additive Hulten-gap component;
+  \item each analytical channel contribution.
+\end{itemize}
+Only after summation does it calculate a physical-link normalized multiplier.
+This order avoids averaging ratios with different traffic denominators.
+
+\warningbox{A physical-link result is defined only when exactly two declared
+policy arcs have opposite endpoints and a common physical-link identifier.
+Transit services and one-way links that lack such a pair remain directed
+policies.}
+
+\section{Reading a decomposition}
+
+A useful interpretation sequence is:
+\begin{enumerate}
+  \item compare the traditional statistic with the full primitive result;
+  \item separate common externality scaling from link-specific propagation;
+  \item inspect edge and terminal congestion;
+  \item compare primitive and realized effects to measure pass-through;
+  \item use mode and route closures to diagnose ranking changes;
+  \item check identity residuals before discussing economics.
+\end{enumerate}
+The decomposition explains a result conditional on the model. It does not
+identify which parameter or closure is empirically correct.
