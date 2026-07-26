@@ -8,6 +8,9 @@
 
 **Theory-library baseline:** Mathdown `23f350a4de16eb842803f53267278deccb724f5d`
 
+**Theory-library reconciliation:** Mathdown `82a7cb3194a470d1fca001615d513d3d8822de36`
+([draft PR #94](https://github.com/sfuchs-de/mathdown-library/pull/94))
+
 ## Executive findings
 
 ### Theory: accepted with stated scope
@@ -228,9 +231,10 @@ rank-reduction fit or ridge regularization is used.
 2. The active paper result table is numerically reproduced and the expected
    summary now binds the current CSV and claim-ledger hashes. A release tag
    should freeze these files again after the stacked feature branches merge.
-3. The Mathdown synthesis predates the accepted negative-power modal choice
-   and 234-node result vintage. It must be reconciled before serving as a
-   current theory index.
+3. Mathdown commit `82a7cb3` reconciles the synthesis, claim ledger, source
+   manifest, and urban extension with the accepted negative-power modal choice
+   and 234-node result vintage. This documentation remains a release gate until
+   draft PR #94 is reviewed and merged.
 4. Seattle GTFS supplies routes and schedules, not passenger counts. ACS
    residential mode shares and the external Metro route table do not identify
    route-level commuter flows without additional assumptions.
@@ -246,4 +250,4 @@ rank-reduction fit or ridge regularization is used.
 | Generic package self-containment | **Accepted** |
 | Offline-vendored installation | **Not claimed** |
 | Restricted RSUE and Seattle data self-containment | **Not applicable; external-data modules** |
-| Current explanatory and Mathdown documentation | **Requires reconciliation before release** |
+| Current explanatory and Mathdown documentation | **Reconciled on draft branches; merge pending** |
