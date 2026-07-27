@@ -12,6 +12,7 @@ sys.path.insert(0, str(HERE))
 
 from build_cbsa_crosswalk import (  # noqa: E402
     compact_link_label,
+    descriptive_link_label,
     label_sensitivity_links,
     tex_escape,
     write_top_link_outputs,
@@ -27,6 +28,23 @@ class PaperArtifactTests(unittest.TestCase):
             ),
             "Los Angeles-Long Beach-Anaheim--Riverside-San Bernardino-Ontario",
         )
+
+    def test_ambiguous_labels_use_explicit_fallbacks(self):
+        label, status = descriptive_link_label(
+            "Raleigh-Cary, NC", "Raleigh-Cary, NC",
+            "Raleigh", "", "188_190",
+        )
+        self.assertEqual(
+            label, "Within Raleigh-Cary metropolitan area (link 188_190)")
+        self.assertEqual(status, "same_cbsa_physical_link")
+        label, status = descriptive_link_label(
+            "", "Seattle-Tacoma-Bellevue, WA", "", "Seattle", "9_12")
+        self.assertEqual(
+            label,
+            "Seattle-Tacoma-Bellevue metropolitan area--network boundary "
+            "(link 9_12)",
+        )
+        self.assertEqual(status, "one_sided_cbsa_physical_link")
 
     def test_tex_escape(self):
         self.assertEqual(tex_escape("A&B_1"), r"A\&B\_1")

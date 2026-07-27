@@ -151,8 +151,12 @@ julia --project=replication/rsue/environment replication/rsue/build_paper_artifa
 ```
 
 The private artifact set includes all 352 link-level welfare effects and ranks
-for every paper sensitivity value, plus generated top-10 and top-30 ranking
-tables. These derived restricted-data outputs remain untracked.
+for 35 sensitivity values, plus generated top-10 and top-30 ranking tables.
+The paper figure uses the five headline paths; common and terminal congestion
+remain package diagnostics. The same build writes the traffic, welfare,
+scatter, decomposition, and sensitivity figures, together with traffic-ranked
+top-50 and top-100 correlations. These derived restricted-data outputs remain
+untracked.
 
 The builder requires an accepted, hash-bound nonlinear finite-difference report. Recreate that report with `replication/rsue/verify_choice_logsum_fd.jl` whenever the paper configuration, restricted inputs, or derivative sources change.
 

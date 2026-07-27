@@ -123,5 +123,26 @@ class DecompositionFigureTests(unittest.TestCase):
             self.assertLess(float(rendered[..., 3].min()), 1.0)
 
 
+class SensitivityFigureTests(unittest.TestCase):
+    def test_headline_paths_render_and_extension_rows_are_ignored(self):
+        rows = []
+        for parameter in (
+                "alpha", "beta", "net_dispersion", "eta", "lambda_road",
+                "lambda_terminal"):
+            for index, value in enumerate((0.5, 1.0, 1.5)):
+                rows.append({
+                    "parameter": parameter,
+                    "value": str(value),
+                    "mean_physical_gain_pct": str(0.0002+index*0.00001),
+                    "spearman_vs_baseline": str(0.99+0.005*index),
+                    "is_baseline": "true" if index == 1 else "false",
+                })
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "sensitivity"
+            FIGURES.sensitivity_figure(rows, output)
+            self.assertTrue(output.with_suffix(".pdf").is_file())
+            self.assertTrue(output.with_suffix(".png").is_file())
+
+
 if __name__ == "__main__":
     unittest.main()

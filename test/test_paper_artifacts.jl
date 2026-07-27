@@ -15,6 +15,10 @@ include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.j
         "pearson_hulten" => 0.9,
         "spearman_hulten" => 0.8,
         "top_decile_median_ratio" => 2.0,
+        "traffic_ranked_subsets" => Dict(
+            "50" => Dict("pearson" => 0.7, "spearman" => 0.6),
+            "100" => Dict("pearson" => 0.8, "spearman" => 0.75),
+        ),
     )
     decomposition = Dict{String,Any}(
         "road_congestion_change_percent" => 1.0,
@@ -36,9 +40,17 @@ include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.j
         "physical_link_correlation" => 0.99,
     )
     diagnostics = Dict{String,Any}("nodes" => 3, "directed_policy_arcs" => 6)
+    modal_diagnostics = Dict{String,Any}(
+        "single_active_mode_road_arcs" => 5,
+        "median_road_modal_share" => 1.0,
+        "road_arcs_below_90_percent_modal_share" => 1,
+        "minimum_eta_rank_correlation" => 0.99,
+        "maximum_absolute_eta_rank_change" => 2.0,
+    )
     mktempdir() do directory
         path = write_tex_macros(joinpath(directory, "paper_results.tex"), statistics,
-            decomposition, mechanism, ranking, robustness, diagnostics)
+            decomposition, mechanism, ranking, robustness, diagnostics,
+            modal_diagnostics)
         output = read(path, String)
         @test occursin("\\PaperPtenGainPercent}{0.01}", output)
         @test occursin("\\PaperPninetiethGainPercent}{0.02}", output)
@@ -46,7 +58,25 @@ include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.j
         @test occursin("\\PaperTopLinkTableCount}{30}", output)
         @test occursin("\\PaperCongestionStepPercent}{-50.0}", output)
         @test occursin("\\PaperSpatialExternalityStepPercent}{150.0}", output)
+        @test occursin("\\PaperTopFiftyTrafficCorrelation}{0.7}", output)
+        @test occursin("\\PaperTopHundredTrafficRankCorrelation}{0.75}", output)
+        @test occursin("\\PaperSingleModeRoadArcCount}{5}", output)
     end
+end
+
+@testset "Traffic-ranked correlations are deterministic" begin
+    rows = [
+        (physical_link_id="b", hulten=0.4, primitive_F=0.2),
+        (physical_link_id="a", hulten=0.5, primitive_F=0.1),
+        (physical_link_id="c", hulten=0.3, primitive_F=0.3),
+        (physical_link_id="d", hulten=0.2, primitive_F=0.5),
+    ]
+    subsets = traffic_ranked_subset_statistics(rows, (3,))
+    @test subsets["3"]["count"] == 3
+    @test subsets["3"]["selection"] ==
+        "descending traditional traffic statistic, then physical_link_id"
+    @test isapprox(subsets["3"]["pearson"], -1.0; atol=1.0e-12)
+    @test isapprox(subsets["3"]["spearman"], -1.0; atol=1.0e-12)
 end
 
 @testset "Nested mechanism statistics preserve the welfare hierarchy" begin

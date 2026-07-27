@@ -13,6 +13,16 @@ from pathlib import Path
 
 CBSA_URL = "https://www2.census.gov/geo/tiger/TIGER2018/CBSA/tl_2018_us_cbsa.zip"
 CBSA_SHA256 = "810b5a1d81a4c0e4bbea65c721ad7c42c578a4034d44049b783e253e0686d086"
+PLACE_ARCHIVES = {
+    "37": {
+        "url": "https://www2.census.gov/geo/tiger/TIGER2018/PLACE/tl_2018_37_place.zip",
+        "sha256": "6b9d69052ba684c4480b70aec425466d39e455601b06d3ad69b50acb4dc47e52",
+    },
+    "53": {
+        "url": "https://www2.census.gov/geo/tiger/TIGER2018/PLACE/tl_2018_53_place.zip",
+        "sha256": "3a552792edbf7333eaab902f676d1bc42c0d8a6bddb4fae41df5a7978d9916fe",
+    },
+}
 
 
 def sha256(path: Path) -> str:
@@ -104,6 +114,47 @@ def cbsa_features(cache_dir: Path):
     return features, archive, geojson, gdal_version
 
 
+def place_features(cache_dir: Path):
+    executable = shutil.which("ogr2ogr")
+    features = []
+    sources = {}
+    for state_fips, source in sorted(PLACE_ARCHIVES.items()):
+        archive = cache_dir / f"tl_2018_{state_fips}_place.zip"
+        geojson = cache_dir / f"tl_2018_{state_fips}_place.geojson"
+        if not archive.exists():
+            urllib.request.urlretrieve(source["url"], archive)
+        actual_hash = sha256(archive)
+        if actual_hash != source["sha256"]:
+            raise RuntimeError(
+                "Census Place archive hash mismatch for state "
+                f"{state_fips}: expected {source['sha256']}, got {actual_hash}")
+        if not geojson.exists():
+            if executable is None:
+                raise RuntimeError(
+                    "ogr2ogr is required to build the Census Place crosswalk; "
+                    "install GDAL or provide the hash-verified cached GeoJSON")
+            subprocess.run(
+                [executable, "-f", "GeoJSON", str(geojson),
+                 f"/vsizip/{archive}"],
+                check=True,
+            )
+        with geojson.open() as handle:
+            collection = json.load(handle)
+        for feature in collection["features"]:
+            geometry = feature["geometry"]
+            features.append((
+                geometry_bounds(geometry), geometry,
+                str(feature["properties"]["GEOID"]),
+                str(feature["properties"]["NAME"]),
+            ))
+        sources[state_fips] = {
+            "source_url": source["url"],
+            "source_sha256": actual_hash,
+            "geojson_sha256": sha256(geojson),
+        }
+    return features, sources
+
+
 def assign(features, longitude, latitude):
     for (min_x, min_y, max_x, max_y), geometry, geoid, name in features:
         if min_x <= longitude <= max_x and min_y <= latitude <= max_y and \
@@ -116,12 +167,39 @@ def link_label(name_a, name_b):
     if name_a and name_b and name_a != name_b:
         return f"{name_a}--{name_b}"
     if name_a and name_b:
-        return name_a
+        return f"Within {compact_cbsa_name(name_a)} metropolitan area"
     if name_a:
-        return f"Approach to {name_a}"
+        return f"{compact_cbsa_name(name_a)} metropolitan area--network boundary"
     if name_b:
-        return f"Approach to {name_b}"
+        return f"{compact_cbsa_name(name_b)} metropolitan area--network boundary"
     return ""
+
+
+def descriptive_link_label(
+        name_a, name_b, place_a, place_b, physical_link_id):
+    if name_a and name_b and name_a != name_b:
+        return f"{name_a}--{name_b}", "cbsa_endpoint_pair"
+    if place_a and place_b and place_a != place_b:
+        return f"{place_a}--{place_b}", "place_endpoint_pair"
+    if name_a and name_b:
+        return (
+            f"Within {compact_cbsa_name(name_a)} metropolitan area "
+            f"(link {physical_link_id})",
+            "same_cbsa_physical_link",
+        )
+    if name_a or name_b:
+        name = compact_cbsa_name(name_a or name_b)
+        return (
+            f"{name} metropolitan area--network boundary "
+            f"(link {physical_link_id})",
+            "one_sided_cbsa_physical_link",
+        )
+    if place_a or place_b:
+        return (
+            f"{place_a or place_b} area (link {physical_link_id})",
+            "one_sided_place_physical_link",
+        )
+    return f"Physical link {physical_link_id}", "physical_link_id"
 
 
 def compact_cbsa_name(name):
@@ -130,8 +208,12 @@ def compact_cbsa_name(name):
     return name.split(",", 1)[0]
 
 
-def compact_link_label(name_a, name_b):
-    return link_label(compact_cbsa_name(name_a), compact_cbsa_name(name_b))
+def compact_link_label(
+        name_a, name_b, place_a="", place_b="", physical_link_id=""):
+    label, _ = descriptive_link_label(
+        compact_cbsa_name(name_a), compact_cbsa_name(name_b),
+        place_a, place_b, physical_link_id)
+    return label
 
 
 def tex_escape(value):
@@ -158,11 +240,16 @@ def ranked_link_rows(comparison, label_rows):
             label_row = labels.get(link["physical_link_id"], {})
             verified_label = label_row.get("verified_label", "")
             display_label = compact_link_label(
-                label_row.get("cbsa_name_a", ""), label_row.get("cbsa_name_b", ""))
+                label_row.get("cbsa_name_a", ""),
+                label_row.get("cbsa_name_b", ""),
+                label_row.get("place_name_a", ""),
+                label_row.get("place_name_b", ""),
+                link["physical_link_id"],
+            )
             link["verified_label"] = verified_label or None
             link["display_label"] = display_label or None
-            link["label_status"] = (
-                "verified_point_in_polygon" if verified_label else "unavailable")
+            link["label_status"] = label_row.get(
+                "label_status", "unavailable")
             output[ranking_measure].append({
                 "ranking_measure": ranking_measure,
                 "rank": link["rank"],
@@ -260,7 +347,7 @@ def write_top_link_outputs(
     lines.extend([
         r"\smallskip",
         r"\begin{minipage}{0.97\textwidth}",
-        r"\footnotesize \textbf{Notes:} The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. The Traditional approach ranks links by the sum of the two directed traffic shares; the Extended approach ranks them by the corresponding primitive-cost welfare elasticity. The cross-rank gives the link's rank under the other approach. Metropolitan labels are assigned by point-in-polygon using the public 2018 Census CBSA crosswalk. State suffixes are omitted; hyphenated Census place names are retained. Elasticities are multiplied by $10^4$.",
+        r"\footnotesize \textbf{Notes:} The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. The Traditional approach ranks links by the sum of the two directed traffic shares; the Extended approach ranks them by the corresponding primitive-cost welfare elasticity. The cross-rank gives the link's rank under the other approach. Geographic labels use point-in-polygon assignments from public 2018 Census CBSA and Place polygons. When the endpoints do not identify two places, the table reports the metropolitan area and physical-link identifier. State suffixes are omitted; hyphenated Census place names are retained. Elasticities are multiplied by $10^4$.",
         r"\end{minipage}",
     ])
     lines.append(r"\end{table}" if layout == "stacked" else r"\end{center}")
@@ -283,6 +370,9 @@ def label_sensitivity_links(path, label_rows):
             "display_label": compact_link_label(
                 label_row.get("cbsa_name_a", ""),
                 label_row.get("cbsa_name_b", ""),
+                label_row.get("place_name_a", ""),
+                label_row.get("place_name_b", ""),
+                row["physical_link_id"],
             ),
             "verified_label": label_row.get("verified_label", ""),
         })
@@ -309,16 +399,24 @@ def main():
     parser.add_argument("--top-30-links-tex", type=Path)
     args = parser.parse_args()
     features, archive, geojson, gdal_version = cbsa_features(args.cache_dir)
+    places, place_sources = place_features(args.cache_dir)
     with args.geometry.open(newline="") as handle:
         rows = list(csv.DictReader(handle))
     output_rows = []
     labels = {}
+    label_statuses = {}
     for row in rows:
         geoid_a, name_a = assign(
             features, float(row["longitude_a"]), float(row["latitude_a"]))
         geoid_b, name_b = assign(
             features, float(row["longitude_b"]), float(row["latitude_b"]))
-        label = link_label(name_a, name_b)
+        place_geoid_a, place_name_a = assign(
+            places, float(row["longitude_a"]), float(row["latitude_a"]))
+        place_geoid_b, place_name_b = assign(
+            places, float(row["longitude_b"]), float(row["latitude_b"]))
+        label, label_status = descriptive_link_label(
+            name_a, name_b, place_name_a, place_name_b,
+            row["physical_link_id"])
         output_rows.append({
             "physical_link_id": row["physical_link_id"],
             "endpoint_a": row["endpoint_a"],
@@ -327,9 +425,15 @@ def main():
             "cbsa_name_a": name_a,
             "cbsa_geoid_b": geoid_b,
             "cbsa_name_b": name_b,
+            "place_geoid_a": place_geoid_a,
+            "place_name_a": place_name_a,
+            "place_geoid_b": place_geoid_b,
+            "place_name_b": place_name_b,
             "verified_label": label,
+            "label_status": label_status,
         })
         labels[row["physical_link_id"]] = label
+        label_statuses[row["physical_link_id"]] = label_status
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(output_rows[0]))
@@ -340,7 +444,8 @@ def main():
     for link in claims["top_links"]:
         label = labels.get(link["physical_link_id"], "")
         link["verified_label"] = label or None
-        link["label_status"] = "verified_point_in_polygon" if label else "unavailable"
+        link["label_status"] = label_statuses.get(
+            link["physical_link_id"], "unavailable")
     comparison = claims.get("top_link_comparison")
     appendix_comparison = claims.get("appendix_top_link_comparison")
     if comparison is not None or appendix_comparison is not None:
@@ -382,6 +487,7 @@ def main():
         "vintage": 2018,
         "assignment": "point_in_polygon_only",
         "labeled_physical_links": sum(bool(value) for value in labels.values()),
+        "place_sources": place_sources,
     }
     with args.claims.open("w") as handle:
         json.dump(claims, handle, sort_keys=True, separators=(",", ":"))
