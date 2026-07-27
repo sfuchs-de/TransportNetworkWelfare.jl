@@ -411,6 +411,13 @@ def sensitivity_figure(rows, output):
         len(parameters), 2, figsize=(8.2, 7.6), squeeze=False)
     for row_index, parameter in enumerate(parameters):
         data = sorted(grouped[parameter], key=lambda row: float(row["value"]))
+        baseline = [
+            float(row["value"]) for row in data
+            if row.get("is_baseline", "").lower() == "true"
+        ]
+        if len(baseline) != 1:
+            raise ValueError(
+                f"Sensitivity path {parameter} must identify one baseline.")
         x = np.asarray([float(row["value"]) for row in data])
         mean_gain = 1.0e4*np.asarray(
             [float(row["mean_physical_gain_pct"]) for row in data])
@@ -420,6 +427,11 @@ def sensitivity_figure(rows, output):
             x, mean_gain, color=BLUE, marker="o", markersize=3.0)
         rank_axis.plot(
             x, rank, color=ORANGE, marker="o", markersize=3.0)
+        for axis in (mean_axis, rank_axis):
+            axis.axvline(
+                baseline[0], color=MUTED, linewidth=0.7,
+                linestyle=(0, (2, 2)), zorder=0,
+            )
         style_axis(mean_axis, grid_axis="y")
         style_axis(rank_axis, grid_axis="y")
         rank_lower = max(0.8, float(rank.min())-0.01)

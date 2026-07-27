@@ -350,6 +350,9 @@ function sensitivity_outputs(model, baseline_rows, role::String, parameters)
                 spearman_vs_baseline=rank_correlation,
                 minimum_physical_elasticity=minimum(effects),
                 maximum_physical_elasticity=maximum(effects),
+                is_baseline=isapprox(
+                    value, baseline_value; rtol=0.0,
+                    atol=10eps(Float64)),
                 verified=true,
             ))
             for (index, row) in enumerate(physical)
