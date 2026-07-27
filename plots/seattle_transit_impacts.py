@@ -11,9 +11,21 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-from matplotlib.colors import LinearSegmentedColormap, Normalize, TwoSlopeNorm
 from matplotlib.lines import Line2D
 import numpy as np
+
+try:
+    from plots.figure_style import (
+        INK, LIGHT, MODE_COLORS, MUTED, add_panel_label, correlations,
+        save_figure_pair, shared_identity_limits, style_axis,
+        welfare_norm as shared_welfare_norm,
+    )
+except ModuleNotFoundError:
+    from figure_style import (
+        INK, LIGHT, MODE_COLORS, MUTED, add_panel_label, correlations,
+        save_figure_pair, shared_identity_limits, style_axis,
+        welfare_norm as shared_welfare_norm,
+    )
 
 try:
     import shapefile
@@ -21,15 +33,7 @@ except ImportError:  # Geography is optional for fixture tests.
     shapefile = None
 
 
-COLORS = {
-    "road": "#656D73",
-    "bus": "#26734D",
-    "rail": "#B5483A",
-    "subway": "#7A4DA3",
-    "streetcar": "#C64E36",
-    "ferry": "#2B6EA6",
-    "all_transit": "#343A40",
-}
+COLORS = MODE_COLORS
 LABELS = {
     "road": "Road",
     "bus": "Bus",
@@ -39,10 +43,6 @@ LABELS = {
     "ferry": "Ferry",
     "all_transit": "All transit",
 }
-AA_CMAP = LinearSegmentedColormap.from_list(
-    "aa_blue_red", ("#2166AC", "#7B6CB4", "#D6604D", "#B2182B"))
-
-
 def iter_rows(path):
     with Path(path).open(newline="", encoding="utf-8") as handle:
         yield from csv.DictReader(handle)
@@ -87,20 +87,6 @@ def numeric(rows, field):
     return values
 
 
-def average_ranks(values):
-    values = np.asarray(values, dtype=float)
-    order = np.argsort(values, kind="mergesort")
-    ranks = np.empty(len(values), dtype=float)
-    first = 0
-    while first < len(values):
-        last = first + 1
-        while last < len(values) and values[order[last]] == values[order[first]]:
-            last += 1
-        ranks[order[first:last]] = 0.5 * (first + last - 1)
-        first = last
-    return ranks
-
-
 def iter_shape_parts(shape):
     points = np.asarray(shape.points, dtype=float)
     boundaries = list(shape.parts) + [len(points)]
@@ -129,7 +115,7 @@ def add_geography(axis, root):
     water_reader = shapefile.Reader(str(matching_shapefile(root, "areawater")))
     for shape in water_reader.shapes():
         for part in iter_shape_parts(shape):
-            axis.fill(part[:, 0], part[:, 1], color="#DCEAF0",
+            axis.fill(part[:, 0], part[:, 1], color="#E4EEF2",
                       edgecolor="none", zorder=0)
 
     county_reader = shapefile.Reader(str(matching_shapefile(root, "county")))
@@ -138,7 +124,7 @@ def add_geography(axis, root):
         if str(record.get("STATEFP")) != "53" or str(record.get("COUNTYFP")) != "033":
             continue
         for part in iter_shape_parts(item.shape):
-            axis.plot(part[:, 0], part[:, 1], color="#59636B",
+            axis.plot(part[:, 0], part[:, 1], color=MUTED,
                       linewidth=0.65, zorder=1)
 
     place_reader = shapefile.Reader(str(matching_shapefile(root, "place")))
@@ -147,7 +133,7 @@ def add_geography(axis, root):
         if str(record.get("NAME")) != "Seattle":
             continue
         for part in iter_shape_parts(item.shape):
-            axis.plot(part[:, 0], part[:, 1], color="#7C858C",
+            axis.plot(part[:, 0], part[:, 1], color=MUTED,
                       linewidth=0.6, linestyle=(0, (2, 2)), zorder=1)
 
 
@@ -179,7 +165,7 @@ def add_nodes(axis, nodes, masses, *, alpha=0.78, zorder=5):
         [nodes[key][0] for key in nodes],
         [nodes[key][1] for key in nodes],
         s=[sizes[key] for key in nodes],
-        color="#111111", edgecolors="white", linewidths=0.18,
+        color=INK, edgecolors="white", linewidths=0.18,
         alpha=alpha, zorder=zorder)
 
 
@@ -207,7 +193,7 @@ def unique_mode_segments(rows, nodes, mode=None):
 def add_road_context(axis, edge_rows, nodes):
     segments, _ = unique_mode_segments(edge_rows, nodes, "road")
     axis.add_collection(LineCollection(
-        segments, colors="#C5C9CC", linewidths=0.38,
+        segments, colors=LIGHT, linewidths=0.38,
         alpha=0.72, zorder=2))
 
 
@@ -378,24 +364,8 @@ def gtfs_shapes(root):
     return output
 
 
-def figure_paths(output, stem):
-    return Path(output) / f"{stem}.pdf", Path(output) / f"{stem}.png"
-
-
 def save_pair(figure, output, stem):
-    pdf, png = figure_paths(output, stem)
-    pdf.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(
-        pdf, bbox_inches="tight", transparent=True,
-        metadata={"Creator": "TransportNetworkWelfare.jl",
-                  "CreationDate": None, "ModDate": None},
-    )
-    figure.savefig(
-        png, dpi=300, bbox_inches="tight", transparent=True,
-        metadata={"Software": "TransportNetworkWelfare.jl"},
-    )
-    plt.close(figure)
-    return [pdf, png]
+    return save_figure_pair(figure, output, stem)
 
 
 def corridor_segments(rows, nodes):
@@ -409,13 +379,7 @@ def corridor_segments(rows, nodes):
 
 
 def welfare_norm(values):
-    lower, upper = float(np.min(values)), float(np.max(values))
-    if lower < 0 < upper:
-        limit = max(abs(lower), abs(upper))
-        return TwoSlopeNorm(vmin=-limit, vcenter=0, vmax=limit), "coolwarm"
-    if upper == lower:
-        upper = lower + max(abs(lower), 1.0) * 1e-9
-    return Normalize(vmin=lower, vmax=upper), "viridis"
+    return shared_welfare_norm(values, include_zero=True)
 
 
 def welfare_widths(values, maximum):
@@ -505,7 +469,7 @@ def combined_road_transit_map(
     ]
     if any(np.any(values[mode] < 0) for mode in transit_categories):
         category_handles.append(
-            Line2D([0], [0], color="#202428", linewidth=2.0,
+            Line2D([0], [0], color=INK, linewidth=2.0,
                    linestyle=(0, (3, 2)), label="Negative effect"))
     category_legend = axis.legend(
         handles=category_handles,
@@ -517,7 +481,7 @@ def combined_road_transit_map(
     levels = welfare_legend_levels(maximum)
     width_legend = [
         Line2D(
-            [0], [0], color="#202428",
+            [0], [0], color=INK,
             linewidth=float(welfare_widths([level], maximum)[0]),
             label=f"{level:.3g}%")
         for level in levels
@@ -555,7 +519,7 @@ def aa_multimodal_network_map(artifacts, nodes, masses, geography_root,
 
     add_geography(axes[0], geography_root)
     axes[0].add_collection(LineCollection(
-        road_geometry, colors="#BEC3C6", linewidths=0.22,
+        road_geometry, colors=LIGHT, linewidths=0.22,
         alpha=0.58, zorder=2))
     for mode in ("bus", "rail", "ferry"):
         axes[0].add_collection(LineCollection(
@@ -585,9 +549,7 @@ def aa_multimodal_network_map(artifacts, nodes, masses, geography_root,
 
     for axis, label in zip(
             axes, ("Observed 2017 networks", "Constructed multimodal network")):
-        axis.text(
-            0.02, 0.98, label, transform=axis.transAxes,
-            ha="left", va="top", fontsize=8.5, fontweight="bold")
+        add_panel_label(axis, "", label)
     legend = [
         Line2D([0], [0], color=COLORS[mode], linewidth=1.6,
                linestyle="dashed" if mode == "ferry" else "solid",
@@ -611,8 +573,7 @@ def aa_mode_welfare_map(artifacts, nodes, masses, geography_root,
     }
     values = np.concatenate([
         numeric(rows[mode], "extended_gain_pct") for mode in modes])
-    norm = Normalize(vmin=min(0.0, float(values.min())),
-                     vmax=float(values.max()))
+    norm, cmap = shared_welfare_norm(values, include_zero=True)
     edge_rows = read_rows(edge_modes_path)
     figure, axes = plt.subplots(
         2, 2, figsize=(7.6, 8.4), sharex=True, sharey=True)
@@ -623,14 +584,12 @@ def aa_mode_welfare_map(artifacts, nodes, masses, geography_root,
         collection = LineCollection(
             corridor_segments(rows[mode], nodes),
             array=numeric(rows[mode], "extended_gain_pct"),
-            cmap=AA_CMAP, norm=norm, linewidths=1.35,
+            cmap=cmap, norm=norm, linewidths=1.35,
             alpha=0.95, zorder=3)
         axis.add_collection(collection)
         add_nodes(axis, nodes, masses, alpha=0.68)
         finish_map(axis, nodes)
-        axis.text(
-            0.02, 0.98, LABELS[mode], transform=axis.transAxes,
-            ha="left", va="top", fontsize=8.5, fontweight="bold")
+        add_panel_label(axis, "", LABELS[mode])
     figure.colorbar(
         collection, ax=axes, fraction=0.025, pad=0.015,
         label="Welfare gain from a 1% improvement (%)")
@@ -645,8 +604,7 @@ def aa_transit_comparison_map(artifacts, nodes, masses, geography_root,
     rows = read_rows(Path(artifacts) / "links_all_transit.csv")
     fields = ("traditional_gain_pct", "extended_gain_pct")
     values = np.concatenate([numeric(rows, field) for field in fields])
-    norm = Normalize(vmin=min(0.0, float(values.min())),
-                     vmax=float(values.max()))
+    norm, cmap = shared_welfare_norm(values, include_zero=True)
     edge_rows = read_rows(edge_modes_path)
     figure, axes = plt.subplots(
         1, 2, figsize=(8.0, 5.1), sharex=True, sharey=True)
@@ -657,14 +615,12 @@ def aa_transit_comparison_map(artifacts, nodes, masses, geography_root,
         add_road_context(axis, edge_rows, nodes)
         collection = LineCollection(
             corridor_segments(rows, nodes), array=numeric(rows, field),
-            cmap=AA_CMAP, norm=norm, linewidths=1.35,
+            cmap=cmap, norm=norm, linewidths=1.35,
             alpha=0.95, zorder=3)
         axis.add_collection(collection)
         add_nodes(axis, nodes, masses, alpha=0.68)
         finish_map(axis, nodes)
-        axis.text(
-            0.02, 0.98, label, transform=axis.transAxes,
-            ha="left", va="top", fontsize=8.5, fontweight="bold")
+        add_panel_label(axis, "", label)
     figure.colorbar(
         collection, ax=axes, fraction=0.03, pad=0.015,
         label="Welfare gain from a 1% transit improvement (%)")
@@ -687,8 +643,7 @@ def mode_welfare_map(artifacts, nodes, geography_root):
         collection = add_corridors(
             axis, rows[mode], nodes, "extended_gain_pct",
             norm, cmap, geography_root)
-        axis.text(0.02, 0.98, LABELS[mode], transform=axis.transAxes,
-                  ha="left", va="top", fontsize=9, fontweight="bold")
+        add_panel_label(axis, "", LABELS[mode])
     figure.colorbar(
         collection, ax=axes, fraction=0.025, pad=0.015,
         label="Welfare gain from a 1% improvement (%)")
@@ -710,7 +665,7 @@ def single_map(artifacts, nodes, geography_root, field, stem, colorbar_label):
         y = (nodes[row["origin"]][1]+nodes[row["destination"]][1])/2
         axis.annotate(
             row["corridor_id"], (x, y), xytext=(3, 3),
-            textcoords="offset points", fontsize=6, color="#202428")
+            textcoords="offset points", fontsize=6, color=INK)
     figure.colorbar(collection, ax=axis, fraction=0.035, pad=0.02,
                     label=colorbar_label)
     figure.tight_layout(pad=0.2)
@@ -720,31 +675,26 @@ def single_map(artifacts, nodes, geography_root, field, stem, colorbar_label):
 def scatter_figure(artifacts):
     modes = ("bus", "rail", "ferry", "all_transit")
     figure, axes = plt.subplots(2, 2, figsize=(7.6, 7.0), sharex=True, sharey=True)
-    all_values = []
     loaded = {}
     for mode in modes:
         rows = read_rows(Path(artifacts) / f"directed_{mode}.csv")
         x, y = numeric(rows, "hulten"), numeric(rows, "primitive_F")
         loaded[mode] = (rows, x, y)
-        all_values.extend(x)
-        all_values.extend(y)
-    lower, upper = min(all_values), max(all_values)
-    padding = 0.04*(upper-lower if upper > lower else 1.0)
-    limits = (lower-padding, upper+padding)
+    limits = shared_identity_limits(
+        np.concatenate([loaded[mode][1] for mode in modes]),
+        np.concatenate([loaded[mode][2] for mode in modes]),
+    )
     for axis, mode in zip(axes.flat, modes):
         rows, x, y = loaded[mode]
         axis.scatter(
             x, y, s=15, alpha=0.48, color=COLORS[mode], edgecolors="none")
-        axis.plot(limits, limits, color="#444444", linewidth=0.8,
+        axis.plot(limits, limits, color=MUTED, linewidth=0.8,
                   linestyle=(0, (3, 2)))
-        pearson = np.corrcoef(x, y)[0, 1] if len(x) > 1 else np.nan
-        rx = average_ranks(x)
-        ry = average_ranks(y)
-        spearman = np.corrcoef(rx, ry)[0, 1] if len(x) > 1 else np.nan
+        pearson, spearman = correlations(x, y)
         pearson_text = f"{pearson:.3f}" if np.isfinite(pearson) else "n/a"
         spearman_text = f"{spearman:.3f}" if np.isfinite(spearman) else "n/a"
         axis.text(0.03, 0.97, LABELS[mode], transform=axis.transAxes,
-                  ha="left", va="top", fontsize=9, fontweight="bold")
+                  ha="left", va="top", fontsize=8.5)
         axis.text(
             0.03, 0.88, f"Pearson {pearson_text}\nRank {spearman_text}",
             transform=axis.transAxes, ha="left", va="top", fontsize=7)
@@ -754,7 +704,7 @@ def scatter_figure(artifacts):
                 xytext=(3, 3), textcoords="offset points", fontsize=5.5)
         axis.set_xlim(*limits)
         axis.set_ylim(*limits)
-        axis.spines[["top", "right"]].set_visible(False)
+        style_axis(axis, grid_axis="both")
     for axis in axes[-1, :]:
         axis.set_xlabel("Traditional approach")
     for axis in axes[:, 0]:
@@ -769,13 +719,18 @@ def route_figure(artifacts):
     rows = rows[:20]
     values = numeric(rows, "extended_gain_pct")
     labels = [row["route_name"] for row in rows]
-    colors = [COLORS.get(row["mode"], "#59636B") for row in rows]
+    colors = [COLORS.get(row["mode"], MUTED) for row in rows]
     figure, axis = plt.subplots(figsize=(6.6, 5.6))
     positions = np.arange(len(rows))
-    axis.barh(positions, values[::-1], color=colors[::-1], height=0.72)
+    for position, value, color in zip(positions, values[::-1], colors[::-1]):
+        axis.plot([0.0, value], [position, position], color=color,
+                  linewidth=1.2)
+        axis.scatter([value], [position], s=25, color=color,
+                     edgecolor="white", linewidth=0.4, zorder=3)
     axis.set_yticks(positions, labels=labels[::-1], fontsize=7)
     axis.set_xlabel("Welfare gain from a 1% route-corridor improvement (%)")
-    axis.spines[["top", "right", "left"]].set_visible(False)
+    style_axis(axis, grid_axis="x")
+    axis.spines["left"].set_visible(False)
     axis.tick_params(axis="y", length=0)
     figure.tight_layout(pad=0.4)
     return save_pair(figure, artifacts, "seattle_route_corridor_rankings")
@@ -800,10 +755,10 @@ def sensitivity_figure(artifacts):
         axes[1].plot(eta, rank, marker="o", markersize=3,
                      linewidth=1.1, color=COLORS[mode])
     for axis in axes:
-        axis.axvline(1.099, color="#555555", linewidth=0.8,
+        axis.axvline(1.099, color=MUTED, linewidth=0.8,
                      linestyle=(0, (3, 2)))
         axis.set_xlabel(r"Mode substitution $\eta$")
-        axis.spines[["top", "right"]].set_visible(False)
+        style_axis(axis, grid_axis="y")
     axes[0].set_ylabel("Mean welfare gain (%)")
     axes[1].set_ylabel(r"Rank correlation with $\eta=1.099$")
     axes[1].ticklabel_format(axis="y", style="plain", useOffset=False)

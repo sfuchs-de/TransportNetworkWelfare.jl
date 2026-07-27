@@ -109,6 +109,12 @@ function run_manifest(project::Project, diagnostics::AbstractDict, outputs; comm
     output_names = basename.(output_paths)
     length(unique(output_names)) == length(output_names) ||
         throw(ArgumentError("manifest output basenames must be unique"))
+    source_manifest_path = joinpath(project.root, "sources.toml")
+    source_manifest = isfile(source_manifest_path) ?
+        Dict(
+            "path" => relpath(source_manifest_path, project.root),
+            "sha256" => file_sha256(source_manifest_path),
+        ) : missing
     return Dict{String,Any}(
         "schema_version" => 1,
         "created_at_utc" => string(now(UTC)),
@@ -121,6 +127,7 @@ function run_manifest(project::Project, diagnostics::AbstractDict, outputs; comm
         "command" => command,
         "config_path" => relpath(project.config_path, project.root),
         "config_sha256" => file_sha256(project.config_path),
+        "source_manifest" => source_manifest,
         "input_hashes" => diagnostics["input_hashes"],
         "transformations" => diagnostics["transformations"],
         "model_variant" => Dict(

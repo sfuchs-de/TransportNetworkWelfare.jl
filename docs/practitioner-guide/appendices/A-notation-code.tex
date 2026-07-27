@@ -1,11 +1,17 @@
 \section{Notation and equation-to-code crosswalk}
 \label{app:crosswalk}
 
+Sections \ref{ch:equilibrium} and \ref{ch:welfare} present the two spatial
+models and their common transport calculation in economic notation. This
+appendix records the corresponding code quantities and fixes the
+orientation and sign conventions used by the algorithms in Appendix
+\ref{app:algorithm}.
+
 \subsection{Core notation}
 
-\begin{longtable}{p{0.18\textwidth}p{0.42\textwidth}p{0.31\textwidth}}
+\begin{longtable}{L{0.18\textwidth}L{0.42\textwidth}L{0.31\textwidth}}
 \toprule
-Object & Economic meaning & Code representation \\
+Symbol or term & Economic meaning & Code representation \\
 \midrule
 \endhead
 \(i,j,k,l\) & Location and directed-edge endpoints & Integer node indices plus
@@ -19,75 +25,113 @@ state map \\
 modal response \\
 \(\tau_{ij}\) & Bilateral route cost index & Route resolvent and soft-route
 operators \\
-\(\Xi_{ij,m}\) & World-income-normalized value traffic & Mode-flow sparse
-matrix \\
+\(\Xi_{ij,m}\) & Edge--mode traffic: world-income-normalized value flow in
+economic geography or normalized commuter flow in the urban model &
+Mode-flow sparse matrix \\
 \(\Xi_{ij}\) & Aggregate edge traffic & \code{data.Xi} \\
 \(s_{ij,m}\) & Modal traffic and cost-elasticity share & \code{data.s\_edges}
 and \code{basis.Sagg} \\
 \(\mathcal P_i,\mathcal Q_i\) & Inward and outward market-access stocks &
-Reconstructed exposure objects \\
-\(\mathcal T_i\) & Trade exposure before local absorption &
+Reconstructed exposure quantities \\
+\(\mathcal T_i^G\) & Trade exposure before local absorption &
 \code{node\_visit\_stock}; technical legacy name \\
+\(\mathcal T_i^U\) & Urban commuting exposure satisfying
+\(l_i^F+O_i=l_i^R+I_i\) & \code{node\_visit\_stock} under urban loading \\
+\(l_i^R,l_i^F\) & Urban residence and workplace margins &
+\code{data.residence}, \code{data.workplace} \\
+\(z_G\in\mathbb R^{2N}\) & Economic-geography state, ordered as the column
+vector of outward and inward transformed log variables &
+\code{AdjointRSUE} state vector \\
+\(z_U\in\mathbb R^{2N+1}\) & Urban state, ordered as residence logs,
+workplace logs, and the welfare normalizer &
+\code{UrbanEngine} state vector \\
+\(\varpi_U\) & Urban equilibrium normalizer, with
+\(d\log W=-d\log\varpi_U/\theta_U\) &
+Final urban state component; historical code name \code{chi\_U} \\
 \(\mu_{ij}\) & Outward continuation share & \code{data.mu} \\
 \(\lambda^{in}_{ij}\) & Inward continuation share & \code{data.lam} \\
 \(s_i^x,s_i^y\) & Local outward and inward absorption shares &
 \code{data.sx}, \code{data.sy} \\
-\(\alpha,\beta\) & Productivity and amenity externality elasticities &
+\(\alpha,\beta\) & Model-specific spatial response parameters:
+productivity and amenity elasticities in economic geography; workplace and
+residence response parameters in the urban model &
 \code{StructuralParameters} \\
 \(\sigma\) & Trade elasticity & \code{parameters.sigma} \\
+\(\theta_U\) & Urban commuting heterogeneity and route curvature &
+\code{model.theta}, stored internally through \(\sigma-1\) \\
 \(\eta\) & Modal substitution parameter & \code{ChoiceLogsum.eta} \\
-\(\theta\) & Route curvature; urban commuting heterogeneity & \(\sigma-1\)
-or urban \code{model.theta} \\
-\(\gamma,\lambda_m\) & Congestion elasticities & Typed congestion
-specification \\
+\(\omega\) & Route curvature & \(\sigma-1\) or urban
+\(\theta_U=\code{model.theta}\) \\
+\(\theta_{ijm}\) & Primitive edge-mode log-cost policy & Policy selector and
+\code{primitive\_forcing} \\
+\(\gamma_{e,m}\) & Edge--mode congestion elasticity & Typed congestion
+specification; legacy configuration fields use \code{lambda} names \\
 \(e\) & Transformation regularity scalar & \code{AdjointRSUE.Coef.e} \\
 \(\rho\) & Externality and welfare scaling coefficient &
 \code{AdjointRSUE.Coef.rho} \\
-\(J_0,J_S\) & No-congestion and closure spatial Jacobians &
+\(J_{c,0},J_{c,S}\) & Model-specific no-congestion and full spatial
+Jacobians &
 \code{closures.J0}, \code{closures.F}, etc. \\
-\(q\) & Welfare gradient in transformed state & \code{welfare\_gradient} \\
+\(q_c\) & Welfare gradient in the selected spatial state &
+\code{welfare\_gradient} \\
+\(\psi_c\) & Adjoint solution to \(J_c^\top\psi_c=q_c\) & Transposed linear solve in
+\code{operator\_gain} \\
 \(b^r,b^\theta\) & Realized and primitive shock forcing &
 \code{realized\_forcing}, \code{primitive\_forcing} \\
-\(\chi\) & Primitive-to-realized effective pass-through &
+\(\zeta_{ijm},\chi_{ijm}\) & Aggregate-cost pass-through and its modal-share
+normalization & \code{primitive\_forcing} \\
+\(\chi_e^{eff}\) & Welfare-effective primitive-to-realized ratio &
 \code{chi\_effective} where defined \\
 \bottomrule
 \end{longtable}
 
 \subsection{Main equations}
 
-\begin{longtable}{p{0.24\textwidth}p{0.30\textwidth}p{0.36\textwidth}}
+\begin{longtable}{L{0.24\textwidth}L{0.30\textwidth}L{0.36\textwidth}}
 \toprule
-Theory object & Construction & Primary implementation \\
+Theory quantity & Construction & Primary implementation \\
 \midrule
 \endhead
 Modal logsum & Negative-power aggregation and share derivative &
 \code{modal\_power}, \code{pair\_response\_matrices} \\
-Recursive routing & \(T=(I-K)^{-1}\) &
-\code{reconstruct\_route\_kernel} \\
+Recursive routing and curvature & \(T=(I-K)^{-1}\), with
+\(\omega=\sigma-1\) in the paper &
+\code{reconstruct\_route\_kernel}, \code{route\_curvature} \\
 Bilateral reconstruction &
 \(\operatorname{diag}(o)T\operatorname{diag}(a)\) &
 \code{soft\_route\_operators} \\
+Edge--mode traffic & \(\Xi_{e,m}=s_{e,m}\Xi_e\) &
+\code{mode\_flows}, \code{Sagg} \\
 Traffic factorization & Continuation share times exposure &
 \code{shares\_from\_traffic}, route diagnostics \\
 Transformed inverse map & \((x,y)\) to economic variables &
 \code{inverse\_state\_map} \\
-Spatial Jacobian & Sparse four-block system plus aggregate feedback &
-\code{AdjointRSUE.assemble\_J} \\
+Economic-geography spatial Jacobian & Sparse four-block system plus aggregate
+feedback & \code{AdjointRSUE.assemble\_J} \\
+Urban spatial Jacobian & Residence--workplace system and two margin
+normalizations & \code{UrbanCommutingIFT.jacobian},
+\code{UrbanEngine} \\
 Congestion elimination & Schur complement &
 \code{build\_transport\_closure} \\
-Adjoint derivative & \(q^\top J^{-1}b\) &
+Adjoint derivative & \(q_c^\top J_{c,S}^{-1}b_c\) &
 \code{operator\_gain} \\
-Primitive pass-through & Modal-route-congestion forcing &
-\code{primitive\_forcing} \\
-Proposition 1 & Efficient derivative equals traffic & Hulten tests and
-\code{decomposition\_rows} \\
-Proposition 2 & Traffic times \(\rho,\chi\), and access multipliers &
+Realized and primitive forcing & \(b^r\) versus \(b^\theta\) &
+\code{realized\_forcing}, \code{primitive\_forcing} \\
+Primitive pass-through & \(\zeta\) from the transport response and
+\(\chi=\zeta/s\) &
+\code{primitive\_forcing}, \code{effective\_ratio} \\
+Paper Proposition 1 & Efficient derivative equals value traffic
+& Hulten tests and \code{decomposition\_rows} \\
+Paper Proposition 2 & Traffic times \(\rho,\chi\), and access multipliers &
 Adjoint projection; scalar helper for oracle tests \\
+Urban welfare derivative & \(q_U^\top J_{U,S}^{-1}b_{U,p}\) &
+\code{UrbanEngine}, \code{operator\_gain} \\
 Closure ladder & \code{NC}, \code{NT}, \code{F}, \code{FM}, \code{FR} &
 \code{build\_closures} \\
 Inverse-gap identity & Difference between closure derivatives &
 \code{inverse\_gap} \\
-Mixed decomposition & Allocation, scarcity, equilibrium correction &
+Mixed decomposition & General allocation, scarcity, and equilibrium formula;
+the current common-baseline specification leaves only scarcity nonzero &
 \code{mixed\_channels} \\
 Physical aggregation & Sum reciprocal policies before normalization &
 \code{aggregate\_physical} \\
@@ -102,8 +146,9 @@ leaving \(i\) on edge \(i\to j\). The inward share is stored using the same edge
 with destination exposure in the denominator. Code that differentiates the
 second market-access recursion uses the transpose where required.
 
-The policy selector indexes positive-flow edge-mode pairs, not every possible
-matrix cell. The directed result retains both integer indices and source IDs.
+The policy selector indexes positive-flow edge-mode pairs rather than all
+possible matrix cells. The directed result retains both integer indices and
+source IDs.
 Physical aggregation relies on endpoint IDs and the declared
 \code{physical\_link\_id}, not adjacency-matrix symmetry alone.
 
@@ -116,7 +161,7 @@ reductions:
 \]
 The Hulten traffic share is positive. The primitive and realized elasticities
 are stored as positive benefits under this convention. Decomposition wedges
-and channels remain signed and can be negative.
+and decomposition components remain signed and can be negative.
 
 The coefficient \(\rho\) can be negative. Do not replace signed products by
 absolute values. A negative \(\rho\) and negative access multiplier sum can
@@ -125,11 +170,12 @@ produce a positive benefit.
 \subsection{Legacy aliases}
 
 The mathematical audit and early code use ``node-visit stock'' or
-``occupation stock'' for \(\mathcal T_i\). These are technical descriptions of
-the resolvent. The paper and guide use ``trade exposure'' or
-``market-access exposure.'' The code function name is preserved for
-compatibility.
+``occupation stock'' for the recursive exposure quantity. These are technical
+descriptions of the resolvent. The paper and guide use ``trade exposure'' for
+\(\mathcal T_i^G\) and ``commuting exposure'' for \(\mathcal T_i^U\). The
+code function name is preserved for compatibility.
 
-The legacy positive-power modal type is \code{ComponentCES}. Its congestion
-helpers are not the active \code{ChoiceLogsum} implementation. The distinction
-is a model choice, not a cosmetic sign convention.
+The positive-power modal type \code{ComponentCES} is \textbf{legacy-only}.
+Its congestion helpers are not part of the active \code{ChoiceLogsum}
+implementation. The distinction changes the economics of modal substitution;
+it is not a cosmetic sign convention.

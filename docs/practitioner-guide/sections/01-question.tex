@@ -1,5 +1,10 @@
-\section{What the calculation answers}
+\section{Policy experiment and scope}
 \label{ch:question}
+
+Any welfare comparison is meaningful only relative to a stated policy and
+baseline. The analysis therefore begins by defining the marginal
+infrastructure change, then distinguishes the traffic-based and
+spatial-equilibrium measures and states which benefits they omit.
 
 \subsection{The policy experiment}
 
@@ -7,101 +12,192 @@ Suppose an analyst can lower the underlying transport cost on one network
 link. Which link produces the largest economic benefit? A traditional answer
 multiplies the cost reduction by the traffic using that link. This is the
 social-savings calculation associated with \citet{fogel1962quantitative} and
-\citet{Fogel1964Railroads}. It is transparent and often informative. It also
-raises a natural question: what happens when users change routes, switch
-modes, move across locations, or change the congestion faced by other users?
+\citet{Fogel1964Railroads}. It is simple, data-light, and often informative. It also
+allows routes, modes, prices, and locations to adjust only implicitly.
+Adjustment by itself does not invalidate social savings. The relevant question
+is whether those responses change exposure to congestion or spatial
+externalities that give reallocation a first-order welfare value.
 
 The package evaluates a local version of that question. A policy is a small
-change in the primitive cost of a declared edge--mode. For a directed road
-edge \(e=(k,l)\), mode \(m\), write
+change in the primitive cost of a declared edge--mode. For a directed edge
+\(e=(k,l)\) and mode \(m\), define the primitive log cost as
 \[
-  \theta_{klm}=\log\bar\kappa_{kl,m},
+  \theta_{klm}=\log\bar\kappa_{kl,m}.
 \]
-where \(\bar\kappa_{kl,m}\) is the cost supplied by infrastructure before
-endogenous congestion. The main output is
+Here \(\bar\kappa_{kl,m}\) is the multiplicative transport or generalized
+commuting cost supplied by infrastructure before endogenous congestion. The
+policy derivative is
 \[
-  -\frac{d\log W}{d\theta_{klm}},
+  -\frac{d\log W}{d\theta_{klm}}.
 \]
-the elasticity of aggregate welfare with respect to a reduction in that
-primitive cost. A one-percent improvement is the derivative multiplied by
-0.01. The software reports the derivative itself and records the shock size in
-the run manifest.
+Here \(W\) is aggregate welfare in the spatial model defined in Section
+\ref{ch:equilibrium}. The reported quantity is the elasticity of that welfare
+measure with respect to a reduction in primitive edge--mode cost. Multiplying
+it by 0.01 gives the first-order welfare change from a one-percent improvement.
+The software reports the elasticity and records the shock size used for this
+conversion in the run manifest.
 
 The distinction between a directed edge and a physical link matters. A
 directed policy changes one direction. A physical-link policy changes the two
 reciprocal directions simultaneously and sums their first-order effects. The
-package never treats an unpaired directed edge as bidirectional.
+package does not treat an unpaired directed edge as bidirectional.
+
+The package evaluates this experiment in either the economic-geography or
+urban-commuting model. Section \ref{ch:equilibrium} defines their distinct
+economic adjustments and the transport equations they share. The welfare
+measures below apply to both models, with traffic expressed in the units
+appropriate to each.
 
 \subsection{Traditional and extended measures}
 
-Let \(\Xi_{kl,m}\) be value traffic on the edge--mode, normalized by world
-income. The traditional statistic is
+Let \(\Xi_{kl,m}\) be traffic on the edge--mode in the normalization of the
+selected spatial model. It is a world-income share in the
+economic-geography model and a share of the commuter flow in the urban model.
+The Traditional approach is
 \[
   H_{klm}=\Xi_{kl,m}.
 \]
-It is a welfare elasticity, not a raw vehicle count. Multiplying by world
-income converts the share to currency units before applying a small
-proportional cost change.
+It is a welfare elasticity, not a raw vehicle count. In the
+economic-geography model, multiplying by world income converts the traffic
+share to currency units before applying a small proportional cost change. In
+the urban model, the conversion depends on the generalized commuting-cost
+units used to construct the baseline.
 
-The extended statistic lets routes, modes, congestion, prices, and the
-distribution of economic activity respond. It is still a local derivative.
-The calculation does not solve a finite construction project, assign a
-construction cost, or predict a transition path. It asks how welfare changes
-at the observed equilibrium when one primitive cost changes marginally.
+Two full-model effects add the responses omitted from this traffic measure.
+The full realized-cost effect
+changes the cost users face after congestion. The Extended approach reports
+the full primitive-cost effect of the infrastructure-side improvement.
+Pass-through separates these experiments because induced traffic can attenuate
+the user-facing cost reduction. Both effects value the interaction of route,
+modal, congestion, and spatial responses with pre-existing wedges. In the
+urban model, the spatial responses are residence and workplace choices
+rather than trade, wages, and mobile labor.
 
-This local focus has three advantages. First, it separates the economic
-mechanism from assumptions about project scale. Second, the same derivative
-can rank many candidate links. Third, the adjoint method computes all link
-derivatives after one equilibrium linearization. The limitation is equally
-important: a large project can leave the neighborhood in which the derivative
-is accurate. Section \ref{ch:diagnostics} explains how to compare the
-first-order prediction with finite changes.
+The economic-geography formula developed in Section \ref{ch:ift} can be
+written as four factors:
+\[
+\boxed{
+\begin{aligned}
+\text{Economic-geography Extended benefit}
+={}&
+\text{traffic}
+\times
+\text{primitive-to-user pass-through}\\
+&{}\times
+\text{common spatial scale}
+\times
+\text{endpoint access value}.
+\end{aligned}}
+\]
+Traffic gives the direct scale of the affected activity. Pass-through measures
+the share of the primitive improvement that reaches users after transport
+feedback.
+The spatial scale depends on the common externality parameters. The endpoint
+multipliers measure the marginal welfare value of improving access at the
+link's origin and destination after the rest of the spatial economy adjusts.
 
-\subsection{Benefits rather than a complete appraisal}
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=0.36cm and 0.36cm,
+  every node/.style={font=\small,align=center},
+  stage/.style={draw=guideblue!45,fill=guideblue!4,rounded corners=2pt,
+    minimum height=0.72cm,text width=1.92cm},
+  flow/.style={-{Latex[length=2mm]},line width=0.7pt,draw=black!62},
+  feedback/.style={-{Latex[length=2mm]},line width=0.7pt,draw=guideorange,
+    bend left=34}
+]
+\node[stage] (primitive) {primitive edge--mode cost};
+\node[stage,right=of primitive] (realized) {realized user-facing cost};
+\node[stage,right=of realized] (route) {modes and recursive routes};
+\node[stage,right=of route] (spatial) {trade or commuting equilibrium};
+\node[stage,right=of spatial] (welfare) {aggregate welfare};
+\draw[flow] (primitive) -- node[above,font=\scriptsize]{pass-through} (realized);
+\draw[flow] (realized) -- (route);
+\draw[flow] (route) -- node[above,font=\scriptsize]{traffic} (spatial);
+\draw[flow] (spatial) -- (welfare);
+\draw[feedback] (spatial.south) to node[below,font=\scriptsize,text=guideorange]
+  {traffic and congestion feedback} (realized.south);
+\end{tikzpicture}
+\caption{Policy transmission and welfare. The policy changes a primitive infrastructure
+cost. Congestion and modal adjustment determine the realized cost users face;
+routes transmit that change to trade or commuting flows; the selected spatial
+model maps the resulting allocation into welfare.}
+\label{fig:guide-mechanism}
+\end{figure}
 
-The welfare measure covers channels represented in the model: resource costs
-of moving goods, route and mode substitution, congestion, spatial
-externalities, and changes in the location of economic activity. It does not
-include a construction budget, maintenance, financing, pollution, safety,
-neighborhood disruption, displacement, segregation, or distributional
-incidence. These objects can be important and should be reported separately.
+Local analysis separates the model's economic response from assumptions about
+project scale and permits a common ranking of many candidate links. The
+adjoint method also computes all link derivatives from one equilibrium
+linearization. These advantages come with a clear limit: a large project can
+leave the neighborhood in which the derivative is accurate. Section
+\ref{ch:diagnostics} explains how to compare the first-order prediction with
+finite changes.
 
-\warningbox{Do not label the output ``net social benefit'' unless every
-material project cost and externality has been brought into the welfare
+\subsection{Scope of the measured benefits}
+
+The welfare measure covers only effects represented in the selected model:
+resource or generalized costs of movement, route and mode substitution,
+congestion, spatial externalities, and changes in economic location.
+Construction, maintenance, financing, safety, environmental, neighborhood,
+displacement, segregation, and distributional effects remain separate entries
+in a complete appraisal.
+
+\warningbox{Do not label the output ``net social benefit'' unless all
+material project costs and externalities have been brought into the welfare
 criterion. In the paper application, ``model-implied economic benefit'' is the
 accurate description.}
 
 The package therefore complements conventional transport appraisal rather
 than replacing it. Conventional analysis supplies engineering costs, demand
 evidence, safety effects, and local externalities. The spatial statistic shows
-how observed network use and equilibrium adjustment alter the benefit side of
-that ledger. Useful introductions to conventional practice include
-\citet{SmallVerhoefLindsey2024} and \citet{dePalmaEtAl2011Handbook}; spatial
-channels are reviewed by \citet{ReddingTurner2015} and
+the contribution of observed network use and equilibrium adjustment to the
+benefit side of that ledger. For conventional appraisal, see
+\citet{SmallVerhoefLindsey2024} and \citet{dePalmaEtAl2011Handbook}; for
+spatial effects, see \citet{ReddingTurner2015} and
 \citet{donaldson2025transport}.
 
-\subsection{A sufficient-statistic workflow}
+\subsection{Using the elasticity in project appraisal}
 
-The application is best understood as a sufficient-statistic exercise. The
-inputs are model-ready labor and income shares, directed value flows by mode,
-network incidence, and a small set of elasticities. From these inputs the
-software reconstructs the recursive routing system and the exposure of each
-location to inward and outward markets. It does not estimate the entire model
-from raw administrative records.
+Let \(E_p=-d\log W/d\theta_p\) be the reported benefit elasticity and let
+\(s_p>0\) be a small proportional primitive-cost reduction. The local welfare
+change is
+\[
+ \Delta\log W \simeq E_p s_p.
+\]
+This statement is invariant to the currency used in the input files. A
+money-metric conversion requires an additional normalization. If \(W\) is
+measured in units for which the chosen income aggregate \(Y_0\) is the relevant
+baseline expenditure function, a first-order equivalent-variation
+approximation is
+\[
+ B_0 \simeq E_p s_p Y_0.
+\]
+For economic geography, the paper normalizes value traffic by world income,
+so the corresponding baseline aggregate is \(Y_0=Y^W\), measured over the
+same period as the income and traffic data. For an urban application, the
+commuter-share normalization alone does not supply a currency conversion; the
+analyst must specify the generalized-cost units and the money-metric welfare
+normalization.
 
-The practical workflow is:
-\begin{enumerate}
-  \item state the policy unit and the primitive being changed;
-  \item construct a directed, mode-specific value-flow network;
-  \item verify the accounting identities required by the recursive model;
-  \item choose and document the spatial, modal, and congestion
-  specifications;
-  \item validate the baseline and condition numbers;
-  \item compute traditional and extended elasticities;
-  \item inspect the decomposition and numerical diagnostics;
-  \item assess sensitivity and compare the ranking with external policy
-  evidence.
-\end{enumerate}
+The package reports \(E_p\), not an annualized project value. Treat \(B_0\) as
+an annual flow only when the baseline income, traffic, and welfare
+normalization all refer to that annual period. A conventional appraisal then
+adds omitted benefits and subtracts construction, maintenance, financing, and
+other costs at their own dates:
+\[
+ \operatorname{NPV}
+ =
+ \sum_t
+ \frac{B_t+B_t^{\mathrm{other}}-C_t}{(1+r)^t}.
+\]
+Transfers such as toll revenue require separate treatment from resource costs.
+Large projects also require a nonlinear counterfactual or other evidence that
+the local approximation remains accurate at the proposed scale.
 
-The order matters. A derivative from an inconsistent flow network is not made
-credible by a sophisticated solver.
+The quick start in Section \ref{ch:quickstart} implements this scope as a
+data-to-results workflow. The detailed argument now turns to the two spatial
+models and the transport block they share. Section \ref{ch:welfare} then
+establishes when traffic alone is exact and derives the correction when
+wedges matter, before Section \ref{ch:implementation} translates the formulas
+and required inputs into data and code.

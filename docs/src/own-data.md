@@ -2,15 +2,58 @@
 
 The generic adapter lets an application supply a network through two CSV files and one TOML configuration. It expects model-ready value flows, not arbitrary traffic observations.
 
+## Install and update the package
+
+Clone the package and instantiate the committed Julia environment:
+
+```bash
+git clone https://github.com/sfuchs-de/TransportNetworkWelfare.jl.git
+cd TransportNetworkWelfare.jl
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+```
+
+Keep each data project outside this checkout. Package updates can then change
+the solver and documentation without mixing those changes with application
+inputs or outputs.
+
+Before updating, record the commit used for existing results. Update by
+fast-forwarding the tracked branch, reinstantiating the environment, and
+running the tests:
+
+```bash
+git rev-parse HEAD
+git switch main
+git pull --ff-only
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
+```
+
+Rerun `validate` after any package, configuration, or data update. A new run
+manifest will record the new code, configuration, input, and output hashes.
+Retain the earlier commit and manifest when old results must remain
+reproducible.
+
 ## Initialize a project
 
 From the package repository, create a project anywhere on the filesystem:
 
 ```bash
-julia --project=. bin/tnw.jl init /path/to/my-network
+julia --project=. bin/tnw.jl init /path/to/my-network economic_geography
+# Or use urban_commuting for a residence-workplace application.
 ```
 
-The command writes `config.toml`, `data/nodes.csv`, `data/edge_modes.csv`, and a short project README. It refuses to overwrite a nonempty directory. The new project is independent of the package source and can be versioned separately.
+The command writes model-specific seed CSVs, `config.toml`, `sources.toml`,
+`scripts/prepare_inputs.jl`, and a short project README. It refuses to
+overwrite a nonempty directory. The seed files are runnable, so installation
+can be checked before empirical data are introduced. The new project is
+independent of the package source and can be versioned separately.
+
+Record each raw source under `[sources.<source_id>]` in `sources.toml`, including
+its logical locator, vintage, retrieval date, license, and checksum. Put
+source-specific geocoding, unit conversion, balancing, and OD assignment in
+`scripts/prepare_inputs.jl`. The package automates the model calculation after
+that script writes the two model-ready CSVs; it does not infer those
+transformations. When `sources.toml` is present at the project root, each run
+manifest records its SHA-256.
 
 ## Define nodes
 
@@ -31,7 +74,7 @@ The route representation permits several modes on an ordered node pair, but not 
 - `flow_conversion = "divide_by_world_income"` means `flow` and node `income` use the same currency and price basis; the loader divides flows by total income.
 - Vehicle counts, passenger trips, tons, and container counts are not value flows. Convert them outside the generic adapter using prices or values appropriate to the application and document that conversion.
 
-At every node, the supplied baseline must satisfy
+For each node, the supplied baseline must satisfy
 
 ```math
 \sum_{j,m}\Xi_{ij,m}=\sum_{j,m}\Xi_{ji,m}.
@@ -64,10 +107,10 @@ column = "congestion_elasticity"
 scale = 1.0
 ```
 
-The selected column must be finite and nonnegative for every active row. It
+The selected column must be finite and nonnegative for all active rows. It
 cannot be combined with `[congestion.edge]`. Endpoint-terminal congestion
 additionally requires `origin_terminal_id` and `destination_terminal_id` on
-every affected mode row. Modes absent from a mode-level congestion table have
+all affected mode rows. Modes absent from a mode-level congestion table have
 zero congestion in that channel.
 
 For `policy.unit = "directed_arc"`, the package writes only directed-policy results. `physical_link` writes only bidirectional physical-link results, and `both` writes both files. A physical link must contain exactly two opposite policy-mode edges; its elasticity sums the simultaneous directional derivatives before normalizing the link multiplier.
@@ -111,7 +154,46 @@ or the `FM`/`FR` decomposition.
 
 Validation and run manifests report whether edge congestion comes from a mode
 table or an input column, together with the column name, scale, count, and
-elasticity distribution. Use `edge_congestion_scale` for sensitivity analysis
-when column-based values are active.
+elasticity distribution. For column-based congestion, use
+`edge_congestion_scale` for sensitivity analysis.
 
-The generic CSV adapter covers applications that already fit this contract. A raw-data source with special balancing, geographic matching, or unit conversion should use a separate preprocessing script or adapter so every transformation remains explicit and reproducible.
+## Map the results
+
+Coordinates in `nodes.csv` are sufficient for a schematic map. Geographic
+applications can provide GeoJSON line features keyed by `physical_link_id` and
+an optional GeoJSON polygon or line basemap. All layers must use the same
+coordinate reference system; the plotter does not reproject them.
+
+```bash
+python3 /path/to/TransportNetworkWelfare.jl/plots/network_example.py \
+  data/nodes.csv data/edge_modes.csv output/welfare_physical.csv \
+  figures/welfare-map.pdf \
+  --metric primitive_F \
+  --link-geometry data/link_geometry.geojson \
+  --basemap data/basemap.geojson
+python3 /path/to/TransportNetworkWelfare.jl/plots/hulten_vs_welfare.py \
+  output/welfare_physical.csv figures/traditional-versus-extended.pdf
+```
+
+Shapefiles and GeoPackages may be joined directly to the result CSV in QGIS.
+For the generic plotter, convert them to GeoJSON with `ogr2ogr` and preserve a
+`physical_link_id` field. Geometry determines where a link is drawn; welfare
+values always come from the validated result table.
+
+## Updating an application
+
+Treat the raw-data transformation, model-ready CSV files, and welfare run as
+separate stages:
+
+1. update the raw source through a versioned preprocessing script;
+2. write new model-ready CSV files rather than editing an accepted vintage in
+   place;
+3. rerun `validate` and inspect accounting and route diagnostics;
+4. run `analyze`, followed by `decompose` only when its memory estimate is
+   feasible;
+5. compare the new and old manifests before replacing tables or figures.
+
+The generic CSV adapter covers applications that already fit this contract. A
+raw-data source with special balancing, geographic matching, or unit
+conversion should use a separate preprocessing script or adapter so its
+transformations remain explicit and reproducible.

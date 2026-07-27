@@ -1,37 +1,52 @@
-\section{Provenance and reproducibility boundary}
+\section{Provenance and reproducibility}
 \label{app:provenance}
+
+Reproducing a result requires more than the final CSV. The relevant equations,
+software, configuration, input vintage, and external sources can have
+different owners and access conditions. The authority hierarchy below records
+the governing source for each part of the calculation.
 
 \subsection{Authority}
 
-The journal manuscript is authoritative for the paper-facing model and claims.
-The Julia package is authoritative for executable behavior and tested
-interfaces. The Mathdown project curates derivations and records unresolved
-decisions. Meeting notes and correspondence document intent but do not
-override a verified equation or result.
+The journal manuscript governs paper-facing equations and claims. The package
+source and tests govern executable behavior. Each run records the package
+commit, configuration hash, input hashes, model choices, and output hashes.
+The repository's theory--code and self-containment audits contain the detailed
+equation mapping, source hierarchy, and kernel lineage; they are not required
+to build this guide.
 
-This guide uses the active manuscript at Overleaf commit
-\code{cef3a13b} and the package feature baseline
-\code{de708f2}. The tracked self-containment audit records the detailed mapping.
+The active paper and urban paths use the negative-power
+\code{ChoiceLogsum}. \code{ComponentCES} and positive-power congestion helpers
+are legacy-only regression paths.
 
-\subsection{Kernel lineage}
+\subsection{Synthetic and external example inputs}
 
-The package was initialized from the frozen
-\code{IFT\_Complete\_Decomposition\_2026-07-12.zip} audit bundle. The repository
-\code{provenance.toml} stores each relied-on kernel's source hash, current hash,
-and relationship to the frozen file. CI verifies the current hashes.
+The six self-contained examples are committed with public synthetic inputs.
+The common asset target recomputes the worked grid and the three
+mechanism-focused examples used in the cross-example comparison, then writes a
+node-and-link visualization contract. The plotting layer turns this contract
+into welfare maps, comparison scatters, and ranked-link tables; the check target
+rejects byte-level drift. The smaller API and one-mode urban examples remain
+verification fixtures and are documented without redundant figures.
 
-Some kernels remain byte-for-byte frozen. Others have explicit divergences:
-validation errors replace assertions, route reconstruction allows distinct
-margins, and the urban engine uses the shared multimodal transport basis. The
-provenance record is descriptive; it does not substitute for tests.
+Sioux Falls, Seattle, and Westeros require data that are not stored in Git.
+Their displayed assets were generated from hash-pinned local inputs and are
+bound to those inputs and outputs in
+\code{external-example-assets.json}. A clean clone verifies the frozen asset
+hashes. A user with the source data can regenerate them with
+\code{make practitioner-guide-external-assets}. The Seattle road adapter is not
+in that asset set because its published commuter and road-traffic inputs fail
+the package's accounting identity.
 
 \subsection{Paper result vintage}
 
-Restricted domestic inputs are identified by SHA-256 in the RSUE manifest.
-The accepted result vintage uses the choice logsum, directional Census port
+Restricted domestic inputs are identified by SHA-256 in the freight
+replication manifest. The archived result vintage uses the choice logsum,
+directional Census port
 flows, edge-local road congestion, and bidirectional physical-link policies.
-The claim ledger records numerical summaries separately from output-file
-hashes.
+A tracked public-safe aggregate record contains only the statistics reported
+in this guide and the hashes that bind them to the restricted configuration,
+inputs, and outputs.
 
 Rebuilding the paper artifacts requires the external files. This PDF includes
 only aggregate non-sensitive statistics and hashes. It cannot reconstruct the
@@ -39,29 +54,44 @@ restricted raw data and does not claim to do so.
 
 \subsection{Seattle sources}
 
-The Seattle candidate depends on a published urban replication archive, LODES,
-ACS, a pinned historical GTFS feed, and Census geography. Raw downloads remain
-outside Git. Their manifests record URLs, versions, retrieval dates, licenses,
-and hashes. If the exact historical feed is unavailable or a hash changes, the
-workflow fails rather than substituting current service.
+The Seattle candidate depends on a published urban replication archive,
+LODES, ACS, a pinned historical GTFS feed, and Census geography
+\citep{AA_2022restud,CensusLODES,CensusACS2017B08301,KingCountyGTFS2017}. Raw
+downloads remain outside Git. Their manifests record URLs, versions, retrieval
+dates, licenses, and hashes. If the exact historical feed is unavailable or a
+hash changes, the workflow fails rather than substituting current service.
 
 \subsection{Guide build}
 
-The PDF source, bibliography, and figures are committed under
-\code{docs/practitioner-guide}. The displayed tutorial figures are generated
-from committed synthetic projects. The PDF build reads only those files and
-requires no external data or Python process.
+The guide directory contains the PDF source, bibliography, generated TeX, and
+figures. The PDF build reads only those files and requires no external data or
+Python process.
 
-The build command is:
+The build interface is:
 \begin{lstlisting}[language=bash]
+make practitioner-guide-assets
+make practitioner-guide-example-assets
+make practitioner-guide-external-assets
+make practitioner-guide
 make practitioner-guide-check
 \end{lstlisting}
-The check rejects undefined references, missing figures, private absolute
-paths, credential-like strings, and an unexpectedly short PDF.
+\code{practitioner-guide-assets} recomputes all self-contained examples and
+their figures, tables, and macros.
+\code{practitioner-guide-example-assets} redraws the maps, scatters, and
+ranked-link tables from the already generated visualization contract.
+\code{practitioner-guide-external-assets} is optional and requires the
+hash-pinned Sioux Falls, Seattle, and Westeros roots named in the Makefile.
+It refreshes only public-safe figures, tables, macros, and their manifest.
+\code{practitioner-guide} compiles from the committed assets.
+\code{practitioner-guide-check} independently regenerates the source and figure
+assets for the self-contained examples, verifies the external asset manifest,
+compiles the PDF, and rejects drift, undefined references, missing figures,
+private paths, credential-like strings, or a page count outside the stated
+range.
 
 \subsection{Citation and release status}
 
-The package is MIT licensed subject to coauthor approval before public release.
+The package will be released under the MIT License following coauthor approval.
 The preferred paper citation is:
 
 \begin{quote}
@@ -78,8 +108,7 @@ releases.
 
 A fresh user can install the package from a clone, run the committed synthetic
 examples, reproduce their numerical outputs, and build this guide without
-private files.
-
-Reproducing the U.S. freight or Seattle empirical results additionally requires
-their external inputs. Those applications are hash-bound external-data
-replications.
+private files. Reproducing Sioux Falls, U.S. freight, Seattle, or Westeros
+results additionally requires the hash-bound external inputs described in
+their source manifests. The guide is independently buildable; those
+applications remain versioned external-data calculations.

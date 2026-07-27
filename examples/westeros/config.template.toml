@@ -1,0 +1,43 @@
+schema_version = 1
+name = "westeros-economic-geography-synthetic"
+
+[input]
+adapter = "generic_csv_v1"
+nodes = "data/nodes.csv"
+edge_modes = "data/edge_modes.csv"
+mode_order = ["road"]
+
+[input.transformations]
+normalize_labor = true
+normalize_income = true
+flow_conversion = "none"
+symmetrize = false
+pad_nodes = 0
+modal_rescale = false
+
+[model]
+spatial_specification = "economic_geography"
+alpha = 0.10
+beta = -0.30
+sigma = 9.0
+eta = 1.099
+modal_specification = "choice_logsum"
+route_curvature = "theorem"
+
+[congestion]
+specification = "edge"
+
+[congestion.edge]
+road = 0.092
+
+[policy]
+mode = "road"
+unit = "both"
+shock_fraction = 0.01
+
+[output]
+directory = "output"
+
+[diagnostics]
+condition_limit = 1.0e12
+tolerance = 1.0e-10

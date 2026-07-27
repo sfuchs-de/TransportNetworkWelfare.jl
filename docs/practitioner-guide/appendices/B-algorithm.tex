@@ -1,8 +1,17 @@
-\section{Algorithm and pseudocode}
+\section{Computational algorithm}
 \label{app:algorithm}
+
+Subsection \ref{ch:code} describes the package architecture. This appendix follows
+one policy derivative through validation, route reconstruction, closure
+construction, the adjoint solve, and the decomposition. The pseudocode omits
+storage and dispatch details but preserves the mathematical order of
+operations.
 
 \subsection{Validation algorithm}
 
+Validation must establish a common baseline before any Jacobian is assembled.
+The algorithm first checks schemas and accounting, then reconstructs routes,
+and only then tests the full welfare closure:
 \begin{lstlisting}[language=Julia]
 function validate_project(config)
     project = load_project(config)
@@ -25,21 +34,23 @@ function validate_project(config)
 end
 \end{lstlisting}
 
-Validation builds only the objects needed for the welfare closure. It does not
+Validation builds only the quantities needed for the welfare calculation. It does not
 construct the full fixed-route incidence matrix.
 
-\subsection{Economic-geography welfare algorithm}
+\subsection{Closure-selected welfare algorithm}
 
+For welfare analysis, the route basis supplies the transport derivatives and
+the selected spatial builder supplies \(J_{c,0}\), \(q_c\), and
+\(B_{\kappa,c}\). The Schur complement in
+\eqref{eq:guide-reduced-jacobian} combines them before the adjoint projection
+in \eqref{eq:guide-adjoint}:
 \begin{lstlisting}[language=Julia]
 function all_welfare_effects(project)
     data = load_network(project)
     basis = reconstruct_route_basis(project, data;
                                     include_fixed=false)
 
-    coefficients = spatial_coefficients(project.parameters)
-    J0 = no_congestion_jacobian(data, coefficients)
-    q = welfare_gradient(data.income_share, coefficients)
-    B = aggregate_cost_loading(data, coefficients)
+    J0, q, B = build_spatial_system(project, data)
 
     transport_F = transport_closure(project, data, basis,
                                     flexible_routes=true,
@@ -56,11 +67,21 @@ function all_welfare_effects(project)
 end
 \end{lstlisting}
 
+For \code{economic\_geography}, \code{build\_spatial\_system} constructs the
+transformed trade system and common-utility welfare row. For
+\code{urban\_commuting}, it constructs the residence--workplace Jacobian and
+the welfare row whose last entry is \(-1/\theta_U\). The remaining transport
+and adjoint steps are unchanged.
+
 The implementation uses sparse matrices where possible. The schematic
 \code{solve} represents a factorization and backsolve, not an explicit inverse.
 
 \subsection{Full decomposition algorithm}
 
+Decomposition differs from ordinary analysis because it must construct the
+fixed-route basis and all common-baseline closures. It then applies the same
+realized forcing to each closure and reserves the primitive forcing for the
+full model:
 \begin{lstlisting}[language=Julia]
 function decompose(project)
     data, basis = build_route_basis(project; include_fixed=true)
@@ -84,17 +105,72 @@ function decompose(project)
     Eprimitive = adjoint_gain(F, q, b_primitive)
 
     check_inverse_gap_identities(E, (NC, NT, F, FM, FR))
-    channels = analytical_mixed_updates(F, FM, FR)
-    check_channel_reconstruction(channels)
+    if project.spatial isa EconomicGeography
+        channels = analytical_mixed_updates(F, FM, FR)
+        check_channel_reconstruction(channels)
+    else
+        channels = signed_closure_gaps(E)
+    end
     check_hulten_accounting(E, Eprimitive, traffic)
 
     return write_decomposition(E, Eprimitive, channels)
 end
 \end{lstlisting}
 
+Both models report exact full-versus-no-congestion, fixed-mode, and
+fixed-route gaps. The finer allocation, scarcity, and equilibrium-correction
+split is derived and reported only for economic geography.
+
+\subsection{Analytical decomposition of each difference}
+
+The economic-geography decomposition separates each closure Jacobian into
+analytically constructed blocks:
+\[
+ J_{G,S}=D_S+u_Sv_S^\top
+     +\Delta_{edge,S}
+     +\Delta_{terminal,S}.
+\]
+The sparse block \(D_S\) contains local allocation and route shares. The
+rank-one term imposes aggregate labor feedback and normalization. The final
+two terms contain edge and endpoint-terminal congestion. These blocks come
+from the differentiated residual equations rather than a numerical matrix
+factorization fitted after the fact.
+
+The common-baseline construction leaves \(D_S\), \(u_S\), and \(v_S\)
+unchanged across the five equilibrium closures. For road and terminal
+comparisons, the code evaluates the inverse difference with a structured
+parallel-sum formula. Their allocation and aggregate-equilibrium components
+are exact zeros, so the congestion-scarcity component carries each wedge.
+
+The code evaluates mode and route comparisons through the general mixed
+update rather than assigning their zero components by convention. Let
+\(C_{A:F}\) be the sparse allocation update from the full closure toward
+\(A\in\{FM,FR\}\), and let \(S_{A:F}\) be the corresponding
+congestion-scarcity update. After applying those two updates, define
+\[
+ \widetilde K_{A:F}=J_F+S_{A:F}+C_{A:F}.
+\]
+The remaining aggregate-feedback difference has the analytical rank-two form
+\[
+ J_A=\widetilde K_{A:F}+R_{A:F}Q_{A:F}^{\top}.
+\]
+Sequential use of the inverse-gap identity and the Woodbury formula then gives
+\[
+ d_r=d_r^{alloc}+d_r^{scar}+d_r^{eq},
+ \qquad r\in\{mode,route\}.
+\]
+The three terms respectively change the sparse allocation core, congestion
+exposure, and aggregate feedback. The implementation evaluates the general
+formulas even though \(C_{A:F}=0\) and
+\(R_{A:F}Q_{A:F}^{\top}=0\) in the current specification. It rejects a result
+if the Jacobian reconstruction, rank-two identity, implied zero, or component
+sum exceeds tolerance.
+
 \subsection{Route reconstruction}
 
-For distinct source and destination margins:
+Let \(K\) be the continuation matrix, \(o\) the source margin, and \(a\) the
+destination absorption vector. For distinct source and destination margins,
+the reconstruction used in Subsection \ref{ch:routing} is:
 \begin{lstlisting}[language=Julia]
 K = continuation_matrix(edge_traffic, exposure)
 T = inverse(I - K)
@@ -105,41 +181,51 @@ require(maximum(abs.(sum(Xod, dims=1)' - destination_margin)) <= tol)
 require(edge_incidence(Xod, K) matches observed_edge_traffic)
 \end{lstlisting}
 The code uses linear solves rather than materializing \code{inverse(I-K)} when
-possible. The notation highlights the resolvent identity.
+possible. The notation displays the resolvent identity directly.
 
 \subsection{Primitive forcing}
 
-Let \(p\) index active edge-mode pairs and let \(D\) select policy pairs.
-For the full closure:
+Let \(p\) index active edge-mode pairs and let \(D\) inject policy shocks into
+those pairs. The matrix \(S_{\mathrm{agg}}\) aggregates pair costs to directed
+edges, \(C^{route}\) maps aggregate edge costs into route responses, and \(L\)
+lifts aggregate edge responses back to edge-mode traffic at baseline modal
+shares. With modal power \(p_m=-\eta\), the direct edge-mode traffic response
+to all primitive policy shocks is
 \[
- X_{\theta}
+ \xi_{\theta}^{direct}
  =L(C^{route}S_{\mathrm{agg}}D)
-  +p_m(D-LS_{\mathrm{agg}}D),
+  +p_m(D-LS_{\mathrm{agg}}D).
 \]
-where \(p_m=-\eta\) for the choice logsum. Congestion quantities respond as
+The second term is the within-edge modal substitution response. Let
+\(A\) aggregate edge-mode traffic into congestion quantities,
+\(\mathsf X_q\) map congestion costs back into edge-mode traffic, and \(G\)
+map congestion quantities into realized edge-mode costs. Substituting the
+traffic response into the congestion equation gives
 \[
- q_\theta
- =(I-AX_q)^{-1}AX_\theta.
+ g_\theta
+ =(I-A\mathsf X_q)^{-1}A\xi_\theta^{direct}.
 \]
-The aggregate edge-cost change is
+The resulting aggregate directed-edge cost response is
 \[
- h_\theta=S_{\mathrm{agg}}(D+Gq_\theta),
+ h_\theta=S_{\mathrm{agg}}(D+Gg_\theta),
 \]
-and the spatial forcing is
+so the primitive forcing in the spatial residual system is
 \[
  b^\theta=B_\kappa h_\theta.
 \]
-These operations are implemented in \code{primitive\_forcing}. Shared terminal
-congestion can therefore make primitive pass-through nonlocal.
+These substitutions are implemented in \code{primitive\_forcing}. When
+several edges share a terminal congestion state, \(g_\theta\) can change costs
+away from the improved edge; primitive pass-through is then nonlocal.
 
 \subsection{Complexity}
 
 Let \(N\) be nodes, \(E\) active directed edges, \(P\) active edge-mode pairs,
 and \(Q\) congestion states. The welfare path requires route reconstruction,
-a \(2N\)-scale spatial factorization, a \(Q\)-scale transport solve, and sparse
-products for all policy pairs. The full route decomposition additionally
-stores origin-destination edge incidence, which can scale as \(N^2E\).
+an \(O(N)\)-dimension spatial factorization, a \(Q\)-scale transport solve, and
+sparse products for all policy pairs. The full route decomposition
+additionally stores origin-destination edge incidence, which can scale as
+\(N^2E\).
 
 The validator reports a preflight memory estimate. For large assignment
 networks, use \code{analyze} unless the fixed-route comparison is essential and
-the incidence object is computationally feasible.
+the incidence matrix is computationally feasible.

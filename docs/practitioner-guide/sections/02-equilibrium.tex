@@ -1,125 +1,254 @@
-\section{Spatial equilibrium and market access}
+\section{Spatial models and shared transport technology}
 \label{ch:equilibrium}
 
-\subsection{Locations, production, and consumption}
+The policy derivative requires two components. A transport block maps
+edge--mode costs into routes, modal traffic, and congestion. A spatial model
+maps the resulting bilateral costs into economic activity and welfare. The
+package shares the transport block across applications and supplies separate
+economic-geography and urban equilibrium systems.
 
-There are \(N\) locations. Location \(i\) has labor \(L_i\), wage \(w_i\),
-productivity \(A_i\), and amenity \(u_i\). A differentiated variety is produced
-with labor under constant returns and perfect competition. Consumers have CES
-preferences with elasticity \(\sigma>1\). Indirect utility in location \(i\)
-is proportional to
+\subsection{Two spatial models, one transport block}
+
+The two models start from the same directed network and the same primitive
+edge--mode policy. They use the negative-power modal logsum, recursive route
+aggregation, flexible and fixed route or mode comparisons, edge and terminal
+congestion, and primitive-cost pass-through. They differ in the economic
+flows assigned to the network and in the equilibrium response projected onto
+welfare.
+
+\begin{longtable}{L{0.20\textwidth}L{0.35\textwidth}L{0.35\textwidth}}
+\toprule
+Model element & Economic geography & Urban commuting \\
+\midrule
+\endhead
+Economic movement & Goods shipped between locations & Commuters traveling
+between residences and workplaces \\
+Location margins & Labor and income; source and destination income margins
+coincide & Residence \(l^R\) and workplace \(l^F\) margins can differ \\
+Network flow & Value traffic normalized by world income & Commuter traffic
+normalized by total commuters \\
+Spatial response & Wages and the location of mobile labor & Residence and
+workplace choices \\
+Welfare projection & Common real income or utility under mobility &
+\(-d\log\varpi_U/\theta_U\) \\
+Route curvature & \(\sigma-1\) & Commuting heterogeneity \(\theta_U\) \\
+Typical modes & Road, rail, and water freight & Road, bus, rail or streetcar,
+and ferry \\
+\bottomrule
+\end{longtable}
+
+The table separates economic interpretation from transport technology.
+Road, bus, rail, streetcar, and ferry enter as modes in the urban transport
+network; public transit is not a third spatial model. Adding a mode changes the
+costs and traffic available to commuters without changing the
+residence--workplace equilibrium. Conversely, using the same road network in
+the two models does not make their welfare derivatives identical because their
+spatial states and welfare rows differ.
+
+\subsection{Economic-geography model}
+
+The economic-geography closure turns bilateral transport costs into trade,
+production, consumption, and mobile labor. We first define those location-level
+objects, then derive bilateral trade and the transformed equilibrium used by
+the welfare derivative.
+
+\subsubsection{Production, consumption, and mobility}
+
+The economic-geography model in \citet{AllenFuchsWong2026} has \(N\)
+locations. Location \(i\) has labor \(L_i\), wage \(w_i\), productivity
+\(A_i\), and amenity \(u_i\). A differentiated variety is produced with labor
+under constant returns and perfect competition. Consumers have CES preferences
+with elasticity \(\sigma>1\). With \(P_i\) denoting the CES price index,
+indirect utility in location \(i\) is proportional to
 \[
-  U_i=\frac{w_i u_i}{P_i},
+  U_i=\frac{w_i u_i}{P_i}.
 \]
-where \(P_i\) is the CES price index.
 
-The economic-geography specification allows local activity to affect
-productivity and amenities:
+Local activity can affect productivity and amenities:
 \[
   A_i=\bar A_i L_i^\alpha,
   \qquad
   u_i=\bar u_i L_i^\beta.
 \]
-The parameter \(\alpha\) captures a productivity agglomeration force and
-\(\beta\) an amenity or dispersion force. Labor is perfectly mobile across
+The parameter \(\alpha\) is the elasticity of productivity with respect to
+local labor, while \(\beta\) is the corresponding amenity elasticity. Labor is
+perfectly mobile across
 locations, aggregate labor is fixed, and each worker supplies one unit
-inelastically. The spatial equilibrium equalizes utility across occupied
+inelastically. Spatial equilibrium equalizes utility across occupied
 locations and clears goods and labor markets.
 
-These assumptions are not innocuous labels. Perfect mobility determines the
-welfare closure used in the paper. Fixed aggregate labor and labor-only
-production rule out additional factor-income and labor-supply channels. The
-software's urban specification uses a different state and welfare row rather
-than relabeling these objects.
+These assumptions determine the economic-geography welfare formula. Perfect
+mobility equalizes utility, while fixed aggregate labor and labor-only
+production exclude further adjustment through factor income or labor supply.
+The urban model below replaces these assumptions with separate residence and
+workplace choices.
 
-\subsection{Bilateral trade and network costs}
+\subsubsection{Bilateral trade and market access}
 
 Let \(\tau_{ij}\) be the composite iceberg cost of delivering a good from
-\(i\) to \(j\). Bilateral expenditure has the gravity form
+\(i\) to \(j\). CES demand and the production assumptions imply
 \[
  X_{ij}
  =W^{1-\sigma}
  \left(\frac{A_i u_j}{\tau_{ij}}\right)^{\sigma-1}
- w_i^{1-\sigma}w_j^\sigma L_j,
+ w_i^{1-\sigma}w_j^\sigma L_j.
 \]
-where \(W\) is aggregate welfare in the normalization used by the paper. The
-network determines \(\tau_{ij}\); the spatial equilibrium determines the
-levels of wages, labor, productivity, and amenities that enter bilateral
-trade.
+Here \(W\) is aggregate welfare in the normalization used by the paper. The
+network determines \(\tau_{ij}\); the economic-geography equilibrium
+determines wages, labor, productivity, and amenities.
 
-The model admits a useful recursive representation. Define transformed inward
-and outward market-access stocks
+Direct computation of the bilateral cost matrix would obscure the network
+structure. Following \citet{AllenFuchsWong2026}, let \(\Pi_i\) denote the
+outward price-index analogue and define the inward and outward market-access
+stocks as
 \[
   \mathcal P_i=P_i^{1-\sigma},
   \qquad
   \mathcal Q_i=\Pi_i^{1-\sigma}.
 \]
-Their exact construction is given in the paper's Appendix A. Each object
-satisfies a local recursion. Market access at one node equals a local absorption
-term plus weighted market access at adjacent nodes. This converts a dense
-bilateral object into a sparse network system.
-
-\subsection{Trade exposure and traffic factorization}
-
-Define location \(i\)'s trade exposure by
+Define the local terms
 \[
-  \mathcal T_i=\frac{\mathcal P_i\mathcal Q_i}{Y^W},
+ a_i^Q=W^{1-\sigma}u_i^{\sigma-1}w_i^\sigma L_i,
+ \qquad
+ a_i^P=A_i^{\sigma-1}w_i^{1-\sigma}.
+\]
+The two market-access stocks satisfy oppositely oriented local recursions:
+\begin{align}
+ \mathcal Q_i
+ &=a_i^Q+\sum_{j\in\mathcal N^+(i)}
+       \kappa_{ij}^{1-\sigma}\mathcal Q_j,
+ \label{eq:guide-outward-access}\\
+ \mathcal P_i
+ &=a_i^P+\sum_{j\in\mathcal N^-(i)}
+       \kappa_{ji}^{1-\sigma}\mathcal P_j.
+ \label{eq:guide-inward-access}
+\end{align}
+Thus current-node access is divided between local absorption and continuation
+through adjacent edges. These sparse recursions replace the dense bilateral
+cost matrix. \citet[Appendix A]{AllenFuchsWong2026} derives them from goods
+market clearing; Appendix \ref{app:crosswalk} of this guide shows how the
+terms in these recursions enter the code.
+
+\subsubsection{Trade exposure and the transformed equilibrium}
+
+Define economic-geography trade exposure by
+\[
+  \mathcal T_i^G=\frac{\mathcal P_i\mathcal Q_i}{Y^W},
   \qquad
   Y^W=\sum_i w_iL_i.
 \]
-The term is a stock of trade opportunities reaching the location before local
-absorption. In older computational notes it is called a node-visit or
-occupation stock. The guide uses the economics-facing term ``trade exposure.''
-
-Let \(\mu_{ij}\) be the outward continuation share from \(i\) to \(j\), and
-let \(\lambda^{in}_{ij}\) be the corresponding inward share at \(j\). Directed
-edge traffic factors as
+The access recursions divide this stock into local absorption and continuation.
+Define
 \[
-  \Xi_{ij}=\mu_{ij}\mathcal T_i
-          =\lambda^{in}_{ij}\mathcal T_j
+ s_i^x=\frac{a_i^Q}{\mathcal Q_i},\qquad
+ \mu_{ij}=\frac{\kappa_{ij}^{1-\sigma}\mathcal Q_j}{\mathcal Q_i},
+ \qquad
+ s_i^y=\frac{a_i^P}{\mathcal P_i},\qquad
+ \lambda^{in}_{ij}
+ =\frac{\kappa_{ij}^{1-\sigma}\mathcal P_i}{\mathcal P_j}.
+\]
+Here \(\mu_{ij}\) is the outward continuation share on \(i\to j\), while
+\(\lambda^{in}_{ij}\) is the same edge's share of destination-\(j\) exposure.
+Directed edge traffic factors as
+\[
+  \Xi_{ij}=\mu_{ij}\mathcal T_i^G
+          =\lambda^{in}_{ij}\mathcal T_j^G
           =\frac{\kappa_{ij}^{1-\sigma}
                   \mathcal P_i\mathcal Q_j}{Y^W}.
 \]
-This identity connects the theoretical recursion to observed flows. Outgoing
-and incoming traffic totals satisfy
+Outgoing and incoming traffic totals therefore satisfy
 \[
- O_i=\sum_j\Xi_{ij}=(1-s_i^x)\mathcal T_i,
+ O_i=(1-s_i^x)\mathcal T_i^G,
  \qquad
- I_i=\sum_j\Xi_{ji}=(1-s_i^y)\mathcal T_i,
+ I_i=(1-s_i^y)\mathcal T_i^G,
 \]
-where \(s_i^x\) and \(s_i^y\) are local absorption shares.
+for local absorption shares \(s_i^x\) and \(s_i^y\). The package checks
+that outgoing and incoming recovery of \(\mathcal T_i^G\) agree.
 
-In theory, either side recovers \(\mathcal T_i\). In empirical work the two
-recoveries can disagree because flows and margins come from different
-sources. The generic loader rejects disagreement beyond the declared
-tolerance. Any balancing or projection must occur in a documented
-preprocessing step.
-
-\subsection{The transformed equilibrium}
-
-The appendix works with two transformed location-level variables,
+\citet[Appendix A]{AllenFuchsWong2026} work with the transformed variables
 \[
  x_i=w_i^\sigma L_i^{1+\beta(\sigma-1)},\qquad
  y_i=W^{\sigma-1}w_i^{1-\sigma}L_i^{\alpha(\sigma-1)}.
 \]
-The transformation isolates the sparse market-access propagation from the
+This transformation separates sparse market-access propagation from the
 aggregate labor constraint. Define
 \[
  e=1+\beta(\sigma-1)+\alpha\sigma,
  \qquad
  \rho=\frac{1+\alpha+\beta}{e}.
 \]
-The inverse map from \((x,y)\) to wages, labor, and welfare exists only if
-\(e\neq0\), and the welfare normalization also requires
+The inverse map from \((x,y)\) to wages, labor, and welfare requires
+\(e\neq0\); the welfare normalization also requires
 \(1+\alpha+\beta\neq0\).
+Stack the transformed log changes in the \(2N\)-element column vector
+\[
+ z_G=(d\log x_1,\ldots,d\log x_N,
+      d\log y_1,\ldots,d\log y_N)^\top.
+\]
+The route, mode, and congestion maps below translate a primitive edge--mode
+shock into the aggregate edge-cost changes entering the residual system for
+\(z_G\).
 
-The code enforces these restrictions before constructing the model. It also
-checks the condition number of each equilibrium closure. A finite formula on
-paper is not enough when the corresponding numerical system is almost
-singular.
+\implementationbox{The economic-geography coefficient map is implemented by
+\code{AdjointRSUE.coefs}. \code{AdjointRSUE.assemble\_J} constructs the
+no-congestion spatial Jacobian. The generic builder then adds the common
+route, modal, and congestion feedback.}
 
-\implementationbox{The coefficient map is implemented by
-\code{AdjointRSUE.coefs}. The no-congestion Jacobian is assembled by
-\code{AdjointRSUE.assemble\_J}. The generic economic-geography builder then
-adds route, modal, and congestion feedback through the common transport
-closure.}
+\subsection{Urban commuting: residences and workplaces}
+
+The urban specification follows the residence--workplace model in
+\citet{AA_2022restud}. Let \(l_i^R\) and \(l_i^F\) denote normalized residence
+and workplace masses. A location can contain many residents but few jobs, or
+many jobs but few residents. Commuting flows therefore have distinct origin
+and destination margins.
+
+The urban accounting stock satisfies
+\[
+ \mathcal T_i^U
+ =l_i^F+\sum_j\Xi_{ij}
+ =l_i^R+\sum_j\Xi_{ji}.
+\]
+The first equality combines workplace absorption with outgoing route traffic;
+the second combines residence absorption with incoming traffic. It is the
+urban counterpart to trade exposure, but it is measured in normalized
+commuter flows rather than shares of world income. The loader rejects a
+baseline when the two expressions disagree beyond the declared tolerance.
+
+The differentiated urban state and welfare change are
+\[
+ z_U=(d\log l^R,d\log l^F,d\log\varpi_U)^\top,
+ \qquad
+ d\log W=-\frac{d\log\varpi_U}{\theta_U}.
+\]
+We write the urban equilibrium normalizer as \(\varpi_U\) to distinguish it
+from the primitive-cost pass-through \(\chi_{klm}\). The implementation retains
+\code{chi\_U} as the historical name of this final state component.
+The parameter \(\theta_U>0\) governs commuting heterogeneity and supplies the
+route curvature. The urban parameters \(\alpha\) and \(\beta\) enter the
+workplace- and residence-side response coefficients. The resulting Jacobian
+\(J_U^0\), aggregate-cost loading \(B_{\kappa,U}\), and welfare row
+\[
+ q_U^\top=(0,\ldots,0,-1/\theta_U)
+\]
+are specific to the residence--workplace equilibrium. They cannot be obtained
+by relabeling the trade equations.
+
+Public transit enters through the shared edge--mode network. A directed edge
+can carry road, bus, rail, streetcar, or ferry traffic, and the modal logsum
+determines how their generalized costs combine. The urban model then maps
+the induced commuting-cost changes into residence, workplace, and welfare
+responses. Subsection \ref{ch:extensions} documents the synthetic urban test and
+the Seattle data candidate.
+
+\subsection{Interface with the transport block}
+
+For spatial model \(c\in\{G,U\}\), write its no-congestion residual as
+\[
+ G_c^0(z_c,\kappa)=0.
+\]
+Each model supplies three inputs to the shared computation: a spatial
+Jacobian \(J_{c,0}\), a loading \(B_{\kappa,c}\) from aggregate edge costs into
+the residuals, and a welfare row \(q_c\). The next subsection constructs the
+route, modal, and congestion derivatives combined with these inputs.
+Subsection \ref{ch:ift} then derives welfare after eliminating the transport
+block.

@@ -1,32 +1,38 @@
 schema_version = 1
-name = "westeros-urban-synthetic"
+name = "multimodal-grid"
 
 [input]
 adapter = "generic_csv_v1"
 nodes = "data/nodes.csv"
 edge_modes = "data/edge_modes.csv"
-mode_order = ["road"]
+mode_order = ["road", "transit"]
 
 [input.transformations]
-normalize_residents = true
-normalize_employment = true
+normalize_labor = true
+normalize_income = true
 flow_conversion = "none"
 symmetrize = false
 pad_nodes = 0
 modal_rescale = false
 
 [model]
-spatial_specification = "urban_commuting"
-alpha = -0.12
-beta = -0.10
-theta = 6.83
-lambda = 0.07144948755490483
-eta = 1.0
+spatial_specification = "economic_geography"
+alpha = 0.10
+beta = -0.30
+sigma = 9.0
+eta = 1.099
 modal_specification = "choice_logsum"
 route_curvature = "theorem"
 
 [congestion]
-specification = "none"
+specification = "composite"
+endpoint_scale = 1.0
+
+[congestion.edge]
+road = 0.08
+
+[congestion.terminal]
+transit = 0.025
 
 [policy]
 mode = "road"
@@ -37,5 +43,8 @@ shock_fraction = 0.01
 directory = "output"
 
 [diagnostics]
-condition_limit = 1.0e12
 tolerance = 1.0e-10
+condition_limit = 1.0e12
+
+[sensitivity]
+eta = [0.75, 1.099, 1.40]

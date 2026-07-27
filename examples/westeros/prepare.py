@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a synthetic Allen-Arkolakis urban baseline on the Westeros road map."""
+"""Build a synthetic economic-geography baseline on the Westeros road map."""
 
 from __future__ import annotations
 
@@ -263,7 +263,7 @@ def normalize(values):
     return [value / total for value in values]
 
 
-def gravity_matrix(residence, workplace, distances, decay: float, local_weight: float):
+def trade_matrix(activity, distances, decay: float, local_weight: float):
     positive = [distances[i][j] for i in range(len(distances))
                 for j in range(i + 1, len(distances))]
     scale = statistics.median(positive)
@@ -272,49 +272,57 @@ def gravity_matrix(residence, workplace, distances, decay: float, local_weight: 
          for j in range(len(distances))]
         for i in range(len(distances))
     ]
-    column_scale = [1.0] * len(workplace)
+    column_scale = [1.0] * len(activity)
     for _ in range(10000):
         row_scale = [
-            residence[i] / sum(kernel[i][j] * column_scale[j] for j in range(len(workplace)))
-            for i in range(len(residence))
+            activity[i] / sum(kernel[i][j] * column_scale[j] for j in range(len(activity)))
+            for i in range(len(activity))
         ]
         new_column_scale = [
-            workplace[j] / sum(row_scale[i] * kernel[i][j] for i in range(len(residence)))
-            for j in range(len(workplace))
+            activity[j] / sum(row_scale[i] * kernel[i][j] for i in range(len(activity)))
+            for j in range(len(activity))
         ]
         if max(abs(new_column_scale[j] - column_scale[j])
-               for j in range(len(workplace))) < 1e-13:
+               for j in range(len(activity))) < 1e-13:
             column_scale = new_column_scale
             break
         column_scale = new_column_scale
     else:
-        raise RuntimeError("gravity balancing did not converge")
+        raise RuntimeError("trade balancing did not converge")
     matrix = [
-        [row_scale[i] * kernel[i][j] * column_scale[j] for j in range(len(workplace))]
-        for i in range(len(residence))
+        [row_scale[i] * kernel[i][j] * column_scale[j] for j in range(len(activity))]
+        for i in range(len(activity))
     ]
-    row_error = max(abs(sum(matrix[i]) - residence[i]) for i in range(len(residence)))
-    column_error = max(abs(sum(matrix[i][j] for i in range(len(residence))) - workplace[j])
-                       for j in range(len(workplace)))
+    row_error = max(abs(sum(matrix[i]) - activity[i]) for i in range(len(activity)))
+    column_error = max(abs(sum(matrix[i][j] for i in range(len(activity))) - activity[j])
+                       for j in range(len(activity)))
+    symmetry_error = max(
+        abs(matrix[i][j] - matrix[j][i])
+        for i in range(len(activity)) for j in range(len(activity))
+    )
     if max(row_error, column_error) > 1e-10:
-        raise RuntimeError("gravity margins failed")
-    return matrix, max(row_error, column_error), scale
+        raise RuntimeError("trade margins failed")
+    if symmetry_error > 1e-10:
+        raise RuntimeError("balanced bilateral trade is not symmetric")
+    return matrix, max(row_error, column_error), symmetry_error, scale
 
 
-def route_commuting(commuting, links, distances):
+def route_trade(trade, links, distances):
     adjacency = defaultdict(dict)
     for first, second in links:
         add_edge(adjacency, first, second, distances[first][second])
     traffic = defaultdict(float)
-    for origin in range(len(commuting)):
+    for origin in range(len(trade)):
         _, predecessor = dijkstra(adjacency, origin)
-        for destination, flow in enumerate(commuting[origin]):
-            if destination == origin or flow == 0:
+        for destination in range(origin + 1, len(trade)):
+            flow = 0.5 * (trade[origin][destination] + trade[destination][origin])
+            if flow == 0:
                 continue
             node = destination
             while node != origin:
                 prior = predecessor[node]
                 traffic[(prior, node)] += flow
+                traffic[(node, prior)] += flow
                 node = prior
     active_links = [link for link in links
                     if traffic[(link[0], link[1])] > 0 or traffic[(link[1], link[0])] > 0]
@@ -343,16 +351,16 @@ def corridor_geometries(settlements, links, road_adjacency):
     return geometries
 
 
-def write_project(output_dir: Path, settlements, residence, workplace, traffic, links,
+def write_project(output_dir: Path, settlements, activity, traffic, links,
                   geometries, summary):
     data_dir = output_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     with (data_dir / "nodes.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["node_id", "residents", "employment", "longitude", "latitude",
+        writer.writerow(["node_id", "labor", "income", "longitude", "latitude",
                          "name", "location_type"])
-        for row, residents, employment in zip(settlements, residence, workplace):
-            writer.writerow([row["node_id"], f"{residents:.17g}", f"{employment:.17g}",
+        for row, share in zip(settlements, activity):
+            writer.writerow([row["node_id"], f"{share:.17g}", f"{share:.17g}",
                              row["point"][0], row["point"][1], row["name"], row["type"]])
     with (data_dir / "edge_modes.csv").open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
@@ -410,11 +418,10 @@ def build(paths, output_dir: Path, *, component_snap_km: float = 10.0,
         raise RuntimeError("fewer than three settlements survived selection")
     distances = settlement_distances(settlements, main_adjacency)
     links = reduced_links(distances, nearest_neighbors)
-    residence = normalize([TYPE_WEIGHT[row["type"]] for row in settlements])
-    workplace = normalize([TYPE_WEIGHT[row["type"]] ** 1.25 for row in settlements])
-    commuting, gravity_error, distance_scale = gravity_matrix(
-        residence, workplace, distances, gravity_decay, local_weight)
-    traffic, active_links = route_commuting(commuting, links, distances)
+    activity = normalize([TYPE_WEIGHT[row["type"]] for row in settlements])
+    trade, trade_margin_error, trade_symmetry_error, distance_scale = trade_matrix(
+        activity, distances, gravity_decay, local_weight)
+    traffic, active_links = route_trade(trade, links, distances)
     geometries = corridor_geometries(settlements, active_links, main_adjacency)
 
     outgoing = [0.0] * len(settlements)
@@ -423,13 +430,17 @@ def build(paths, output_dir: Path, *, component_snap_km: float = 10.0,
         outgoing[origin] += flow
         incoming[destination] += flow
     conservation_error = max(
-        abs(workplace[i] + outgoing[i] - residence[i] - incoming[i])
-        for i in range(len(settlements)))
+        abs(outgoing[i] - incoming[i]) for i in range(len(settlements)))
     if conservation_error > 1e-10:
-        raise RuntimeError("routed commuting violates flow conservation")
+        raise RuntimeError("routed trade violates flow conservation")
+    openness = [
+        (activity[i] - trade[i][i]) / activity[i]
+        for i in range(len(settlements))
+    ]
 
     summary = {
         "status": "synthetic_calibration",
+        "spatial_specification": "economic_geography",
         "source_hashes": {name: sha256_file(path) for name, path in paths.items()},
         "source_feature_counts": {name: len(sources[name]["features"]) for name in sources},
         "initial_road_components": initial_components,
@@ -443,23 +454,25 @@ def build(paths, output_dir: Path, *, component_snap_km: float = 10.0,
         "active_physical_links": len(active_links),
         "directed_arcs": 2 * len(active_links),
         "maximum_settlement_attachment_km": max(row["attachment_km"] for row in settlements),
-        "gravity_margin_error": gravity_error,
+        "trade_margin_error": trade_margin_error,
+        "trade_symmetry_error": trade_symmetry_error,
         "flow_conservation_error": conservation_error,
-        "gravity_distance_scale_km": distance_scale,
+        "trade_distance_scale_km": distance_scale,
+        "minimum_trade_openness": min(openness),
+        "maximum_trade_openness": max(openness),
         "assumptions": {
             "component_snap_km": component_snap_km,
             "settlement_road_km": settlement_road_km,
             "nearest_neighbors": nearest_neighbors,
             "gravity_decay": gravity_decay,
-            "local_commute_weight": local_weight,
-            "residence_weight": "location-type weight",
-            "employment_weight": "location-type weight to the power 1.25",
-            "commuting": "doubly constrained gravity flows routed over the reduced road graph",
+            "local_trade_weight": local_weight,
+            "labor_and_income": "common normalized location-type weight",
+            "trade": "symmetric doubly constrained gravity values routed over the reduced road graph",
         },
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     write_project(
-        output_dir, settlements, residence, workplace, traffic, active_links,
+        output_dir, settlements, activity, traffic, active_links,
         geometries, summary)
     return summary
 

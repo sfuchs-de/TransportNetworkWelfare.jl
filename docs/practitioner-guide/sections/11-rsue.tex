@@ -1,102 +1,166 @@
-\section{The U.S. freight application}
+\section{Applications and extensions}
+\label{ch:applications}
+
+Applications differ in their spatial margins, available modes, and empirical
+flow construction, even though they use the same transport operators. The U.S.
+freight exercise shows the complete economic-geography application. The urban
+material that follows changes the spatial equilibrium while retaining the
+recursive routing, modal, and congestion maps.
+
+\subsection{U.S. freight}
 \label{ch:rsue}
 
-\subsection{Purpose}
+The freight application maps domestic and international value flows onto a
+multimodal U.S. network and evaluates bidirectional road improvements. We
+first define the exercise and its flow construction before reporting the
+specification, results, decomposition, and provenance.
 
-The paper applies the statistic to the U.S. freight network. The reproducible
-network has 234 nodes: 228 domestic locations and six foreign regions. The
-policy set contains 704 directed Interstate road arcs paired into 352
-bidirectional physical links. Each experiment lowers the primitive road cost
-by one percent in both directions of one physical link.
+\subsubsection{Purpose}
+
+The paper applies the statistic to the U.S. freight network
+\citep{AllenFuchsWong2026}. The archived paper-replication result has
+\GuideRSUENodeCount{} nodes: 228 domestic locations and six foreign regions.
+The policy set contains \GuideRSUEDirectedArcCount{} directed Interstate road
+arcs paired into \GuideRSUEPhysicalLinkCount{} bidirectional physical links.
+Each experiment lowers the primitive road cost by one percent in both
+directions of one physical link.
 
 The exercise is a sufficient-statistic application. It does not estimate a
 new 234-location structural model from raw microdata. The adapter combines
 model-ready domestic trade and modal flow matrices, location shares, the road
 network, and directional 2017 Census port trade. It then checks and constructs
-the objects required by the derivative.
+the inputs required by the derivative.
 
-\subsection{International flows}
+\subsubsection{International flows}
 
 The headline vintage preserves separate import and export directions from
-public 2017 Census containerized vessel trade. Port values are mapped to
-domestic nodes and six foreign regions. Because the maintained theory uses a
-balanced-flow system, imports and exports are projected onto common normalized
-margins. The projection is an explicit model adapter, not a claim that raw
-port-level imports equal exports.
+public 2017 Census containerized vessel trade
+\citep{CensusInternationalTradePort}. Port values are mapped to domestic nodes
+and six foreign regions. The adapter first normalizes imports and exports
+separately. It then averages the normalized U.S.-port margins across the two
+directions and does the same for the foreign-region margins. Iterative
+proportional fitting projects each directional matrix onto these common
+margins while preserving its observed zero pattern. The routine requires a
+maximum margin error below \(10^{-12}\); it fails if the observed support
+cannot sustain the common margins or if the iteration does not converge.
+Finally, the adapter assigns one-half of the normalized foreign-water modal
+mass to each direction. This balancing step is part of the model adapter. It
+does not assert that raw port-level imports and exports are equal.
 
-The raw monthly API cache is not committed. The repository includes:
-\begin{itemize}
-  \item the credential-safe downloader;
-  \item port and foreign-region crosswalks;
-  \item the aggregate derived overlay;
-  \item source metadata and hashes;
-  \item diagnostics for coverage and balancing.
-\end{itemize}
-The API key is read from the environment and is never written to a URL, log,
-manifest, or output.
+The raw monthly API cache is not committed. The repository instead provides a
+credential-safe downloader, port and foreign-region crosswalks, and the
+aggregate derived overlay. It also records source metadata and hashes, along
+with diagnostics for coverage, iteration counts, margin errors, total
+variation, and node-level residuals.
+The workflow reads the API key from the environment. Its tests and secret scan
+verify that the tracked cache metadata, URLs, manifests, and outputs contain no
+key.
 
-\subsection{Headline specification}
+\subsubsection{Headline specification}
 
-The accepted configuration uses:
+The archived configuration uses:
 \[
  \alpha=0.10,\quad \beta=-0.30,\quad \sigma=9,\quad
- \eta=1.099,\quad \lambda_{\mathrm{road}}=0.092.
+ \eta=1.099,\quad \gamma_{\mathrm{road}}=0.092.
 \]
+Subsection \ref{ch:data} documents the corresponding calibration sources:
+\citet{AllenArkolakis2014,AllenArkolakis2020} and
+\citet{FuchsWong2026Multimodal}.
 It uses \code{ChoiceLogsum}, all observed transport modes in equilibrium,
 edge-local road congestion, and no headline terminal congestion.
+The configuration field retains the historical name \code{lambda\_road};
+\(\gamma_{\mathrm{road}}\) is the theoretical congestion elasticity used in
+this guide.
+These parameters imply \(e=-0.5\) and \(\rho=-1.6\). The common factor
+\(\rho\) scales all links equally. Traffic, pass-through, and the two
+market-access multipliers generate the cross-link ranking. The sign of
+\(\rho\) alone does not determine the welfare sign because the multiplier sum
+is also signed; the archived baseline produces positive benefits.
 
-The policy is a primitive road-cost improvement. The traditional statistic is
-the two-direction road traffic share. The extended statistic includes route,
-mode, congestion, and spatial-equilibrium responses.
+The policy is a primitive road-cost improvement. The Traditional approach uses
+the two-direction road traffic share. The full realized-cost effect changes
+the cost users face after congestion. The Extended approach reports the full
+primitive-cost effect and includes route, mode, congestion, and
+spatial-equilibrium responses.
 
-\subsection{Accepted aggregate results}
+\subsubsection{Archived paper-replication results}
 
-The current package reproduces the accepted paper ledger:
+The current package reproduces the archived numerical reference:
 \begin{table}[H]
 \centering
-\caption{Accepted physical-link result summary}
+\caption{Archived physical-link result summary}
 \label{tab:rsue-summary}
 \begin{tabular}{lr}
 \toprule
-Object & Value \\
+Measure & Value \\
 \midrule
-Physical links & 352 \\
-Mean extended elasticity & 0.0002230950 \\
-Median extended elasticity & 0.0001807022 \\
-Maximum extended elasticity & 0.0008718750 \\
-Pearson correlation with traditional statistic & 0.9474377 \\
-Spearman rank correlation & 0.9591921 \\
+Physical links & \GuideRSUEPhysicalLinkCount \\
+Mean Traditional-approach elasticity & \GuideRSUEMeanTraditional \\
+Mean full realized-cost effect & \GuideRSUEMeanRealized \\
+Mean full primitive-cost effect & \GuideRSUEMeanExtended \\
+Median primitive-cost effect & \GuideRSUEMedianExtended \\
+Maximum primitive-cost effect & \GuideRSUEMaximumExtended \\
+Pearson correlation with Traditional approach & \GuideRSUEPearson \\
+Spearman rank correlation & \GuideRSUESpearman \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The high correlations show that traffic contains substantial information.
-They do not imply identical targeting. Only four links overlap between the
-two top-ten lists in the accepted result vintage. The paper reports names only
-where endpoints can be assigned by point-in-polygon matching to public 2018
-Census CBSA geography.
+\implementationbox{These values pass the package's accounting,
+algebraic, finite-difference, and reproducibility checks. Those checks verify
+the baseline construction and the derivative calculation. They do not
+validate the calibrated congestion, modal, or spatial responses against
+untargeted empirical outcomes.}
 
-\subsection{Result provenance}
+The high correlations show that traffic tracks the Extended approach closely
+across links.
+They do not imply identical targeting. Only \GuideRSUETopTenOverlap{} links
+overlap between the two top-ten lists in the archived result vintage. The
+paper reports names only where endpoints can be assigned by point-in-polygon
+matching to public 2018 Census CBSA geography.
 
-The paper artifact builder writes directed and physical results, a claim
-ledger, TeX macros, figures, map geometry, sensitivity paths, diagnostics, and
-a run manifest. The builder requires:
-\begin{itemize}
-  \item matching configuration and input hashes;
-  \item an accepted nonlinear finite-difference report bound to the derivative
-  source hashes;
-  \item 234 nodes, 704 directed policies, and 352 reciprocal links;
-  \item all algebraic and condition-number gates;
-  \item deterministic output hashes.
-\end{itemize}
+\subsubsection{Signed decomposition}
 
-Later package versions add columns to the decomposition tables. The numerical
-claim ledger remains unchanged when the economics is unchanged, but byte
-hashes of the expanded CSV files must be updated. For this reason the guide
-reports both numerical equality and artifact hashes rather than treating one
-as a substitute for the other.
+To explain why the mean primitive-cost derivative differs from traffic, apply the
+signed Hulten-gap identity in Subsection \ref{ch:decomposition} and average each
+level contribution across physical links:
+\[
+\begin{array}{lr}
+\text{Externality scale} & \GuideRSUEExternalityComponent\\
+\text{Equilibrium propagation} & \GuideRSUEPropagationComponent\\
+\text{Road congestion} & \GuideRSUERoadComponent\\
+\text{Terminal congestion} & \GuideRSUETerminalComponent\\
+\text{Primitive-cost pass-through} & \GuideRSUEPassThroughComponent .
+\end{array}
+\]
+The externality and propagation terms have opposite signs, and each is large
+in absolute value relative to their sum. They therefore nearly offset. The
+full realized-cost mean exceeds the Traditional approach, whereas primitive-cost
+pass-through lowers the headline primitive result. The decomposition reports
+signed welfare levels because dividing these terms by the small net gap would
+produce unstable shares.
 
-\subsection{Reproducing with external inputs}
+\subsubsection{Interpretation}
+
+The result ranks local model-implied benefits, not project net present values.
+A high-ranked link may be expensive to build, face environmental constraints,
+or conflict with distributional objectives. Conversely, a low-ranked capacity
+improvement may be justified by safety or resilience benefits outside the
+model. The appropriate use is to add the spatial-equilibrium benefit measure
+to a broader appraisal, not to suppress the rest of the appraisal.
+
+\subsubsection{Result provenance}
+
+The guide asset script reads a public-safe aggregate replication record and
+checks it against the declared configuration, input, source-result, and output
+hashes in \path{replication/rsue/expected_summary.toml}. With restricted
+results present, it also verifies the full directed and physical output files.
+The archived vintage requires the stated network counts, the numerical gates,
+a hash-bound finite-difference report, and deterministic outputs. Appendix
+\ref{app:provenance} records the reproducibility boundary; the repository audit
+contains the developer-level kernel lineage.
+
+\subsubsection{Reproducing with external inputs}
 
 Set the external data root and run the locked environment:
 \begin{lstlisting}[language=bash]
@@ -113,11 +177,7 @@ julia --project=replication/rsue/environment \
 The manifest rejects files whose hashes differ from the declared data vintage.
 There is no fallback to the legacy port matrix.
 
-\subsection{Interpretation}
-
-The result ranks local model-implied benefits, not project net present values.
-A high-ranked link may be expensive to build, face environmental constraints,
-or conflict with distributional objectives. Conversely, a low-ranked capacity
-improvement may be justified by safety or resilience channels outside the
-model. The appropriate use is to add the spatial-equilibrium benefit measure
-to a broader appraisal, not to suppress the rest of the appraisal.
+The freight application keeps the paper's economic-geography model. The
+urban application instead changes the spatial residuals and welfare projection
+while retaining the same route, modal, and congestion operators. The next
+subsection describes its implementation and data requirements.

@@ -1,0 +1,524 @@
+\section{Start a new application}
+\label{ch:quickstart}
+\label{sec:own-data-workflow}
+
+To start a new application, the analyst must construct model-ready node and
+edge--mode flows. The package checks those inputs and computes the derivative;
+it does not infer economic flows from raw vehicle counts, passenger counts,
+schedules, or tonnage. The steps below define the policy, prepare the two input
+tables, validate the baseline, and produce the welfare results.
+
+\subsection{Check whether the method fits the policy}
+
+The package is designed for marginal improvements to existing, positively
+used edge--modes. The following screen should be applied before constructing
+the input files.
+\begin{longtable}{L{0.56\textwidth}L{0.36\textwidth}}
+\toprule
+Application & Implication \\
+\midrule
+\endhead
+Marginal gross-benefit ranking of existing links with positive baseline use &
+Directly supported. \\
+Several small improvements to existing links &
+Use a sparse policy bundle. \\
+New link, new mode, or discontinuous topology change &
+Outside the interior local derivative. \\
+Large change to an existing link &
+Use the derivative as a diagnostic and compare it with a nonlinear
+counterfactual. \\
+Capacity expansion &
+State how capacity changes the congestion map; a free-flow cost reduction is
+not automatically equivalent. \\
+Project net present value or benefit--cost ratio &
+Combine the welfare result with timing, costs, and omitted effects. \\
+Distributional incidence, transfers, or toll revenue &
+Add the relevant welfare weights and fiscal treatment. \\
+\bottomrule
+\end{longtable}
+
+``Local'' describes the size of the policy perturbation. It does not describe
+the adjustment horizon. In the economic-geography model, mobile labor
+generally gives the derivative a long-run comparative-static interpretation.
+The urban model likewise permits residence and workplace adjustment.
+
+\subsection{Choose the economic setting and policy}
+
+Begin by deciding which spatial response the application requires.
+\begin{longtable}{L{0.22\textwidth}L{0.34\textwidth}L{0.34\textwidth}}
+\toprule
+Choice & Economic geography & Urban commuting \\
+\midrule
+\endhead
+Movement & Goods between locations & Commuters between residences and
+workplaces \\
+Node margins & Labor and income & Residents and employment \\
+Network flow & Value flow, in the same price basis as income & Commuter flow,
+normalized by total commuters \\
+Spatial response & Wages and mobile labor & Residence and workplace choices \\
+Typical modes & Road, rail, and water freight & Road, bus, rail or streetcar,
+and ferry \\
+\bottomrule
+\end{longtable}
+
+Public transit is represented by bus, rail, streetcar, or ferry rows in the
+urban edge--mode file. It does not require a separate transport solver.
+
+Next state the policy. Select a mode, a proportional reduction in primitive
+generalized cost, and one of three units: a directed edge, a reciprocal
+physical link, or both. A physical-link experiment requires exactly two
+opposite policy-mode edges with the same physical-link identifier. Unpaired
+transit services remain directed policies.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{L{0.28\textwidth}L{0.23\textwidth}X}
+\toprule
+Feature & Status & Use \\
+\midrule
+Economic-geography derivative & Stable reference & U.S. freight and public
+examples \\
+\code{ChoiceLogsum} modes & Stable reference & Active multimodal
+specification \\
+Edge-local congestion & Stable reference & Headline freight specification \\
+Fixed-route decomposition & Verified, memory intensive & Moderate networks
+after the memory preflight \\
+Endpoint-terminal congestion & Verified extension & Requires an
+application-specific elasticity \\
+Multimodal urban derivative & Verified extension & Requires commuting inputs
+that satisfy the urban accounting identities \\
+Seattle workflow & Candidate application & Additional ridership, cost, and
+calibration evidence required \\
+\code{ComponentCES} & Legacy only & Historical reproduction \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Install the package and initialize a project}
+
+The package API is version 0.1.0 and requires Julia 1.10 or later. Continuous
+integration tests Julia 1.10 and the current stable release on Linux, macOS,
+and Windows. Git is needed to clone and update the repository. Running the
+package requires Julia; building this PDF additionally requires
+\code{make}, \code{latexmk}, Poppler, and \code{qpdf}. Release-maintainer
+checks also use Python, but the grid analysis and guide build do not.
+
+Clone the package and instantiate its committed Julia environment:
+\begin{lstlisting}[language=bash]
+git clone https://github.com/sfuchs-de/TransportNetworkWelfare.jl.git
+cd TransportNetworkWelfare.jl
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+\end{lstlisting}
+Keep each empirical application outside the package checkout. From the package
+directory, create either an economic-geography or urban-commuting project:
+\begin{lstlisting}[language=bash]
+julia --project=. bin/tnw.jl init ../my-freight-network \
+  economic_geography
+julia --project=. bin/tnw.jl init ../my-commuting-network \
+  urban_commuting
+\end{lstlisting}
+Omitting the final argument retains the economic-geography default. The command
+writes the model-specific \code{config.toml} and seed CSV files, a
+\code{sources.toml} provenance ledger, a preprocessing entry point, and a
+project README:
+\begin{lstlisting}
+my-network/
+  config.toml
+  sources.toml
+  data/nodes.csv
+  data/edge_modes.csv
+  scripts/prepare_inputs.jl
+  figures/
+\end{lstlisting}
+It refuses to overwrite a nonempty directory. The seed inputs run immediately,
+providing an installation check before the analyst replaces any data. The
+preprocessing script marks where a reproducible raw-to-model-ready conversion
+belongs, but it does not guess how vehicle counts, passenger records, or
+schedules should be converted into the flows required by the model.
+
+The self-contained examples ordinarily finish in under a minute after Julia
+precompilation. Runtime depends on hardware and network size. Before
+\code{decompose}, \code{validate} reports the estimated memory for the
+fixed-route incidence matrix; ordinary \code{analyze} omits that dense matrix.
+For the grid used in this guide, that estimate is
+\GridDecompositionIncidenceGiB{} GiB.
+
+\subsection{Replace the template inputs}
+
+For economic geography, \code{nodes.csv} contains
+\begin{lstlisting}
+node_id,labor,income,longitude,latitude
+\end{lstlisting}
+For urban commuting, replace \code{labor} and \code{income} with
+\code{residents} and \code{employment}. Coordinates are optional.
+
+Each row of \code{edge\_modes.csv} represents one active mode on one directed
+edge:
+\begin{lstlisting}
+edge_id,physical_link_id,origin,destination,mode,flow,
+origin_terminal_id,destination_terminal_id,
+congestion_elasticity
+\end{lstlisting}
+The final three columns are needed only for the corresponding congestion
+specification. A missing mode row means that the mode is unavailable. Listed
+flows must be finite and positive. Parallel physical routes require explicit
+intermediate nodes; they cannot share the same ordered endpoint pair under
+different edge identifiers.
+
+The baseline must satisfy the accounting identities of the selected model.
+Economic-geography inputs require
+\[
+ \sum_{j,m}\Xi_{ij,m}=\sum_{j,m}\Xi_{ji,m}.
+\]
+Urban inputs instead require
+\[
+ l_i^F+\sum_{j,m}\Xi_{ij,m}
+ =
+ l_i^R+\sum_{j,m}\Xi_{ji,m}.
+\]
+Construct any balancing, geographic matching, price conversion, or modal
+rescaling in a separate preprocessing step. The generic adapter does not
+perform those transformations silently.
+
+Normalize economic-geography labor and income shares to one. Normalize urban
+residence and workplace margins separately to one. Divide economic-geography
+edge value flows by the same world-income aggregate and urban commuter flows
+by the same total commuter count. Edge traffic itself generally sums to more
+than one because one shipment or commuter can traverse several edges. Modal
+shares sum to one within a directed edge.
+
+\subsection{Convert standard source data into model inputs}
+
+Most applications begin with several data products rather than the two tables
+read by the package. A node geography supplies the unit of analysis, an
+origin--destination table supplies residence--workplace or
+production--consumption margins, a network file supplies available links, and
+traffic or ridership evidence supplies baseline use. These sources must refer
+to a common year, geography, population, and flow unit before they can be
+combined. The table below gives common starting points and the construction
+each one supports.
+
+\begin{longtable}{L{0.21\textwidth}L{0.30\textwidth}L{0.41\textwidth}}
+\toprule
+Object & Common source & Use in the project \\
+\midrule
+\endhead
+Location boundaries and centroids &
+National statistical-office boundary files, such as ONS MSOA boundaries
+\citep{ONS2021MSOABoundaries}, or a locally maintained GIS layer &
+Choose node identifiers, calculate centroids, and provide the polygons used
+for maps. Preserve the source coordinate system until the final export. \\
+Residence--workplace flows &
+Census or administrative workplace origin--destination tables, such as
+ODWP01EW for England and Wales \citep{ONS2021WorkplaceFlows} &
+Construct urban residence and employment margins. These tables describe OD
+commuting, not the directed edge flows that the package reads. \\
+Road and rail geometry &
+Agency GIS files or OpenStreetMap extracts, including the downloadable
+Greater London files distributed by Geofabrik
+\citep{GeofabrikGreaterLondon} &
+Define directed links, reciprocal physical-link identifiers, intermediate
+route nodes, and map geometry. Record the extract date and license. \\
+Transit service &
+GTFS, timetable, and station-location feeds, such as TfL's open data
+\citep{TfLOpenData} &
+Define stops, links, service availability, travel times, and transfer
+opportunities. A schedule is not a passenger-flow observation. \\
+Traffic or ridership &
+Count stations, ticketing records, passenger OD matrices, or freight-value
+records; for London, TfL network-demand files and ORR station and OD data are
+useful sources \citep{TfLNetworkDemand,ORRStationUsage2024} &
+Allocate OD demand across directed edge--modes and check the resulting traffic
+against independent counts. Station entries and exits alone do not identify
+segment-level flow. \\
+Generalized cost and congestion &
+Timetables, speeds, fares, transfer penalties, capacity data, and local
+engineering or econometric estimates &
+Construct baseline cost components and choose elasticities. Keep values
+transferred from another setting in a sensitivity range rather than presenting
+them as local estimates. \\
+\bottomrule
+\end{longtable}
+
+The package automates the calculation after these sources have been converted
+into one internally consistent baseline. It automates schema checks, route
+reconstruction, physical-link pairing, the welfare derivative, the
+decomposition, sensitivity paths, manifests, and standard network figures. It
+does not automate source-specific geocoding, the valuation of physical freight
+or passenger counts, OD assignment, or the reconciliation of incompatible
+populations. Those decisions belong in \code{scripts/prepare\_inputs.jl} and
+must be described in \code{sources.toml}. A typical source entry records a
+stable identifier, URL or local logical path, vintage, license, retrieval date,
+and SHA-256:
+\begin{lstlisting}
+[sources.workplace_od]
+title = "Census 2021 workplace flows, ODWP01EW"
+url = "https://www.nomisweb.co.uk/sources/census_2021_od"
+vintage = "2021"
+retrieved = "YYYY-MM-DD"
+license = "Open Government Licence"
+sha256 = "replace-with-downloaded-file-hash"
+\end{lstlisting}
+
+\subsection{Prepare geometry and standard figures}
+\label{sec:own-data-maps}
+
+Coordinates in \code{nodes.csv} are enough for a schematic map with straight
+links. For geographic maps, retain a polygon basemap and a line layer in the
+same projected coordinate system as the node coordinates. The generic plotter
+accepts GeoJSON. Each line feature must contain
+\code{physical\_link\_id}; polygon and line features in the basemap need no
+package-specific attributes. Shapefiles and GeoPackages can be used directly
+in QGIS, or converted once with GDAL:
+\begin{lstlisting}[language=bash]
+ogr2ogr -f GeoJSON -t_srs EPSG:27700 \
+  data/link_geometry.geojson raw/network_links.gpkg
+ogr2ogr -f GeoJSON -t_srs EPSG:27700 \
+  data/basemap.geojson raw/msoa_boundaries.gpkg
+\end{lstlisting}
+The CRS in these commands is illustrative. The analyst must choose one
+appropriate to the application and use it consistently across nodes, links,
+and polygons.
+
+After \code{analyze} or \code{decompose}, create a welfare map with:
+\begin{lstlisting}[language=bash]
+python3 "$PKG/plots/network_example.py" \
+  "$APP/data/nodes.csv" "$APP/data/edge_modes.csv" \
+  "$APP/output/welfare_physical.csv" \
+  "$APP/figures/welfare-map.pdf" \
+  --metric primitive_F \
+  --link-geometry "$APP/data/link_geometry.geojson" \
+  --basemap "$APP/data/basemap.geojson"
+python3 "$PKG/plots/hulten_vs_welfare.py" \
+  "$APP/output/welfare_physical.csv" \
+  "$APP/figures/traditional-versus-extended.pdf"
+\end{lstlisting}
+The map command also accepts a PNG output and \code{--transparent}. Without
+\code{--link-geometry}, it draws straight links between node coordinates. The
+second command draws the Traditional-versus-Extended comparison on common
+axes and reports Pearson and rank correlations.
+For publication maps that require labels, insets, or several policy layers,
+join \code{welfare\_physical.csv} to the line layer by
+\code{physical\_link\_id} in QGIS or another GIS package. The numerical output
+remains the source of the color scale; the GIS file supplies geometry rather
+than welfare data.
+
+\subsection{Edit the configuration}
+
+In the generated \code{config.toml}, the
+\code{spatial\_specification} field selects the economic-geography or urban
+commuting model. The configuration then supplies the corresponding spatial
+parameters and route curvature.
+
+Set \code{modal\_specification} to \code{choice\_logsum} and supply the modal
+elasticity \(\eta\). The congestion block selects edge, endpoint-terminal,
+composite, or no congestion. The remaining fields define the policy mode,
+policy unit, shock fraction, output directory, data units, and all
+transformations applied to the inputs.
+Do not retain template parameter values merely because they pass validation.
+Each value needs an empirical source or a stated sensitivity range. Appendix
+\ref{app:config} gives the complete configuration and schema reference.
+
+\subsection{Validate, analyze, and decompose}
+
+For an application outside the package checkout, use explicit paths:
+\begin{lstlisting}[language=bash]
+PKG=/path/to/TransportNetworkWelfare.jl
+APP=/path/to/my-network
+julia --project="$PKG" "$PKG/bin/tnw.jl" validate "$APP/config.toml"
+julia --project="$PKG" "$PKG/bin/tnw.jl" analyze "$APP/config.toml"
+julia --project="$PKG" "$PKG/bin/tnw.jl" decompose "$APP/config.toml"
+\end{lstlisting}
+\code{validate} checks schemas, identifiers, accounting, route contraction,
+modal interiority, policy pairing, congestion keys, regularity, and condition
+numbers. Run \code{analyze} for the full welfare derivative. Run
+\code{decompose} only when the reported fixed-route memory requirement is
+feasible.
+
+\begin{figure}[H]
+\centering
+\small
+\begin{tabular}{c}
+\fcolorbox{guideblue!45}{guideblue!4}{%
+\parbox{0.82\textwidth}{\centering CSV/TOML inputs
+\(\rightarrow\) schema, units, accounting, and route reconstruction}}\\[0.05em]
+\(\downarrow\)\\[0.05em]
+\fcolorbox{guideblue!45}{guideblue!4}{%
+\parbox{0.82\textwidth}{\centering bilateral flows, modal and congestion maps
+\(\rightarrow\) model-specific spatial Jacobian}}\\[0.05em]
+\(\downarrow\)\\[0.05em]
+\fcolorbox{guideblue!45}{guideblue!4}{%
+\parbox{0.82\textwidth}{\centering equilibrium response and welfare projection
+\(\rightarrow\) directed and physical-link welfare derivatives}}\\[0.05em]
+\(\downarrow\)\\[0.05em]
+\fcolorbox{guideblue!45}{guideblue!4}{%
+\parbox{0.82\textwidth}{\centering model decomposition, diagnostics,
+and hash-bound run manifest}}
+\end{tabular}
+\caption{Data-to-result workflow. Application-specific preprocessing precedes
+the generic package; each package stage checks its output before the next stage
+uses it.}
+\label{fig:guide-pipeline}
+\end{figure}
+
+\subsection{Read and preserve the results}
+
+\code{analyze} writes \code{welfare\_directed.csv} and, when requested,
+\code{welfare\_physical.csv}. \code{decompose} writes the corresponding
+\code{decomposition\_*.csv} files. The run also writes
+\code{diagnostics.json} and \code{run\_manifest.json}.
+
+A positive reported elasticity is a welfare gain from a primitive-cost
+reduction. For a small reduction \(s\), the approximate percentage welfare
+gain is \(100s\) times the elasticity. Compare \code{hulten} with
+\code{primitive\_F} to see whether equilibrium adjustment changes the
+traffic-only ranking. Interpret a decomposition only after its identity
+residuals and condition diagnostics pass.
+
+For example, the highest-ranked grid road link is
+\GridTopLink. Its output row reports:
+\begin{center}
+\small
+\begin{tabular}{lrrr}
+\toprule
+\code{physical\_link\_id} & \code{hulten} & \code{realized\_F} &
+\code{primitive\_F} \\
+\midrule
+\GridTopLinkCode & \GridTopTraditional & \GridTopRealized &
+\GridTopPrimitive \\
+\bottomrule
+\end{tabular}
+\end{center}
+Thus the Traditional approach gives the traffic-based elasticity
+\GridTopTraditional, the full realized-cost effect is \GridTopRealized, and
+the Extended approach gives the primitive-cost effect \GridTopPrimitive. A
+one-percent primitive improvement implies
+\(\Delta\log W\simeq\GridTopPrimitiveLogGain\), or approximately
+\GridTopPrimitivePercentGain{} percent. Section \ref{ch:code} defines the
+remaining output columns.
+
+Retain the manifest for each result vintage. It records the package commit,
+configuration, source-ledger, input, and output hashes together with the
+parameters, transformations, and diagnostics.
+
+\subsection{Planning an Elizabeth Line application}
+
+Suppose the policy question is which operating Elizabeth Line segment would
+yield the largest gross welfare gain from a small reduction in generalized
+travel cost. This is an urban-commuting application because residence and
+workplace margins differ and commuters can use road and public transport. It
+is also a marginal application. The package can rank improvements to
+positive-flow segments of the existing line or evaluate a bundle that improves
+the operating corridor. It cannot recover the effect of opening the central
+section from a zero-flow baseline. That question changes the available network
+and requires a finite counterfactual.
+
+Begin with the urban scaffold:
+\begin{lstlisting}[language=bash]
+PKG=/path/to/TransportNetworkWelfare.jl
+APP=/path/to/elizabeth-line
+julia --project="$PKG" "$PKG/bin/tnw.jl" \
+  init "$APP" urban_commuting
+\end{lstlisting}
+Use 2021 MSOAs or another stable London geography as nodes. ONS ODWP01EW
+reports counts by residence and workplace area; their row and column sums
+provide resident and employment margins \citep{ONS2021WorkplaceFlows}. Census
+Day fell during the
+March 2021 lockdown, however, so these flows are not a post-opening commuting
+baseline and must be treated as an initialization or replaced with more
+representative OD evidence \citep{ONS2021TravelWorkQuality}. The source ledger
+should state that limitation directly.
+
+TfL timetable and station feeds identify the Elizabeth Line topology, travel
+times, and stations, while the Greater London OpenStreetMap extract can supply
+roads and detailed line geometry \citep{TfLOpenData,GeofabrikGreaterLondon}.
+TfL station footfall and ORR station and OD statistics provide post-opening
+evidence on use \citep{TfLNetworkDemand,ORRStationUsage2024}. None of these
+sources alone is a complete segment-level commuting matrix. The preprocessing
+script must reconcile their vintages, assign OD commuters to road and transit
+paths, and report how closely the resulting edge flows reproduce the observed
+station totals.
+
+The model-ready urban node file contains normalized residents and employment.
+The edge-mode file contains separate road and rail rows, directed commuter
+flows normalized by the same total, and terminal identifiers where transfer
+congestion is modeled. Set \code{mode = "rail"} in the policy block. Use
+\code{unit = "both"} only where the two directions form a valid reciprocal
+physical link; otherwise retain directed policies. The freight value
+\(\eta=1.099\) can provide a transparent starting point for sensitivity, but
+it is not a London estimate. A preferred application would estimate or
+calibrate modal substitution from London evidence.
+
+Before running the model, edit the following fields in place, retain the other
+generated input and output entries, and declare the sensitivity values used in
+the exercise:
+\begin{lstlisting}
+[input]
+mode_order = ["road", "rail"]
+
+[model]
+modal_specification = "choice_logsum"
+eta = 1.099
+
+[congestion]
+specification = "none"
+
+[policy]
+mode = "rail"
+unit = "both"
+shock_fraction = 0.01
+
+[sensitivity]
+eta = [0.75, 0.90, 1.099, 1.25, 1.40]
+\end{lstlisting}
+The no-congestion specification provides a transparent first run when no
+London-specific congestion elasticity has been established. An empirical
+application should add a congestion channel only after documenting its
+definition, units, and calibration. It should also replace the template's
+urban spatial parameters rather than treating them as London estimates. When
+changing the generated composite specification to \code{none}, delete the
+generated \code{[congestion.edge]} and \code{[congestion.terminal]} subtables.
+
+\newpage
+Once \code{scripts/prepare\_inputs.jl} writes the two CSVs, the full run is:
+\begin{lstlisting}[language=bash]
+julia "$APP/scripts/prepare_inputs.jl"
+julia --project="$PKG" "$PKG/bin/tnw.jl" \
+  validate "$APP/config.toml"
+julia --project="$PKG" "$PKG/bin/tnw.jl" \
+  analyze "$APP/config.toml"
+julia --project="$PKG" "$PKG/bin/tnw.jl" \
+  decompose "$APP/config.toml"
+julia --project="$PKG" "$PKG/bin/tnw.jl" \
+  sensitivity "$APP/config.toml"
+python3 "$PKG/plots/network_example.py" \
+  "$APP/data/nodes.csv" "$APP/data/edge_modes.csv" \
+  "$APP/output/welfare_physical.csv" \
+  "$APP/figures/elizabeth-line-welfare.pdf" \
+  --metric primitive_F \
+  --link-geometry "$APP/data/link_geometry.geojson" \
+  --basemap "$APP/data/basemap.geojson"
+\end{lstlisting}
+The final map ranks marginal improvements to the represented operating
+segments. A complete appraisal would add construction or operating costs,
+reliability, crowding, emissions, distributional incidence, and any benefits
+from new trips outside the maintained commuting baseline.
+
+\subsection{Acceptance criteria}
+
+The data are ready when their flow unit matches the selected spatial model and
+congestion elasticities, and when the accounting and route-reconstruction
+checks pass. The policy is ready when its direction, mode, reciprocal pairing,
+and shock size describe the intended experiment. The model is ready when each
+active parameter has a documented source, the calculation remains on a regular
+branch, and finite-difference or limiting-case tests support any new extension.
+
+The results are ready for interpretation when the sensitivity analysis
+distinguishes changes in levels from changes in rankings. At that point, archive
+the manifest with the model-ready inputs so the reported result can be
+reconstructed from the same data and specification.
+
+To update the package later, record the commit used for the archived results,
+fast-forward the package checkout, instantiate the environment, rerun
+\code{Pkg.test()}, and then revalidate the external project. Part II explains
+the economics and algorithms behind each of these checks.

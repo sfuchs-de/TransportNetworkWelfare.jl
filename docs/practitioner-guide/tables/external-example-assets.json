@@ -1,0 +1,57 @@
+{
+  "construction": {
+    "seattle_multimodal": "2017 LODES OD, 2017 ACS origin mode shares, pinned June 2017 GTFS paths and schedules, Allen-Arkolakis road times",
+    "sioux_falls": "balanced TNTP OD margins and reciprocal assigned flows; heterogeneous local BPR elasticities",
+    "westeros": "hash-pinned ArcGIS geography, synthetic economic activity, balanced gravity trade, shortest-path routing"
+  },
+  "input_hashes": {
+    "seattle_edges": "516c18fc605d5211484a953b31bdb6cba055fb4b50ff26253dd17f7b7edf9331",
+    "seattle_links": "ff94af2641c7a7333205ec8150fe76de463979111cdd1433fed421b0d3a94d2e",
+    "seattle_manifest": "70c9610b44de6fb891d0b71558f33c76efa5c5a6894ca497f0f518f7df79f68b",
+    "seattle_nodes": "b50b1e760251582b92f1460d71454e0435ac6c1725150aea6a0532f752ccb7fd",
+    "seattle_summary": "ec7a3e0f85cd02baa98d5875294ed50f9cae27d55f7e2576e8bc074cd802fcbe",
+    "sioux_edges": "292cf0a8003ceee2c0a682f233ac45af39c42eea0bc17d17c5e73059dee35c1d",
+    "sioux_manifest": "ca36bdc112564f9623c90a40c483e27cf3c4cdd953c1a0bc22b77325382b236b",
+    "sioux_nodes": "017bec862e956456922529aacd2446bfb81931e0cacb6f3e82b95699f1c1da91",
+    "sioux_results": "6e0a60ff27f1148e3b3d5d52416be05164d9538215bc1457957bfb17129bd4bf",
+    "westeros_continent": "9b4f9be357d6ce76cc22c591121a763bdd34533563b06b6d94be9a0cac05d4f9",
+    "westeros_edges": "9b7f95f16c2fe76e245584266bdca0b6fa035c297c3d28cf53e3d6975b493532",
+    "westeros_link_geometry": "41db0bb9591620b3c015cd5b1d55cee2b10ac55f3416750d007246351dd95810",
+    "westeros_nodes": "6a54d65ab46c9931a179f7876b56c6d19c7cbd0cfcd3af3e648ee6b9e8bc3c1d",
+    "westeros_results": "a4f22267fc0d7a77683c3c4f1af3b87eabd7c7af1f06fac9a8a269ce66610f67",
+    "westeros_roads": "a7d732f9f0254513d8bb558c1c261a413bffb6bf5ca3b10921124936f5208720",
+    "westeros_summary": "fdff679fdbaa2476d739a3d19d017cdb7d29dd3afffbbf993a3ce0eb4c46faf7"
+  },
+  "output_hashes": {
+    "docs/practitioner-guide/figures/seattle-mode-map.pdf": "cb08edbdd7c31aa019c95d1251cc5079dc096775ccf68a69d9e09f674d2f9573",
+    "docs/practitioner-guide/figures/seattle-mode-map.png": "f2873c3a52b08e89be07834f840fae361f3871900e6d3de0cd70bf37ff68ff34",
+    "docs/practitioner-guide/figures/seattle-network.pdf": "0eaecc48543b849aac8b930df7af1bcbed798ac13f7348c0b9cbfe076d28deaf",
+    "docs/practitioner-guide/figures/seattle-network.png": "4abaf40ba819289ddba0f097b3744a0678026fd7260d9190e4c0b6e21ab03604",
+    "docs/practitioner-guide/figures/seattle-scatter.pdf": "1f9389429119425da01cd74696e94d6562d804843a1906d167610c2084c5c9b8",
+    "docs/practitioner-guide/figures/seattle-scatter.png": "bcf2457c9ede54b5c137bcf6e08a0e5658b8a816267e6b939b70fd3a15c744df",
+    "docs/practitioner-guide/figures/seattle-welfare-map.pdf": "017d655217f44ff95247d9921bda75deacf15ab70dce6a7b15e047bb9837090c",
+    "docs/practitioner-guide/figures/seattle-welfare-map.png": "b91dffc6ab66714fed264008f3d19245f272fc2d6397d57399f87b6b9399edb3",
+    "docs/practitioner-guide/figures/sioux-comparison.pdf": "f222f1df1509d753844b3111fc039d12723c0a687fbfd3fb6e2759e0a7197ad6",
+    "docs/practitioner-guide/figures/sioux-comparison.png": "367d5f98d7fba8a68ce0795ef41bb4fe34f9c18dd60b1cd80dc9548d77e4d99f",
+    "docs/practitioner-guide/figures/sioux-scatter.pdf": "aadb004ca3320a81967a068e9b9fe6d3de9063be41421b63670b87e8f7087c35",
+    "docs/practitioner-guide/figures/sioux-scatter.png": "d8b50cc29862c3c29d766e63692f9807853ba7f039b3d3b9a9cccc4f80f84483",
+    "docs/practitioner-guide/figures/sioux-welfare-map.pdf": "e18588be80f9f785d432f8a458acdfd9e3177efb4d3aa9948a9c72d96af091e6",
+    "docs/practitioner-guide/figures/sioux-welfare-map.png": "2d68ab61a054c7fab63a6b593aa318eb7197d808c1e08c08e6d1ac1bd0c7ca08",
+    "docs/practitioner-guide/figures/westeros-scatter.pdf": "86247a8f7462227d8e0985c6b3d61cfb3fc1e680081e214612f409613d08a832",
+    "docs/practitioner-guide/figures/westeros-scatter.png": "4f8dce92f58bf0432f50a6f49d9b8d1f9f74b398e69751961cf9c0393018ddd0",
+    "docs/practitioner-guide/figures/westeros-world-map.pdf": "cb902ff1bb9f69f659b85342867d561159183370aba929a84847af25a5f838bb",
+    "docs/practitioner-guide/figures/westeros-world-map.png": "b94b7df0ed47816ca2dbfffb9f7ddb46080401930da366ff4ab80ad5cbea12f9",
+    "docs/practitioner-guide/generated/external-example-results.tex": "2de26b4125d15459cd6fed97e73d12adcfd3c194e2810357f12ca0b312ef5533",
+    "docs/practitioner-guide/tables/seattle-top-links.tex": "35696d8ec3c2e831aa6adafe50f98f39ac2ee5f020506832dc0a77754aab44a8",
+    "docs/practitioner-guide/tables/sioux-link-comparison.csv": "f1a619808804a991ff3dad4644485ce1c279561cf7661596d10d2bee127e6869",
+    "docs/practitioner-guide/tables/sioux-top-links.tex": "adf9aa825df3cba1124cf88eeadb988c0964d8b49ddb2a33ab7249a2393a7678",
+    "docs/practitioner-guide/tables/westeros-link-comparison.csv": "49b773b1c54d17d810ce76d2df87559b2270f156c21c6da917863a78a5c5db5c",
+    "docs/practitioner-guide/tables/westeros-top-links.tex": "aad940b2819c3fd756768d7d23318a74f5baa35c9babe97d9017a5fb2e1cb213"
+  },
+  "schema_version": 1,
+  "status": {
+    "seattle_multimodal": "verified_candidate_application",
+    "sioux_falls": "verified_external_data",
+    "westeros": "verified_synthetic_external_geography"
+  }
+}

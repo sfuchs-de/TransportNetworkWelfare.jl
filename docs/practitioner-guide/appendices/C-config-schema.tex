@@ -1,5 +1,10 @@
-\section{Configuration and schema reference}
+\section{Input schemas and configuration}
 \label{app:config}
+
+Subsection \ref{ch:data} states the economic requirements on inputs and policies.
+This appendix gives the corresponding TOML fields and CSV columns. The
+examples declare the model specification directly. They do not encode an
+undocumented preprocessing step.
 
 \subsection{Minimal economic-geography configuration}
 
@@ -38,25 +43,25 @@ directory = "output"
 tolerance = 1.0e-10
 condition_limit = 1.0e12
 \end{lstlisting}
+The numerical values in this template use the paper calibration documented in
+Subsection \ref{ch:data}; they are not defaults for an unrelated application.
 
 \subsection{Spatial specification}
 
-\begin{description}
-  \item[\code{economic\_geography}.] Requires \(\alpha,\beta,\sigma\). Route
-  curvature is \(\sigma-1\).
-  \item[\code{urban\_commuting}.] Requires \(\alpha,\beta,\theta\). Internally
-  \(\sigma=\theta+1\) supplies the shared route curvature. Residence and
-  workplace columns replace labor and income shares.
-\end{description}
+\code{economic\_geography} requires \(\alpha,\beta,\sigma\), with route
+curvature \(\sigma-1\). \code{urban\_commuting} instead requires
+\(\alpha,\beta,\theta_U\), where \(\theta_U\) is supplied by the TOML field
+\code{theta}. Internally, \(\sigma=\theta_U+1\) supplies the shared route
+curvature. Residence and workplace columns replace labor and income shares.
+The complete public urban configuration is
+\code{examples/urban\_multimodal/config.toml}.
 
 \subsection{Modal specification}
 
-\begin{description}
-  \item[\code{choice\_logsum}.] Negative-power modal cost index. This is the
-  active paper and urban extension.
-  \item[\code{component\_ces}.] Positive-power legacy component index. Use only
-  for declared provenance replications.
-\end{description}
+\code{choice\_logsum} is the negative-power modal cost index used by the active
+paper and urban extension. \code{component\_ces} is a \textbf{legacy-only}
+positive-power component index and should be used only for declared provenance
+replications.
 Both require finite \(\eta>0\).
 
 \subsection{Congestion specification}
@@ -83,7 +88,7 @@ source = "input_column"
 column = "congestion_elasticity"
 scale = 1.0
 \end{lstlisting}
-Every active edge-mode row must contain a finite nonnegative value in the
+Each active edge-mode row must contain a finite nonnegative value in the
 selected column. Mode-level and column-based values cannot be mixed.
 
 \subsubsection*{Endpoint-terminal congestion}
@@ -94,7 +99,7 @@ endpoint_scale = 1.0
 [congestion.terminal]
 rail = 0.096
 \end{lstlisting}
-Every positive-congestion pair must identify both endpoint terminals.
+Each positive-congestion pair must identify both endpoint terminals.
 
 \subsubsection*{Composite congestion}
 \begin{lstlisting}
@@ -109,16 +114,13 @@ transit = 0.04
 
 \subsection{Policy units}
 
-\begin{description}
-  \item[\code{directed\_arc}.] Write directed results only.
-  \item[\code{physical\_link}.] Require reciprocal pairs and write physical
-  results only.
-  \item[\code{both}.] Write both result sets.
-\end{description}
+\code{directed\_arc} writes directed results only. \code{physical\_link}
+requires reciprocal pairs and writes physical-link results only, while
+\code{both} writes both result sets.
 
 \subsection{Economic-geography node schema}
 
-\begin{longtable}{p{0.24\textwidth}p{0.16\textwidth}p{0.50\textwidth}}
+\begin{longtable}{L{0.24\textwidth}L{0.16\textwidth}L{0.50\textwidth}}
 \toprule
 Column & Required & Meaning \\
 \midrule
@@ -133,38 +135,39 @@ Column & Required & Meaning \\
 
 \subsection{Urban node schema}
 
-\begin{longtable}{p{0.24\textwidth}p{0.16\textwidth}p{0.50\textwidth}}
+The urban adapter uses the same \code{node\_id}, \code{longitude}, and
+\code{latitude} columns as the economic-geography adapter. It replaces
+\code{labor} and \code{income} with the two margins below.
+
+\begin{longtable}{L{0.24\textwidth}L{0.16\textwidth}L{0.50\textwidth}}
 \toprule
 Column & Required & Meaning \\
 \midrule
 \endhead
-\code{node\_id} & Yes & Stable unique identifier \\
 \code{residents} & Yes & Normalized residence margin \(l^R\) \\
 \code{employment} & Yes & Normalized workplace margin \(l^F\) \\
-\code{longitude} & No & Finite map coordinate \\
-\code{latitude} & No & Finite map coordinate \\
 \bottomrule
 \end{longtable}
 
 \subsection{Edge-mode schema}
 
-\begin{longtable}{p{0.27\textwidth}p{0.14\textwidth}p{0.48\textwidth}}
+\begin{longtable}{L{0.27\textwidth}L{0.14\textwidth}L{0.48\textwidth}}
 \toprule
 Column & Required & Meaning \\
 \midrule
 \endhead
-\code{edge\_id} & Yes & Directed edge identifier, common across modal rows
-when appropriate \\
+\code{edge\_id} & Yes & Directed edge identifier, shared by modal rows on the
+same directed connection \\
 \code{physical\_link\_id} & Yes & Identifier used for reciprocal aggregation \\
 \code{origin} & Yes & Existing node ID \\
 \code{destination} & Yes & Existing node ID, distinct from origin \\
 \code{mode} & Yes & Nonempty mode name \\
 \code{flow} & Yes & Finite positive normalized value flow \\
-\code{origin\_terminal\_id} & Conditional & Required for endpoint-terminal
+\code{origin\_terminal\_id} & When used & Required for endpoint-terminal
 congestion \\
-\code{destination\_}\newline\code{terminal\_id} & Conditional & Required for
+\code{destination\_}\newline\code{terminal\_id} & When used & Required for
 endpoint-terminal congestion \\
-\code{congestion\_elasticity} & Conditional & Required when selected as the
+\code{congestion\_elasticity} & When used & Required when selected as the
 edge-congestion source \\
 \bottomrule
 \end{longtable}

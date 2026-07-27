@@ -1,0 +1,25 @@
+{
+  "examples": {
+    "braess": {
+      "link_count": 5,
+      "links_sha256": "b0375c749812b86ff4b6689abd11047dd9351694d2f53d15a91c800e12875604",
+      "nodes_sha256": "22081d56b7d12e42993961d5c26fbcc1eed6dcfb5736bdb7285947f95a73bb8e"
+    },
+    "cow": {
+      "link_count": 36,
+      "links_sha256": "6b3b1ca8805fbd62b229f7c89cd4ce2575493292b4b4b1af026c8c336c8bb249",
+      "nodes_sha256": "de9c46d2ea7306e5e3da02e4244363ffb99834f90e13ded25d0a68ef71e292a1"
+    },
+    "grid": {
+      "link_count": 40,
+      "links_sha256": "cba81f1edf9b16aabf8024b84d886ce2a0d6bf61b956b0a9668ab5b0bec2614f",
+      "nodes_sha256": "9efe9f87344dcd2fe52586ecbdff49f9201905e522fcb0cdb1e0f527454577ac"
+    },
+    "urban": {
+      "link_count": 5,
+      "links_sha256": "d2a7f623d58c3ad6e1403a07d64cfe77feefebf37b886f4e29e3a917defd0336",
+      "nodes_sha256": "f40cbf2e7f2105b77bf95e56cb9880d801b94e6caf1f2c2f6cc4a281eb3a2c01"
+    }
+  },
+  "schema_version": 1
+}

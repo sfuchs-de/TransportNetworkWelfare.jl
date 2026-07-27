@@ -7,16 +7,21 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-from matplotlib.colors import Normalize
 import numpy as np
 
+try:
+    from plots.figure_style import (
+        BLUE, INK, LIGHT, MUTED, ORANGE, PURPLE, RED, TEAL,
+        add_panel_label, correlations, finite_range, save_figure_pair,
+        shared_identity_limits, style_axis, welfare_norm,
+    )
+except ModuleNotFoundError:
+    from figure_style import (
+        BLUE, INK, LIGHT, MUTED, ORANGE, PURPLE, RED, TEAL,
+        add_panel_label, correlations, finite_range, save_figure_pair,
+        shared_identity_limits, style_axis, welfare_norm,
+    )
 
-BLUE = "#0D66A6"
-ORANGE = "#C55A11"
-GRAY = "#666666"
-GREEN = "#4C956C"
-RED = "#C14953"
-PURPLE = "#8E6C9F"
 MAP_EXTENT = (-125.0, -66.0, 24.0, 50.0)
 MAP_ASSET_DIR = Path(__file__).resolve().parent / "assets"
 
@@ -26,17 +31,19 @@ def read_rows(path: Path):
         return list(csv.DictReader(handle))
 
 
+def plot_link_label(row):
+    """Wrap complete CBSA names without altering their official spelling."""
+    first = row.get("cbsa_name_a", "").strip()
+    second = row.get("cbsa_name_b", "").strip()
+    if first and second:
+        return f"{first}\n{second}"
+    if first or second:
+        return f"Approach to {first or second}"
+    return row.get("verified_label") or row["physical_link_id"]
+
+
 def save_figure(figure, base: Path):
-    base.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(
-        base.with_suffix(".pdf"), bbox_inches="tight", transparent=True,
-        metadata={"CreationDate": None, "ModDate": None},
-    )
-    figure.savefig(
-        base.with_suffix(".png"), dpi=300, bbox_inches="tight", transparent=True,
-        metadata={"Software": "TransportNetworkWelfare.jl"},
-    )
-    plt.close(figure)
+    return save_figure_pair(figure, base.parent, base.name)
 
 
 def geometry_rings(geometry):
@@ -71,7 +78,7 @@ def add_us_context(axis):
         for ring in geometry_rings(feature["geometry"])
     ]
     axis.add_collection(LineCollection(
-        boundaries, colors="#4F5B63", linewidths=0.38, alpha=0.62,
+        boundaries, colors=MUTED, linewidths=0.38, alpha=0.62,
         zorder=2,
     ))
 
@@ -86,13 +93,13 @@ def add_us_context(axis):
     axis.set_yticklabels([r"25$^{\circ}$N", r"30$^{\circ}$N", r"35$^{\circ}$N",
                           r"40$^{\circ}$N", r"45$^{\circ}$N", r"50$^{\circ}$N"])
     axis.tick_params(axis="both", length=0, pad=3, labelsize=7,
-                     colors="#4F5B63")
-    axis.grid(color="#4F5B63", linewidth=0.35, alpha=0.20, zorder=1)
+                     colors=MUTED)
+    axis.grid(color=MUTED, linewidth=0.35, alpha=0.20, zorder=1)
     for spine in axis.spines.values():
         spine.set_visible(False)
 
 
-def map_figure(rows, field, label, output):
+def map_figure(rows, field, label, output, *, norm=None, cmap=None):
     segments, values = [], []
     for row in rows:
         coordinates = [row[key] for key in (
@@ -103,10 +110,9 @@ def map_figure(rows, field, label, output):
         segments.append(((lon_a, lat_a), (lon_b, lat_b)))
         values.append(float(row[field]))
     values = np.asarray(values)
-    lower, upper = np.quantile(values, [0.02, 0.98])
-    if upper <= lower:
-        upper = lower + max(abs(lower), 1.0) * np.finfo(float).eps
-    norm = Normalize(lower, upper, clip=True)
+    if norm is None or cmap is None:
+        norm, cmap = welfare_norm(values, robust=True, include_zero=True)
+    lower, upper = norm.vmin, norm.vmax
     widths = 0.35 + 2.4*np.sqrt(np.clip((values-lower)/(upper-lower), 0, 1))
     figure, axis = plt.subplots(figsize=(9.0, 5.2))
     add_us_context(axis)
@@ -115,14 +121,14 @@ def map_figure(rows, field, label, output):
         zorder=3,
     ))
     collection = LineCollection(
-        segments, array=values, cmap="turbo", norm=norm, linewidths=widths,
+        segments, array=values, cmap=cmap, norm=norm, linewidths=widths,
         alpha=0.96, zorder=4,
     )
     axis.add_collection(collection)
     nodes = sorted({point for segment in segments for point in segment})
     axis.scatter(
         [point[0] for point in nodes], [point[1] for point in nodes],
-        s=4.0, color="#20272B", linewidths=0, alpha=0.78, zorder=5,
+        s=4.0, color=INK, linewidths=0, alpha=0.78, zorder=5,
     )
     colorbar = figure.colorbar(collection, ax=axis, fraction=0.024, pad=0.018)
     colorbar.set_label(label, fontsize=8)
@@ -131,26 +137,49 @@ def map_figure(rows, field, label, output):
     save_figure(figure, output)
 
 
-def scatter_figure(rows, output):
+def scatter_figure(rows, output, labels=None):
     hulten = np.asarray([float(row["hulten"]) for row in rows])
     welfare = np.asarray([float(row["primitive_F"]) for row in rows])
     scale = 1.0e4
     x, y = scale*hulten, scale*welfare
-    lower = min(x.min(), y.min())
-    upper = max(x.max(), y.max())
-    padding = 0.04*(upper-lower)
+    limits = shared_identity_limits(x, y)
     figure, axis = plt.subplots(figsize=(4.8, 4.4))
     axis.scatter(x, y, s=18, alpha=0.38, color=BLUE, edgecolors="none")
     axis.plot(
-        [lower-padding, upper+padding], [lower-padding, upper+padding],
-        color="#333333", linewidth=0.9, linestyle="--",
+        limits, limits, color=MUTED, linewidth=0.8, linestyle=(0, (3, 2)),
     )
-    axis.set_xlim(lower-padding, upper+padding)
-    axis.set_ylim(lower-padding, upper+padding)
-    axis.set_xlabel(r"Traditional statistic ($\times 10^{-4}$)")
-    axis.set_ylabel(r"Extended statistic ($\times 10^{-4}$)")
-    axis.spines[["top", "right"]].set_visible(False)
-    axis.grid(color="#DDDDDD", linewidth=0.5, alpha=0.6)
+    pearson, spearman = correlations(x, y)
+    axis.text(
+        0.03, 0.97,
+        f"Pearson {pearson:.3f}\nRank {spearman:.3f}",
+        transform=axis.transAxes, ha="left", va="top", fontsize=7.5,
+    )
+    label_lookup = labels or {}
+    top = np.argsort(y)[-3:]
+    placements = (
+        ((7, 6), "left"),
+        ((-8, 27), "right"),
+        ((8, 9), "left"),
+    )
+    for rank, index in enumerate(top):
+        row = rows[index]
+        label = label_lookup.get(
+            row["physical_link_id"], row["physical_link_id"])
+        offset, alignment = placements[rank]
+        axis.annotate(
+            label, (x[index], y[index]),
+            xytext=offset, textcoords="offset points",
+            ha=alignment, va="bottom", fontsize=5.5, color=INK,
+            linespacing=1.05,
+            arrowprops={"arrowstyle": "-", "color": MUTED, "lw": 0.45},
+            bbox={"facecolor": "white", "edgecolor": "none",
+                  "alpha": 0.82, "pad": 0.7},
+        )
+    axis.set_xlim(*limits)
+    axis.set_ylim(*limits)
+    axis.set_xlabel(r"Traditional approach ($\times 10^{-4}$)")
+    axis.set_ylabel(r"Extended approach ($\times 10^{-4}$)")
+    style_axis(axis, grid_axis="both")
     save_figure(figure, output)
 
 
@@ -169,40 +198,36 @@ def interval_plot(axis, rows, specifications, scale=1.0, zero_line=False):
     axis.set_yticklabels([label for _, label, _ in specifications])
     axis.invert_yaxis()
     axis.tick_params(axis="both", labelsize=8, length=0)
-    axis.spines[["top", "right", "left"]].set_visible(False)
-    axis.spines["bottom"].set_color("#888888")
-    axis.grid(axis="x", color="#DDDDDD", linewidth=0.5, alpha=0.55)
-    if zero_line:
-        axis.axvline(0.0, color="#777777", linewidth=0.75, zorder=0)
+    style_axis(axis, grid_axis="x", zero_line=zero_line)
+    axis.spines["left"].set_visible(False)
 
 
 def decomposition_figure(rows, output):
-    figure, axes = plt.subplots(1, 3, figsize=(11.8, 4.5))
+    figure, axes = plt.subplots(1, 3, figsize=(11.8, 4.3))
     interval_plot(
         axes[0], rows,
         [
-            ("hulten", "Traditional statistic", GRAY),
-            ("realized_NC", "No congestion", BLUE),
-            ("realized_F", "Full edge-local model", GREEN),
-            ("realized_FM", "Fixed modes", PURPLE),
-            ("realized_FR", "Fixed routes", ORANGE),
-            ("primitive_F", "Primitive cost", RED),
+            ("hulten", "Traditional approach", MUTED),
+            ("realized_NC", "No congestion", TEAL),
+            ("realized_NT", "Road congestion", TEAL),
+            ("realized_F", "Full realized-cost effect", TEAL),
+            ("primitive_F", "Extended approach", BLUE),
         ],
         scale=1.0e4,
     )
-    axes[0].set_title("A. Elasticities by closure", loc="left", fontsize=10)
+    add_panel_label(axes[0], "A", "From traditional to extended")
     axes[0].set_xlabel(r"Welfare elasticity ($\times 10^{-4}$)", fontsize=8)
 
     interval_plot(
         axes[1], rows,
         [
-            ("d_edge", "Road congestion", GREEN),
-            ("d_mode", "Modal adjustment", PURPLE),
+            ("d_edge", "Road congestion", TEAL),
+            ("d_mode", "Flexible modes", PURPLE),
             ("d_route", "Route adjustment", ORANGE),
         ],
         zero_line=True,
     )
-    axes[1].set_title("B. Multiplier comparisons", loc="left", fontsize=10)
+    add_panel_label(axes[1], "B", "Alternative adjustments")
     axes[1].set_xlabel("Normalized multiplier difference", fontsize=8)
 
     component_rows = []
@@ -216,14 +241,14 @@ def decomposition_figure(rows, output):
         [
             ("primitive_externality", "Externalities", BLUE),
             ("primitive_propagation", "Equilibrium propagation", ORANGE),
-            ("primitive_edge", "Road congestion", GREEN),
+            ("primitive_edge", "Road congestion", TEAL),
             ("primitive_pass_through", "Primitive pass-through", RED),
-            ("primitive_net_gap", "Net Hulten gap", GRAY),
+            ("primitive_net_gap", "Net traditional gap", MUTED),
         ],
         scale=1.0e4,
         zero_line=True,
     )
-    axes[2].set_title("C. Additive Hulten gap", loc="left", fontsize=10)
+    add_panel_label(axes[2], "C", "Traditional-to-extended gap")
     axes[2].set_xlabel(r"Signed elasticity component ($\times 10^{-4}$)", fontsize=8)
 
     figure.subplots_adjust(wspace=0.48)
@@ -236,50 +261,53 @@ def sensitivity_figure(rows, output):
         "common_congestion", "lambda_terminal",
     ]
     labels = {
-        "alpha": r"Productivity externality $\alpha$",
-        "beta": r"Amenity externality $\beta$",
+        "alpha": "Productivity externality\n" + r"$\alpha$",
+        "beta": "Amenity externality\n" + r"$\beta$",
         "net_dispersion": "Net dispersion",
-        "eta": r"Mode substitution $\eta$",
+        "eta": "Mode substitution\n" + r"$\eta$",
         "lambda_road": "Road congestion",
-        "common_congestion": "Common congestion scale",
-        "lambda_terminal": "Terminal congestion extension",
+        "common_congestion": "Common congestion\nscale",
+        "lambda_terminal": "Terminal congestion\nextension",
     }
     grouped = {parameter: [] for parameter in parameters}
     for row in rows:
         grouped[row["parameter"]].append(row)
-    figure, axes = plt.subplots(3, 3, figsize=(9.2, 7.2))
-    for axis, parameter in zip(axes.flat, parameters):
+    figure, axes = plt.subplots(
+        len(parameters), 2, figsize=(8.2, 10.0), squeeze=False)
+    for row_index, parameter in enumerate(parameters):
         data = sorted(grouped[parameter], key=lambda row: float(row["value"]))
         x = np.asarray([float(row["value"]) for row in data])
         mean_gain = 1.0e4*np.asarray(
             [float(row["mean_physical_gain_pct"]) for row in data])
         rank = np.asarray([float(row["spearman_vs_baseline"]) for row in data])
-        axis.plot(x, mean_gain, color=BLUE, linewidth=1.4, marker="o", markersize=3.5)
-        axis.set_title(labels[parameter], fontsize=9)
-        axis.tick_params(labelsize=7)
-        axis.spines[["top", "right"]].set_visible(False)
-        axis.grid(axis="y", color="#DDDDDD", linewidth=0.5, alpha=0.6)
-        rank_axis = axis.twinx()
-        rank_axis.plot(x, rank, color=ORANGE, linewidth=1.0, linestyle="--")
-        rank_axis.set_ylim(min(0.8, rank.min()-0.01), 1.005)
-        rank_axis.set_yticks([0.8, 0.9, 1.0])
-        rank_axis.tick_params(labelsize=7, colors=GRAY)
-        rank_axis.spines["top"].set_visible(False)
-        rank_axis.spines["right"].set_color("#BBBBBB")
-    for axis in axes.flat[len(parameters):]:
-        axis.axis("off")
-    axes[1, 0].set_ylabel(
-        r"Mean gain from a 1% improvement ($\%\times 10^{4}$)", fontsize=8)
-    axes[2, 1].text(
-        0.0, 0.65, "Solid: mean model-implied gain", color=BLUE,
-        transform=axes[2, 1].transAxes, fontsize=8,
-    )
-    axes[2, 1].text(
-        0.0, 0.48, "Dashed: rank correlation with baseline", color=ORANGE,
-        transform=axes[2, 1].transAxes, fontsize=8,
-    )
-    axes[2, 1].axis("off")
-    figure.subplots_adjust(wspace=0.42, hspace=0.48)
+        mean_axis, rank_axis = axes[row_index]
+        mean_axis.plot(
+            x, mean_gain, color=BLUE, marker="o", markersize=3.0)
+        rank_axis.plot(
+            x, rank, color=ORANGE, marker="o", markersize=3.0)
+        style_axis(mean_axis, grid_axis="y")
+        style_axis(rank_axis, grid_axis="y")
+        rank_lower = max(0.8, float(rank.min())-0.01)
+        rank_upper = min(1.005, float(rank.max())+0.005)
+        rank_axis.set_ylim(rank_lower, rank_upper)
+        mean_axis.tick_params(axis="x", labelsize=6.5)
+        rank_axis.tick_params(axis="x", labelsize=6.5)
+    axes[-1, 0].set_xlabel("Parameter value")
+    axes[-1, 1].set_xlabel("Parameter value")
+    add_panel_label(
+        axes[0, 0], "A", r"Mean welfare gain ($\%\times 10^{4}$)")
+    add_panel_label(
+        axes[0, 1], "B", "Rank correlation with baseline")
+    figure.subplots_adjust(
+        left=0.24, right=0.99, bottom=0.07, top=0.97,
+        wspace=0.34, hspace=0.38)
+    for row_index, parameter in enumerate(parameters):
+        bounds = axes[row_index, 0].get_position()
+        figure.text(
+            0.015, 0.5*(bounds.y0+bounds.y1), labels[parameter],
+            ha="left", va="center", fontsize=7.3, color=INK,
+            linespacing=1.05,
+        )
     save_figure(figure, output)
 
 
@@ -291,15 +319,29 @@ def main():
     geometry = read_rows(args.input_dir / "paper_link_geometry.csv")
     physical = read_rows(args.input_dir / "decomposition_physical.csv")
     sensitivity = read_rows(args.input_dir / "paper_sensitivity.csv")
+    label_rows = read_rows(args.input_dir / "paper_link_labels.csv")
+    labels = {
+        row["physical_link_id"]: plot_link_label(row)
+        for row in label_rows
+    }
+    map_values = np.concatenate((
+        np.asarray([float(row["hulten"]) for row in geometry]),
+        np.asarray([float(row["primitive_F"]) for row in geometry]),
+    ))
+    map_norm, map_cmap = welfare_norm(
+        map_values, robust=True, include_zero=True)
     map_figure(
-        geometry, "hulten", "Traffic share",
+        geometry, "hulten", "Traditional approach: welfare elasticity",
         args.output_dir / "rsue_hulten_map",
+        norm=map_norm, cmap=map_cmap,
     )
     map_figure(
-        geometry, "primitive_F", "Welfare elasticity",
+        geometry, "primitive_F", "Extended approach: welfare elasticity",
         args.output_dir / "rsue_ift_map",
+        norm=map_norm, cmap=map_cmap,
     )
-    scatter_figure(physical, args.output_dir / "rsue_hulten_vs_ift")
+    scatter_figure(
+        physical, args.output_dir / "rsue_hulten_vs_ift", labels)
     decomposition_figure(physical, args.output_dir / "rsue_decomposition")
     sensitivity_figure(sensitivity, args.output_dir / "rsue_sensitivity")
 

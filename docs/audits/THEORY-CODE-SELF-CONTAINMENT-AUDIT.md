@@ -2,153 +2,128 @@
 
 **Audit date:** 2026-07-26
 
-**Package baseline:** `de708f21eccfc18b36f1c3502ae2c932cca59d8f`
+**Package branch:** `codex/practitioner-guide`
+
+**Package baseline:** `b6e08398a9e49e720f8594743a604197a50bbe33`
 
 **Paper baseline:** Overleaf `cef3a13b539555bd568cb13332b5835d074afe18`
 
-**Theory-library baseline:** Mathdown `23f350a4de16eb842803f53267278deccb724f5d`
+**Theory-library baseline:** Mathdown
+`82a7cb3194a470d1fca001615d513d3d8822de36`
 
-**Theory-library reconciliation:** Mathdown `82a7cb3194a470d1fca001615d513d3d8822de36`
-([draft PR #94](https://github.com/sfuchs-de/mathdown-library/pull/94))
+## Decisions
 
-## Executive findings
+| Dimension | Decision |
+| --- | --- |
+| Paper theory implemented by the active economic-geography path | **Accepted** |
+| Negative-power multimodal derivative | **Accepted** |
+| Exact closure and decomposition identities | **Accepted** |
+| Synthetic guide results | **Accepted and self-contained** |
+| Accepted RSUE aggregate claims | **Accepted and hash-bound** |
+| Generic package reproducibility | **Accepted** |
+| Restricted RSUE microdata replication | **External data required** |
+| Seattle empirical replication | **External data required; candidate extension** |
+| Offline Julia and registry installation | **Not claimed** |
 
-### Theory: accepted with stated scope
+The guide and package compute model-implied economic benefits from marginal
+transport-cost changes. They do not constitute a complete social
+cost-benefit analysis. Construction costs, financing, safety, pollution,
+local disamenities, displacement, and distributional incidence require
+additional data and welfare terms.
 
-The active economic-geography implementation matches the paper's maintained
-model: a negative-power modal logsum, recursive routing with curvature
-\(\sigma-1\), world-income-normalized value traffic, edge-local road
-congestion in the headline application, and an adjoint/IFT welfare derivative.
-The endpoint-terminal and urban commuting systems are extensions and are
-identified as such.
+## Authority and provenance
 
-The package does not establish that the model is a complete social
-cost-benefit analysis. Construction costs, financing, pollution, safety,
-neighborhood effects, displacement, and distributional incidence are outside
-the welfare derivative. The code computes the model-implied economic benefit
-of the declared transport-cost shock.
+The journal manuscript governs paper-facing equations and claims. The package
+governs executable behavior and tested interfaces. The Mathdown project
+curates derivations and unresolved decisions. Restricted empirical adapters
+remain downstream of their source manifests.
 
-### Implementation: accepted
+The private Overleaf `overleaf/live` cache was stale at the start of this
+audit. It was rebuilt from `git show` at `cef3a13` rather than copied from a
+working directory. All 11 cached files now match the corresponding Git objects
+byte for byte, and their SHA-256 values and commit timestamp are recorded in
+the private snapshot manifest. No Overleaf file, commit, or branch was
+modified.
 
-The active path uses `modal_power(ChoiceLogsum)=-eta` throughout the common
-route-modal-congestion system. It builds the no-congestion spatial Jacobian,
-eliminates the transport block by a Schur complement, forms primitive and
-realized shock vectors, and projects the resulting state derivative with the
-welfare row. Closure and decomposition identities are checked before results
-are released.
+The guide reads paper-facing theory from that fixed snapshot. The snapshot is
+evidence for the audit and is absent from the guide build dependency graph.
 
-Two exported functions in `AdjointRSUE.jl`, `congestion_J` and `chi_wedge`,
-implement the older positive-power `ComponentCES` formulas. They are retained
-for legacy verification and are now labeled accordingly. They are not called
-by the active paper configuration.
-
-### Numerical results: accepted
-
-An isolated run of the current branch on the hash-verified restricted inputs
-reproduces the paper's 352 physical-link results to machine precision:
-
-| Statistic | Paper ledger | Current branch | Absolute difference |
-| --- | ---: | ---: | ---: |
-| Mean extended elasticity | 0.0002230950010678702 | 0.0002230950010678695 | \(7.0\times10^{-19}\) |
-| Median extended elasticity | 0.0001807021850859650 | 0.0001807021850859649 | \(5.4\times10^{-20}\) |
-| Maximum extended elasticity | 0.0008718749697784170 | 0.0008718749697784064 | \(1.1\times10^{-17}\) |
-| Pearson correlation with Hulten | 0.9474377146863427 | 0.9474377146863426 | \(1.1\times10^{-16}\) |
-| Spearman rank correlation | 0.9591921172385324 | 0.9591921172385319 | \(4.4\times10^{-16}\) |
-
-The independently solved nonlinear choice-logsum system gives a maximum
-absolute finite-difference error of \(1.61\times10^{-15}\) on the stratified
-RSUE policy sample. This is well below the \(10^{-6}\) acceptance threshold.
-
-### Generic reproducibility: accepted
-
-A fresh local clone can instantiate the Julia environment, validate and
-decompose the toy project, build the HTML documentation, and run the full test
-suite. The restricted-data test run reports 628 passes and two expected skips:
-the pinned Sioux Falls integration source and the complete Seattle external
-data bundle. The toy, Braess, cow, urban-toy, and urban-multimodal inputs are
-committed and require no private data.
-
-The package resolves its declared Julia dependencies from the standard
-registry. Self-containment therefore covers source, configuration, and
-reproducible dependency resolution; it does not include an offline copy of
-Julia or the package registry.
-
-### Restricted empirical replication: accepted with external-data boundary
-
-The RSUE and Seattle adapters are reproducible but not self-contained data
-bundles. They require external files whose names and hashes are declared in
-their source manifests. Missing, stale, or inconsistent files cause an
-explicit failure. Credentials and restricted raw inputs are not committed.
-
-## Authority and model states
+## Model states
 
 | Model state | Modal index | Congestion | Status |
 | --- | --- | --- | --- |
-| Active paper application | `ChoiceLogsum(1.099)` | Edge-local road, 0.092 | Accepted |
-| Corrected generalized implementation | `ChoiceLogsum` | Modular edge/terminal | Accepted |
-| Endpoint-terminal extension | `ChoiceLogsum` | Edge plus endpoint-terminal | Verified extension |
+| Active paper application | `ChoiceLogsum(1.099)` | Edge-local road | Accepted |
+| Generic economic-geography model | `ChoiceLogsum` | Modular edge and terminal | Accepted |
+| Endpoint-terminal extension | `ChoiceLogsum` | Edge plus endpoint terminal | Verified extension |
 | Urban commuting extension | `ChoiceLogsum` | Shared transport block, urban welfare row | Verified synthetic extension |
-| Frozen legacy replication | `ComponentCES` | Historical reduced system | Provenance only |
+| Historical replication helper | `ComponentCES` | Legacy reduced system | Legacy-only |
 
-Overleaf governs the journal-facing statement. This repository governs
-executable behavior. The practitioner guide is downstream of both and names
-the governing source for each claim.
+The active index is
 
-## Equation-to-code ledger
+\[
+\kappa_e=\left(\sum_m\kappa_{e,m}^{-\eta}\right)^{-1/\eta},
+\qquad
+s_{e,m}=\frac{\kappa_{e,m}^{-\eta}}
+{\sum_n\kappa_{e,n}^{-\eta}}.
+\]
 
-| Paper object or result | Paper anchor | Implementation anchor | Main verification | Status |
-| --- | --- | --- | --- | --- |
-| Negative-power modal logsum and mode shares | `2_Model.tex`, eq. `mode-ces` | `Specifications.jl:21-44`; `CompleteEngine.jl:257-267` | `test/test_modal.jl` nonlinear central differences | Accepted |
-| Route recursion and curvature \(\sigma-1\) | `2_Model.tex`, eqs. `tau-soft`, `tau-recursive` | `CompleteEngine.jl:115-137`; `SharedTransport.jl:28-47` | route contraction, bilateral margins, edge traffic | Accepted |
-| World-income traffic share | `2_Model.tex`, eq. `traffic` | `DataIO.jl`; `IFTDecomposition.reconstruct_route_kernel` | accounting and coherent-rescaling tests | Accepted |
-| Spatial regularity \(e\) and \(\rho\) | Proposition 2 | `Specifications.jl:130-151`; `AdjointRSUE.jl:32-55` | coefficient and singular-boundary tests | Accepted |
-| No-congestion Jacobian \(J^0\) | Appendix A residual system | `AdjointRSUE.assemble_J`; `CompleteEngine.build_closures` | Python oracle and dense-Jacobian tests | Accepted |
-| Welfare row \(q\) | Appendix A welfare closure | `AdjointRSUE.welfare_gradient` | oracle and efficient-collapse tests | Accepted |
-| Market-access exposure \(\mathcal T\) | Proposition 2 and traffic lemma | `AdjointRSUE.node_visit_stock`; generic data loader | traffic-factorization and stock-agreement tests | Accepted; technical alias retained |
-| Realized cost forcing | Appendix A \(b^r\) | `decomposition_rows`, `realized_forcing` | inverse-gap and closure-ladder identities | Accepted |
-| Primitive cost forcing and \(\chi\) | Proposition 2 \(\zeta,\chi\) | `CompleteEngine.primitive_forcing`; `effective_ratio` | independent nonlinear finite differences | Accepted |
-| Proposition 1/Hulten collapse | Proposition 1 and corollary | `decomposition_rows`, H closure | efficient fixtures and Python oracle | Accepted |
-| Proposition 2 edge elasticity | Proposition 2 | adjoint solve plus primitive forcing | RSUE finite differences and edge-local/full agreement | Accepted |
-| Schur transport elimination | Computational Appendix C | `build_transport_closure`, lines 270-302 | eliminated versus uneliminated systems | Accepted |
-| `H`, `NC`, `NT`, `F`, `FM`, `FR` | Computational Appendix C | `build_closures`, lines 324-381 | ladder and inverse-gap residuals | Accepted |
-| Exact decomposition channels | Computational Appendix C | `structured_gap`; `mixed_channels` | Jacobian and channel reconstruction | Accepted |
-| Physical-link policy | Data and quantitative sections | `PolicySpecification`; `aggregate_physical` | reciprocal-pair and aggregation tests | Accepted |
-| Urban commuting extension | Package documentation, not active paper | `UrbanEngine.jl`; `UrbanNonlinear.jl` | one-mode oracle and nonlinear multimodal checks | Verified extension |
+The package implements this convention through
+`modal_power(ChoiceLogsum) = -eta`. `ComponentCES` and the positive-power
+helpers in `AdjointRSUE.jl` remain available for historical regression tests.
+The guide labels them legacy-only and excludes them from the paper and urban
+choice-logsum paths.
 
-## Proposition 1 audit
+## Theory-code crosswalk
 
-The paper's first proposition is an envelope result. With
-\(\alpha=\beta=\lambda_m=0\), the competitive allocation is efficient under
-the maintained mobile-labor model. The first-order effects of induced changes
-in prices, locations, routes, and modal allocations vanish. Differentiating
-the resource cost with respect to the primitive edge-mode cost leaves the
-observed edge-mode traffic share:
+| Paper object or result | Implementation | Verification | Status |
+| --- | --- | --- | --- |
+| Negative-power modal logsum | `Specifications.jl`, `CompleteEngine.jl` | modal analytic and nonlinear finite differences | Accepted |
+| Recursive route kernel and curvature \(\sigma-1\) | `CompleteEngine.jl`, `SharedTransport.jl` | contraction, absorption, margins, edge traffic | Accepted |
+| Edge-mode traffic \(\Xi_{e,m}=s_{e,m}\Xi_e\) | route reconstruction and modal lift | traffic factorization and mode permutation | Accepted |
+| World-income traffic normalization | `DataIO.jl`, route reconstruction | accounting and coherent rescaling | Accepted |
+| Spatial coefficients \(e\) and \(\rho\) | `Specifications.jl`, `AdjointRSUE.jl` | coefficient and singular-boundary tests | Accepted |
+| No-congestion Jacobian \(J^0\) | `assemble_J`, `build_closures` | Python oracle and dense-Jacobian checks | Accepted |
+| Welfare row and adjoint | `welfare_gradient`, adjoint solve | direct-solve equivalence and efficient collapse | Accepted |
+| Market-access exposure \(\mathcal T\) | exposure reconstruction | traffic-factorization identities | Accepted |
+| Realized-friction forcing | `realized_forcing` | closure identities and finite differences | Accepted |
+| Primitive forcing, \(\zeta\), and \(\chi=\zeta/s\) | `primitive_forcing`, `effective_ratio` | nonlinear finite differences | Accepted |
+| Proposition 1 | `H` closure | efficient fixtures and Python oracle | Accepted |
+| Proposition 2 | adjoint solve plus primitive forcing | Python oracle, synthetic and RSUE finite differences | Accepted |
+| Schur transport elimination | `build_transport_closure` | eliminated and block-system equality | Accepted |
+| `H`, `NC`, `NT`, `F`, `FM`, `FR` | `build_closures` | ladder and inverse-gap identities | Accepted |
+| Exact decomposition channels | `structured_gap`, `mixed_channels` | Jacobian and channel reconstruction | Accepted |
+| Bidirectional physical-link policy | `PolicySpecification`, `aggregate_physical` | reciprocal pairing and independent aggregation | Accepted |
+| Urban commuting extension | `UrbanEngine.jl`, `UrbanNonlinear.jl` | one-mode oracle and multimodal nonlinear checks | Verified extension |
+
+### Proposition 1
+
+At an efficient baseline, induced changes in prices, allocations, routes, and
+modes have no first-order welfare effect under the maintained welfare
+criterion. The derivative therefore reduces to observed edge-mode traffic:
 
 \[
 -\frac{d\log W}{d\log\bar\kappa_{kl,m}}=\Xi_{kl,m}.
 \]
 
-The implementation checks this result in efficient fixtures and requires the
-error to be below \(10^{-8}\). The result should not be carried mechanically
-to a model with a distorted baseline, omitted incidence terms, or a welfare
-aggregator that does not represent the planner's objective.
+The implementation tests this collapse directly. The statement depends on the
+efficient allocation and welfare aggregation; it is not automatically valid
+under omitted distortions or alternative incidence rules.
 
-## Proposition 2 audit
+### Proposition 2
 
-Let \(z\) denote the transformed spatial state and write the equilibrium
-residual as \(G(z,\theta)=0\). At an interior baseline with nonsingular
-Jacobian \(J=G_z\), the Implicit Function Theorem gives
+For equilibrium residual \(G(z,\theta)=0\) and nonsingular
+\(J=G_z\), the Implicit Function Theorem gives
 
 \[
 \frac{dz}{d\theta_{klm}}=-J^{-1}G_{\theta_{klm}}.
 \]
 
-The code solves the adjoint system \(J^\top a=q\), where \(q\) is the welfare
-row, and evaluates the derivative as \(-a^\top G_{\theta_{klm}}\). This is
-algebraically equivalent to solving once for every policy shock, but it
-requires one adjoint solve followed by sparse products.
+The code solves \(J^\top a=q\) once and evaluates each welfare derivative from
+the corresponding forcing vector. This is algebraically equivalent to a
+separate state solve for each policy, but is much cheaper when the policy set
+is large.
 
-The paper's economics-facing expression is
+The paper's economics-facing statistic is
 
 \[
 -\frac{d\log W}{d\theta_{klm}}
@@ -156,15 +131,14 @@ The paper's economics-facing expression is
 \left(\mathcal M_k^{in}+\mathcal M_l^{out}\right).
 \]
 
-The implementation does not insert \(\chi\) as an independently chosen scalar.
-It constructs the primitive edge-mode shock, lets route, modal, and congestion
-quantities respond through the transport system, and records the effective
-ratio when the realized derivative is nonzero.
+The package constructs the primitive forcing through the route, modal, and
+congestion system. It does not impose \(\chi\) as a calibrated scalar. When the
+realized derivative is nonzero, the output also records the effective ratio
+between primitive and realized effects.
 
-## Decomposition audit
+### Closure decomposition
 
-Every closure uses the same observed baseline and policy forcing. The code
-constructs:
+All closures use the same observed baseline and policy forcing:
 
 - `NC`: flexible routes and modes, no congestion;
 - `NT`: flexible routes and modes, edge congestion;
@@ -173,7 +147,7 @@ constructs:
 - `FR`: full congestion with baseline origin-destination edge incidence fixed;
 - `H`: observed traffic only.
 
-The reported wedges obey
+The package verifies
 
 \[
 m_F=m_{NC}-d_{edge}-d_{terminal}
@@ -181,73 +155,119 @@ m_F=m_{NC}-d_{edge}-d_{terminal}
 =m_{FR}+d_{route}.
 \]
 
-The inverse-gap identity is checked directly for every policy arc. The code
-also reconstructs each closure Jacobian from its sparse allocation block,
-aggregate feedback term, edge block, and terminal block. Mode and route
-comparisons use the explicit mixed update and Woodbury correction. No
-rank-reduction fit or ridge regularization is used.
+It reconstructs each closure Jacobian from analytical allocation, aggregate
+feedback, road, and terminal blocks. The mode and route comparisons use the
+mixed update and Woodbury correction. No fitted rank reduction, ridge
+regularization, or silent route deletion is used.
 
-## Reproducibility boundary
+## Worked-example audit
 
-### Included in a clone
+The guide now uses one example throughout: 25 economic locations on a
+five-by-five reciprocal road grid, with transit available on the four central
+east-west links. Each location has positive activity. The input builder
+creates balanced margins and directed flows from the same recursive
+accounting system used by the model. No private data or hidden balancing step
+is involved.
 
-- Julia source, tests, schemas, CLI, and documentation;
-- complete toy, Braess, cow, and synthetic urban inputs;
-- expected aggregate RSUE metrics and non-sensitive hashes;
-- data acquisition and adapter code for the external examples.
+The committed example has:
 
-### Required externally
+- 25 nodes;
+- 80 directed road arcs and 40 reciprocal physical road links;
+- eight directed transit edge-mode observations on the central spine;
+- 88 positive-flow edge-mode pairs;
+- route-kernel spectral radius 0.369;
+- full-Jacobian condition number \(9.16\times10^3\);
+- maximum inverse-gap residual \(1.10\times10^{-15}\);
+- maximum channel-reconstruction residual \(1.65\times10^{-13}\).
 
-- a Julia installation and registry access for first-time dependency
-  resolution;
-- restricted domestic RSUE inputs for the paper replication;
-- the Allen--Arkolakis archive and pinned external sources for Seattle;
-- Python only for optional publication plotting, not for Julia analysis or the
-  practitioner-guide PDF build.
+The mean traditional and primitive extended elasticities are 0.010520 and
+0.005425. Their Pearson and rank correlations are 0.990 and 0.909. One
+horizontal link rises from rank 26 to 17, while one vertical link falls from
+rank 17 to 28. These changes are modest at the top of the ranking. They are
+larger among links with similar direct traffic.
+
+The signed mean components of traditional minus extended welfare are:
+
+| Component | Mean contribution |
+| --- | ---: |
+| Externality scale | 0.027352 |
+| Equilibrium propagation | -0.027426 |
+| Road congestion | -0.001543 |
+| Terminal congestion | -0.000142 |
+| Primitive-cost pass-through | 0.006855 |
+
+The positive externality term and negative propagation term nearly cancel.
+The guide reports signed levels because percentage shares would be unstable
+relative to the smaller net gap.
+
+All example statistics, the top-link table, and four figures are generated by
+`scripts/build_practitioner_guide_assets.jl`. A separate check regenerates the
+sources and figures in temporary directories and rejects byte-level drift.
+Representative road and transit shocks pass independent central finite
+differences below \(10^{-6}\). The efficient, one-mode, unique-route, and
+zero-terminal limits are tested explicitly.
+
+## RSUE result audit
+
+The accepted aggregate result vintage has 234 nodes, 704 directed policies,
+and 352 bidirectional physical-link experiments. The public-safe ledger
+reports:
+
+| Statistic | Value |
+| --- | ---: |
+| Mean traditional elasticity | 0.0003872368807309085 |
+| Mean realized full-model elasticity | 0.0005133741112112903 |
+| Mean primitive extended elasticity | 0.00022309500106786957 |
+| Median primitive extended elasticity | 0.00018070218508596492 |
+| Maximum primitive extended elasticity | 0.0008718749697784064 |
+| Pearson correlation with traditional statistic | 0.9474377146863426 |
+| Spearman rank correlation | 0.9591921172385324 |
+| Top-ten overlap | 4 |
+
+The tracked aggregate ledger is bound to the accepted configuration, Census
+overlay, directed output, physical output, and restricted source claim ledger
+by SHA-256. Its numerical values are checked against
+`expected_summary.toml`. When the restricted output files are present, the
+guide asset generator verifies their hashes too. A fresh clone can therefore
+verify and display the accepted aggregate claims without containing the
+restricted result table or raw inputs.
+
+The accepted RSUE decomposition also contains large offsetting signed terms:
+externality scale \(0.0010068\), equilibrium propagation \(-0.0011017\), road
+congestion \(-0.0000313\), terminal congestion zero in the headline
+specification, and primitive-cost pass-through \(0.0002903\).
 
 ## Verification performed
 
-- The full Julia suite passed 628 tests. The two expected skips require the
-  pinned Sioux Falls source files and the complete Seattle external-data
-  bundle.
-- The independent Proposition 2 oracle passed all 55 checks.
-- The restricted RSUE builder reproduced the accepted numerical summary twice.
-  All generated analytical tables, claims, TeX macros, and figures had
-  identical hashes. The run manifest itself differed only because it records
-  its creation time; its embedded output-hash map was unchanged.
-- The compact practitioner guide compiled to 43 pages without undefined
-  citations or references. Visual inspection covered the title page, theory, worked
-  example, code crosswalk, and provenance appendix.
-- The prose lint found no P0 or P1 issues. Its strict technical-source scan
-  flags repeated TOML section names, schema headings, and quantified words such
-  as “every” in validation requirements. These are retained because they state
-  exact configuration and domain conditions rather than serving as prose
-  scaffolding.
+- Full Julia suite: 621 passes and three documented expected failures for
+  external-data integration gates.
+- Independent Proposition 2 oracle: 55 of 55 checks passed.
+- Grid example: analysis and decomposition passed all algebraic,
+  contraction, conditioning, finite-difference, and limiting-case gates.
+- Generated source assets and standalone figures reproduced byte for byte.
+- HTML documentation built with doctests and cross-reference checks.
+- Practitioner guide: 44 pages, no undefined citations or references, no
+  duplicate bibliography keys, no LaTeX errors, and no overfull boxes.
+- Visual inspection covered the title page, complete worked example, RSUE
+  summary, provenance appendix, and references.
+- A clean source clone, after `Pkg.instantiate()`, built and checked the guide
+  without Dropbox, Overleaf, credentials, Python, or restricted data. Its PDF
+  matched the workspace build byte for byte (SHA-256
+  `69b4c991bc01ec5743f042a80d4624ea3487d4d1a3d0b864ea15ef14bfd1d7b3`).
+- Provenance validation checked nine kernel records.
+- Secret scan and `git diff --check` passed.
+- Strict prose lint passed for authored guide prose. The schema appendix
+  retains one technical repetition warning caused by repeated field
+  requirements in a reference table.
 
-## Residual risks and release gates
+## Remaining release gates
 
-1. The package is still version `0.1.0` on stacked draft feature branches.
-   Public release should wait until those branches are integrated and tagged.
-2. The active paper result table is numerically reproduced and the expected
-   summary now binds the current CSV and claim-ledger hashes. A release tag
-   should freeze these files again after the stacked feature branches merge.
-3. Mathdown commit `82a7cb3` reconciles the synthesis, claim ledger, source
-   manifest, and urban extension with the accepted negative-power modal choice
-   and 234-node result vintage. This documentation remains a release gate until
-   draft PR #94 is reviewed and merged.
-4. Seattle GTFS supplies routes and schedules, not passenger counts. ACS
-   residential mode shares and the external Metro route table do not identify
-   route-level commuter flows without additional assumptions.
-
-## Acceptance decision
-
-| Dimension | Decision |
-| --- | --- |
-| Paper theory implemented by active economic-geography path | **Accepted** |
-| Choice-logsum analytical derivative | **Accepted** |
-| Exact closure and decomposition implementation | **Accepted** |
-| Accepted RSUE numerical claims | **Accepted** |
-| Generic package self-containment | **Accepted** |
-| Offline-vendored installation | **Not claimed** |
-| Restricted RSUE and Seattle data self-containment | **Not applicable; external-data modules** |
-| Current explanatory and Mathdown documentation | **Reconciled on draft branches; merge pending** |
+1. The package remains version `0.1.0` on a feature branch. A public release
+   requires review, integration, a tag, and coauthor approval.
+2. The public-safe RSUE ledger permits aggregate verification, not
+   reconstruction of restricted microdata or link-level empirical results.
+3. The Seattle module is an external-data extension. Historical GTFS records
+   routes and schedules, not passenger counts; route-level ridership requires
+   additional data or assumptions.
+4. The package resolves Julia dependencies from the standard registry. It
+   does not vendor Julia or an offline registry.

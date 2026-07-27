@@ -3,23 +3,40 @@
 
 import argparse
 import csv
+import json
 from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
-from matplotlib.colors import Normalize
 from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
 import numpy as np
+
+try:
+    from plots.figure_style import (
+        INK, MUTED, metric_label, save_figure, welfare_norm,
+    )
+except ModuleNotFoundError:
+    from figure_style import (
+        INK, MUTED, metric_label, save_figure, welfare_norm,
+    )
 
 
 def read_nodes(path: Path):
     with path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
-    required = {"node_id", "income", "longitude", "latitude"}
+    required = {"node_id", "longitude", "latitude"}
     if not rows or not required.issubset(rows[0]):
         raise ValueError(f"{path} must contain {sorted(required)}")
+    activity_column = next(
+        (column for column in ("income", "employment", "residents")
+         if column in rows[0]),
+        None,
+    )
+    if activity_column is None:
+        raise ValueError(
+            f"{path} must contain income, employment, or residents for node size")
     nodes = {}
     for row in rows:
         identifier = row["node_id"].strip()
@@ -28,10 +45,12 @@ def read_nodes(path: Path):
         longitude = float(row["longitude"])
         latitude = float(row["latitude"])
         elevation = float(row.get("elevation") or 0.0)
-        income = float(row["income"])
-        if not np.isfinite([longitude, latitude, elevation, income]).all() or income <= 0:
-            raise ValueError(f"node {identifier} has invalid coordinates or income")
-        nodes[identifier] = (longitude, latitude, elevation, income)
+        activity = float(row[activity_column])
+        if (not np.isfinite([longitude, latitude, elevation, activity]).all()
+                or activity <= 0):
+            raise ValueError(
+                f"node {identifier} has invalid coordinates or {activity_column}")
+        nodes[identifier] = (longitude, latitude, elevation, activity)
     return nodes
 
 
@@ -74,10 +93,91 @@ def read_results(path: Path, metric: str, links):
         if not np.isfinite(value):
             raise ValueError(f"physical link {link} has nonfinite {metric}")
         values[link] = value
-    missing = set(links)-set(values)
-    if missing:
-        raise ValueError(f"results omit physical links: {sorted(missing)}")
+    if not values:
+        raise ValueError(f"{path} contains no physical-link results")
     return values
+
+
+def line_parts(geometry):
+    if not isinstance(geometry, dict):
+        raise ValueError("GeoJSON feature is missing a geometry")
+    geometry_type = geometry.get("type")
+    coordinates = geometry.get("coordinates")
+    if geometry_type == "LineString":
+        parts = [coordinates]
+    elif geometry_type == "MultiLineString":
+        parts = coordinates
+    else:
+        raise ValueError(
+            f"link geometry must be LineString or MultiLineString, got {geometry_type!r}")
+    clean = []
+    for part in parts or []:
+        points = np.asarray(part, dtype=float)
+        if (points.ndim != 2 or points.shape[0] < 2 or points.shape[1] < 2
+                or not np.isfinite(points[:, :2]).all()):
+            raise ValueError("GeoJSON line contains invalid coordinates")
+        clean.append(points[:, :2].tolist())
+    if not clean:
+        raise ValueError("GeoJSON line has no usable coordinates")
+    return clean
+
+
+def read_link_geometry(path: Path, links):
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("type") != "FeatureCollection":
+        raise ValueError(f"{path} must be a GeoJSON FeatureCollection")
+    geometries = {}
+    for feature in payload.get("features", []):
+        properties = feature.get("properties") or {}
+        link = str(properties.get("physical_link_id", "")).strip()
+        if not link:
+            raise ValueError(
+                f"{path} contains a feature without physical_link_id")
+        if link not in links:
+            continue
+        geometries.setdefault(link, []).extend(line_parts(feature.get("geometry")))
+    missing = set(links)-set(geometries)
+    if missing:
+        raise ValueError(
+            f"link geometry omits physical links: {sorted(missing)}")
+    return geometries
+
+
+def background_parts(geometry):
+    if not isinstance(geometry, dict):
+        return []
+    geometry_type = geometry.get("type")
+    coordinates = geometry.get("coordinates") or []
+    if geometry_type == "LineString":
+        candidates = [coordinates]
+    elif geometry_type == "MultiLineString":
+        candidates = coordinates
+    elif geometry_type == "Polygon":
+        candidates = coordinates
+    elif geometry_type == "MultiPolygon":
+        candidates = [ring for polygon in coordinates for ring in polygon]
+    else:
+        return []
+    parts = []
+    for candidate in candidates:
+        points = np.asarray(candidate, dtype=float)
+        if (points.ndim == 2 and points.shape[0] >= 2 and points.shape[1] >= 2
+                and np.isfinite(points[:, :2]).all()):
+            parts.append(points[:, :2].tolist())
+    return parts
+
+
+def read_basemap(path: Path):
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    features = (payload.get("features", [])
+                if payload.get("type") == "FeatureCollection"
+                else [{"geometry": payload}])
+    parts = []
+    for feature in features:
+        parts.extend(background_parts(feature.get("geometry")))
+    if not parts:
+        raise ValueError(f"{path} contains no supported GeoJSON geometry")
+    return parts
 
 
 def add_cow_surface(axis):
@@ -192,7 +292,7 @@ def add_ply_surface(axis, path: Path, target_coordinates):
     mapped = target_min+(source-source_min)/source_span*target_span
     surface = Poly3DCollection(
         [mapped[face] for face in faces],
-        facecolor="#9BA2AA", edgecolor="#555B62", linewidth=0.04,
+        facecolor="#9BA2AA", edgecolor=MUTED, linewidth=0.04,
         alpha=0.16, zorder=0,
     )
     axis.add_collection3d(surface)
@@ -202,34 +302,42 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
                  output_path: Path, *, metric="primitive_F", label_top=0,
                  transparent=False, three_dimensional=False,
                  cow_surface=False, surface_ply=None, elevation_angle=18.0,
-                 azimuth=-62.0, dpi=240):
+                 azimuth=-62.0, link_geometry=None, basemap=None, dpi=240):
     nodes = read_nodes(nodes_path)
     links = read_physical_edges(edges_path, nodes)
     values = read_results(results_path, metric, links)
-    ordered = sorted(links)
+    links = {link: links[link] for link in values}
+    ordered = sorted(values)
+    if three_dimensional and (link_geometry is not None or basemap is not None):
+        raise ValueError("GeoJSON link geometry and basemaps are two-dimensional")
+
     def plotted_coordinate(node):
         x, y, depth, _ = nodes[node]
         return (x, depth, y) if three_dimensional else (x, y)
 
-    segments = [[plotted_coordinate(links[link][0]),
-                 plotted_coordinate(links[link][1])]
-                for link in ordered]
+    if link_geometry is None:
+        geometry = {
+            link: [[plotted_coordinate(links[link][0]),
+                    plotted_coordinate(links[link][1])]]
+            for link in ordered
+        }
+    else:
+        geometry = read_link_geometry(Path(link_geometry), links)
+    segment_links = [
+        link for link in ordered for _ in geometry[link]
+    ]
+    segments = [
+        segment for link in ordered for segment in geometry[link]
+    ]
     coordinates = np.array([plotted_coordinate(node) for node in sorted(nodes)])
     incomes = np.array([nodes[node][3] for node in sorted(nodes)])
-    weights = np.array([values[link] for link in ordered])
+    weights = np.array([values[link] for link in segment_links])
     absolute = np.abs(weights)
     scale = absolute.max()
     link_density = min(1.0, np.sqrt(500/max(len(ordered), 1)))
     widths = link_density*(0.8+3.2*(
         absolute/scale if scale > 0 else np.ones_like(absolute)))
-    if weights.min() < 0 < weights.max():
-        limit = max(abs(weights.min()), abs(weights.max()))
-        normalization = Normalize(-limit, limit)
-        color_map = "coolwarm"
-    else:
-        lower, upper = weights.min(), weights.max()
-        normalization = Normalize(lower, upper if upper > lower else lower+1)
-        color_map = "viridis"
+    normalization, color_map = welfare_norm(weights, include_zero=True)
 
     if three_dimensional:
         figure = plt.figure(figsize=(8.0, 5.2))
@@ -242,6 +350,12 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
     else:
         figure, axis = plt.subplots(figsize=(7.2, 4.8))
         collection_class = LineCollection
+        if basemap is not None:
+            background = LineCollection(
+                read_basemap(Path(basemap)),
+                colors=MUTED, linewidths=0.45, alpha=0.42, zorder=0,
+            )
+            axis.add_collection(background)
     collection = collection_class(
         segments, array=weights, cmap=color_map, norm=normalization,
         linewidths=widths, alpha=0.86, zorder=1,
@@ -252,24 +366,26 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
     if three_dimensional:
         axis.scatter(
             coordinates[:, 0], coordinates[:, 1], coordinates[:, 2], s=sizes,
-            facecolor="white", edgecolor="#222222", linewidth=0.65,
+            facecolor="white", edgecolor=INK, linewidth=0.65,
             depthshade=False, zorder=2,
         )
     else:
         axis.scatter(
             coordinates[:, 0], coordinates[:, 1], s=sizes,
-            facecolor="white", edgecolor="#222222", linewidth=0.65, zorder=2,
+            facecolor="white", edgecolor=INK, linewidth=0.65, zorder=2,
         )
     for link in sorted(ordered, key=lambda key: abs(values[key]), reverse=True)[:label_top]:
-        origin, destination = links[link]
-        x = (nodes[origin][0]+nodes[destination][0])/2
-        y = (nodes[origin][1]+nodes[destination][1])/2
+        label_segment = max(geometry[link], key=len)
+        midpoint = label_segment[len(label_segment)//2]
         if three_dimensional:
-            depth = (nodes[origin][2]+nodes[destination][2])/2
-            axis.text(x, depth, y, link, fontsize=7, color="#222222", zorder=3)
+            axis.text(
+                midpoint[0], midpoint[1], midpoint[2], link,
+                fontsize=7, color=INK, zorder=3,
+            )
         else:
+            x, y = midpoint[:2]
             axis.annotate(link, (x, y), xytext=(3, 3), textcoords="offset points",
-                          fontsize=7, color="#222222", zorder=3)
+                          fontsize=7, color=INK, zorder=3)
     axis.autoscale()
     if three_dimensional:
         spans = np.ptp(coordinates, axis=0)
@@ -278,15 +394,13 @@ def plot_network(nodes_path: Path, edges_path: Path, results_path: Path,
     else:
         axis.set_aspect("equal", adjustable="datalim")
     axis.axis("off")
-    figure.colorbar(collection, ax=axis, fraction=0.035, pad=0.02, label=metric)
+    colorbar = figure.colorbar(
+        collection, ax=axis, fraction=0.035, pad=0.02)
+    colorbar.set_label(metric_label(metric))
+    colorbar.outline.set_linewidth(0.5)
     figure.tight_layout(pad=0.25)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    metadata = {"Creator": "TransportNetworkWelfare.jl"}
-    if output_path.suffix.lower() == ".pdf":
-        metadata.update({"CreationDate": None, "ModDate": None})
-    figure.savefig(
-        output_path, dpi=dpi, transparent=transparent, metadata=metadata)
-    plt.close(figure)
+    save_figure(
+        figure, output_path, dpi=dpi, transparent=transparent)
     return output_path
 
 
@@ -302,6 +416,12 @@ def main():
     parser.add_argument("--three-dimensional", action="store_true")
     parser.add_argument("--cow-surface", action="store_true")
     parser.add_argument("--surface-ply", type=Path)
+    parser.add_argument(
+        "--link-geometry", type=Path,
+        help="GeoJSON lines keyed by physical_link_id")
+    parser.add_argument(
+        "--basemap", type=Path,
+        help="GeoJSON polygons or lines in the same CRS as the nodes")
     parser.add_argument("--elevation-angle", type=float, default=18.0)
     parser.add_argument("--azimuth", type=float, default=-62.0)
     args = parser.parse_args()
@@ -319,6 +439,7 @@ def main():
         three_dimensional=args.three_dimensional,
         cow_surface=args.cow_surface, surface_ply=args.surface_ply,
         elevation_angle=args.elevation_angle, azimuth=args.azimuth,
+        link_geometry=args.link_geometry, basemap=args.basemap,
     )
 
 

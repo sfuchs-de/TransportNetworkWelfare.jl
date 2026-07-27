@@ -20,7 +20,7 @@ All notable changes are documented here. The project follows semantic versioning
   workplace distributions, an analytic adjoint, nonlinear exact-hat checks,
   a self-contained toy example, and a hash-pinned Seattle replication adapter.
 - Add an on-demand Westeros example that converts hash-pinned public ArcGIS
-  geography into a transparent synthetic commuting baseline.
+  geography into a transparent synthetic economic-geography baseline.
 - Add a sparse edge-local adjoint solver and an all-vertex cow-mesh builder for
   networks whose exact fixed-route decomposition is too large to construct.
 - Validate congestion keys, inactive modes, terminal identifiers, and the RSUE

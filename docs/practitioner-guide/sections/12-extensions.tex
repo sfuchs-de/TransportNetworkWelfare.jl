@@ -1,50 +1,47 @@
-\section{Extensions: urban commuting, terminals, and Seattle}
+\subsection{Urban commuting and public transit}
 \label{ch:extensions}
 
-\subsection{One transport block, different spatial closures}
+The freight application uses goods-market clearing and mobile labor to map
+transport costs into welfare. Urban applications instead use residence and
+workplace choices. Because both settings share the transport block, the
+extension changes the spatial residuals and welfare projection while leaving
+route and mode aggregation intact.
 
-The package shares route, modal, congestion, and primitive pass-through
-operators across economic geography and urban commuting. The models differ in
-their equilibrium residuals, state variables, and welfare projection.
+\subsubsection{Urban implementation and verification}
 
-The urban state is
-\[
- z_U=(d\log l^R,d\log l^F,d\log\chi),
- \qquad
- d\log W=-\frac{d\log\chi}{\theta}.
-\]
-Residence mass \(l^R\) and workplace mass \(l^F\) can differ by location.
-The route kernel therefore reconstructs origin-destination commuting with
-distinct source and destination margins.
+The urban application changes the spatial model, not the transport
+technology. In the freight model, locations produce and consume traded goods.
+In the urban model, workers choose residences and workplaces and travel
+between them. These choices produce different equilibrium residuals and a
+different welfare row. For any given residence--workplace flow, however,
+commuters face the same recursive routes, modal logsum, and congestion
+feedback as shipments in the freight model.
 
-The urban transport equations remain:
-\[
- \kappa_e=\left(\sum_m\kappa_{e,m}^{-\eta}\right)^{-1/\eta},
-\qquad
- \tau_{ij}^{-\theta}
- =\mathbf 1\{i=j\}+\sum_k\kappa_{ik}^{-\theta}\tau_{kj}^{-\theta}.
-\]
-The shared Schur complement eliminates route, mode, and congestion quantities,
-while the urban Jacobian \(J_U^0\) and welfare row \(q_U\) replace the trade
-model's spatial block.
+Section \ref{ch:equilibrium} defines the residence--workplace model, and
+Subsection \ref{ch:ift} shows how its Jacobian and welfare row enter the shared
+transport derivative. The implementation stores those model-specific
+quantities in \code{UrbanEngine}. The route, modal, congestion, and primitive
+pass-through maps remain in the common transport modules.
 
-\subsection{Urban verification}
+The one-mode regression oracle independently codes the Allen--Arkolakis
+urban derivative \citep{AA_2022restud}. The shared engine must reproduce its
+state response and welfare derivative below \(10^{-10}\), including the
+\(1+\theta_U\gamma\) congestion denominator. To see the role of this
+denominator, consider one road mode with edge-local congestion elasticity
+\(\gamma\). A lower primitive edge cost attracts additional traffic, which
+raises the realized cost. Route demand responds with curvature
+\(\theta_U\), so the congestion feedback attenuates the primitive shock by
+the factor \(1/(1+\theta_U\gamma)\). Reproducing this factor verifies that
+the shared transport operator has the same local feedback as the original
+one-mode urban system.
 
-The one-mode regression oracle is a separate implementation of the
-Allen--Arkolakis urban derivative \citep{AA_2022restud}. The shared engine must
-reproduce its state response and welfare derivative below \(10^{-10}\),
-including the familiar \(1+\theta\lambda\) congestion denominator.
-
-The multimodal urban example then compares the analytical IFT with an
-independently solved nonlinear system under \code{NC}, \code{NT}, \code{F},
-\code{FM}, and \code{FR}. Tests cover:
-\begin{itemize}
-  \item distinct residence and workplace margins;
-  \item road and transit modes;
-  \item edge and endpoint-terminal congestion;
-  \item one-mode, unique-route, no-congestion, and zero-terminal limits;
-  \item node and mode permutations.
-\end{itemize}
+The multimodal urban example adds road and transit to the same model and
+compares the analytical IFT with an independently solved nonlinear system
+under \code{NC}, \code{NT}, \code{F}, \code{FM}, and \code{FR}. The tests allow
+residence and workplace margins to differ and include both road and transit
+modes under edge and endpoint-terminal congestion. They also verify the
+one-mode, unique-route, no-congestion, and zero-terminal limits, as well as
+invariance to node and mode permutations.
 
 Run the self-contained example with:
 \begin{lstlisting}[language=bash]
@@ -54,32 +51,39 @@ julia --project=. bin/tnw.jl decompose \
   examples/urban_multimodal/config.toml
 \end{lstlisting}
 
-\subsection{Endpoint-terminal congestion}
+\subsubsection{Endpoint-terminal congestion}
 
 Edge congestion assigns traffic feedback to a particular edge-mode. Terminal
 congestion aggregates affected flows using a terminal and applies the cost
 response to incident edge-mode pairs. The terminal identifiers are explicit
 input fields; geographic co-location is not enough.
 
-In the RSUE extension, rail traffic loads the terminals at both endpoints with
-elasticity \(0.096\). The main paper result keeps this channel off. Sensitivity
-to terminal congestion is therefore an extension diagnostic, not a headline
-parameter sensitivity.
+In the freight extension, rail traffic loads the terminals at both endpoints
+with elasticity \(0.096\), estimated by
+\citet{FuchsWong2026Multimodal}. The main paper result excludes terminal
+congestion. Sensitivity to terminal congestion is therefore an extension
+diagnostic, not a headline parameter sensitivity.
 
-\subsection{Seattle multimodal candidate}
+\subsubsection{Seattle multimodal candidate}
 
-The Seattle workflow combines:
-\begin{itemize}
-  \item the published 217-location Allen--Arkolakis urban geography;
-  \item 2017 LODES residence-workplace commuting;
-  \item 2017 ACS residential commute-mode shares;
-  \item a hash-pinned June 2017 King County GTFS feed;
-  \item a Metro route report used as external comparison.
-\end{itemize}
+\warningbox{The Seattle module is a candidate empirical application. Its
+multimodal urban derivative and accounting checks are implemented, but route
+ridership, generalized modal costs, Seattle-specific substitution, and
+congestion parameters require additional evidence before the results can be
+used as an empirical appraisal.}
 
-The baseline uses \(\eta=1.099\), transferred from the freight application.
-It is not estimated from Seattle data. Baseline modal shifters reproduce the
-constructed shares; \(\eta\) controls the local response after an improvement.
+The Seattle workflow combines the published 217-location Allen--Arkolakis
+urban geography \citep{AA_2022restud} with 2017 LODES
+residence--workplace commuting \citep{CensusLODES} and 2017 ACS residential
+commute-mode shares \citep{CensusACS2017B08301}. A hash-pinned June 2017 King
+County GTFS feed supplies the transit network and schedules
+\citep{KingCountyGTFS2017}. The Metro system evaluation enters only as an
+external comparison \citep{KingCountyMetro2017Evaluation}.
+
+The baseline uses \(\eta=1.099\), transferred from the freight application in
+\citet{FuchsWong2026Multimodal}. It is not estimated from Seattle data.
+Baseline modal shifters reproduce the constructed shares; \(\eta\) controls the
+local response after an improvement.
 The workflow therefore reports sensitivity at \(0.75\), \(0.90\), \(1.099\),
 \(1.25\), and \(1.40\).
 
@@ -89,14 +93,18 @@ ridership. The builder routes a common commuter population to obtain a
 model-consistent road and transit baseline, records fallback and coverage, and
 uses the Metro table only as an external comparison.
 
-\subsection{Transit policies}
+\subsubsection{Transit policies}
 
 The workflow evaluates bus, Link light rail and streetcar, and ferry policies
 separately and together. A link policy lowers primitive generalized cost on
 one directed transit edge-mode. Reciprocal pairs are aggregated only when both
 directions exist.
 
-A named route corridor is a policy bundle:
+A named route corridor changes several edge-mode costs at once. Let \(b\)
+denote its set of edge-mode pairs, \(w_{e,m}\) the relative cost-reduction
+weight assigned to pair \((e,m)\), and \(E_{e,m}\) its marginal welfare
+elasticity. Linearity of the first-order derivative gives the elasticity of
+the bundled reduction:
 \[
  E_b=\sum_{(e,m)\in b}w_{e,m}E_{e,m}.
 \]
@@ -104,19 +112,22 @@ Shared segments change the aggregate mode cost on that segment. The result is
 not interpreted as a shock exclusive to one operator's vehicles.
 
 Maps distinguish road, bus, Link light rail, Seattle Streetcar, and ferry by
-color. Line width represents the extended welfare gain, not ridership.
+color. Line width represents the primitive-cost welfare gain, not ridership.
 Subway or light-rail vision maps that include proposed future lines are not a
 baseline description of the 2017 network.
 
-\subsection{What remains empirical work}
+\subsubsection{Remaining empirical work}
 
-The package supplies a verified multimodal urban derivative. A publication
-quality Seattle transit application would still benefit from:
-\begin{itemize}
-  \item observed passenger counts by route or segment;
-  \item mode-specific generalized costs and service quality;
-  \item a Seattle-specific estimate or external calibration of \(\eta\);
-  \item crowding or terminal-congestion elasticities;
-  \item validation against untargeted commuting and ridership outcomes.
-\end{itemize}
-These needs concern calibration and measurement, not a relabeling of the IFT.
+The package computes and verifies the multimodal urban derivative, but a
+publication-quality Seattle transit application still requires observed
+passenger counts by route or segment and mode-specific measures of generalized
+cost and service quality. It also needs a Seattle-specific estimate or external
+calibration of \(\eta\), evidence on crowding or terminal-congestion
+elasticities, and validation against commuting and ridership outcomes that were
+not used to construct the baseline.
+These requirements concern measurement and calibration, not the IFT method.
+Until they are met, the Seattle module tests the implemented
+residence--workplace derivative and multimodal transport operators but does
+not provide an empirical transit appraisal. These empirical boundaries also
+govern how results from the Seattle module should be described. Section
+\ref{ch:conclusion} explains how they enter interpretation and reporting.

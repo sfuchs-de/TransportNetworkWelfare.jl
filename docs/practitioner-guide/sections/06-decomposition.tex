@@ -1,44 +1,67 @@
-\section{Exact closure and welfare decompositions}
+\subsection{Decomposing the welfare difference}
 \label{ch:decomposition}
 
-\subsection{Common-baseline comparisons}
+The adjoint calculation gives the full derivative but does not separate its
+departure from traffic into distinct economic sources. To separate those sources,
+the package compares models that share the observed baseline and policy forcing
+but selectively hold congestion, modes, or routes fixed.
 
-An extended welfare elasticity can differ from traffic for several reasons.
-To separate them, every comparison must use the same observed baseline and the
-same policy forcing. Recalibrating each alternative closure would mix the
-mechanism of interest with a change in starting values.
+\subsubsection{Common-baseline comparisons}
 
-The package constructs six objects:
-\begin{longtable}{p{0.10\textwidth}p{0.22\textwidth}p{0.25\textwidth}p{0.28\textwidth}}
+The full primitive-cost welfare elasticity can differ from traffic for several
+reasons. To isolate them, the package evaluates each alternative at the same
+observed baseline and under the same policy forcing, following the
+inverse-Jacobian logic in \citet{FuchsWong2026Multimodal}. Recalibrating each
+alternative would mix the effect under study with a change in starting values.
+
+The package constructs six cases:
+\begin{longtable}{L{0.18\textwidth}L{0.18\textwidth}L{0.22\textwidth}L{0.27\textwidth}}
 \toprule
 Closure & Routes & Modes & Congestion \\
 \midrule
 \endhead
-\code{H} & Not solved & Not solved & Traffic-only benchmark \\
-\code{NC} & Flexible & Flexible & None \\
-\code{NT} & Flexible & Flexible & Edge congestion \\
-\code{F} & Flexible & Flexible & All declared channels \\
-\code{FM} & Flexible & Fixed at baseline shares & All declared channels \\
-\code{FR} & Baseline OD-edge incidence fixed & Flexible & All declared channels \\
+\code{H}: Hulten & Not solved & Not solved & Traditional approach \\
+\code{NC}: no congestion & Flexible & Flexible & None \\
+\code{NT}: no terminals & Flexible & Flexible & Edge congestion \\
+\code{F}: full & Flexible & Flexible & All specified congestion \\
+\code{FM}: fixed modes & Flexible & Fixed at baseline shares & All specified congestion \\
+\code{FR}: fixed routes & Baseline OD-edge incidence fixed & Flexible & All specified congestion \\
 \bottomrule
 \end{longtable}
 
 The labels describe local derivatives, not finite counterfactual models. In
 particular, \code{FR} holds the differentiated route incidence fixed while
-retaining modal response and the remaining equilibrium system.
+retaining modal response and the remaining equilibrium system. Both spatial
+models use these comparisons. The additional normalized and
+allocation--scarcity--equilibrium decompositions below are available only for
+the economic-geography model.
 
-\subsection{Normalized multipliers}
+\subsubsection{Economic-geography normalized multipliers}
 
-For a realized-friction shock on edge \(e\), define
-\[
+To compare equilibrium propagation across cases, divide out traffic and
+the common scale \(\rho\). For a positive-traffic edge \(e\) with
+\(\rho\neq0\), define
+\begin{equation}
  m_{e,S}=\frac{\Ereal_{e,S}}{\rho\Xi_e}.
-\]
-The closures obey
+\label{eq:guide-normalized-multiplier}
+\end{equation}
+The resulting multiplier measures equilibrium propagation per unit of
+traffic. Define the signed wedges
 \[
+\begin{aligned}
+ d_{edge}&=m_{NC}-m_{NT},&
+ d_{terminal}&=m_{NT}-m_F,\\
+ d_{mode}&=m_F-m_{FM},&
+ d_{route}&=m_F-m_{FR}.
+\end{aligned}
+\]
+Evaluating them at the common baseline yields the closure ladder
+\begin{equation}
  m_F=m_{NC}-d_{edge}-d_{terminal}
     =m_{FM}+d_{mode}
     =m_{FR}+d_{route}.
-\]
+\label{eq:guide-closure-ladder}
+\end{equation}
 The terms are signed. A positive road wedge in multiplier units need not imply
 a positive contribution to the welfare elasticity when \(\rho<0\).
 
@@ -47,85 +70,97 @@ the full model separately with fixed modes and fixed routes. Mode and route
 wedges are not added to the congestion ladder because each is an alternative
 closure comparison.
 
-\subsection{Inverse-gap identity}
-
-For two Jacobians \(J_A\) and \(J_B\), welfare row \(q\), and forcing \(b\),
+The urban model reports the corresponding differences directly in welfare
+elasticity levels:
 \[
- q^\top J_A^{-1}b-q^\top J_B^{-1}b
- =q^\top J_A^{-1}(J_B-J_A)J_B^{-1}b.
+ E_{U,F}^r-E_{U,NC}^r,\qquad
+ E_{U,F}^r-E_{U,FM}^r,\qquad
+ E_{U,F}^r-E_{U,FR}^r.
+\]
+It does not divide by the economic-geography coefficient \(\rho\). The same
+comparisons therefore apply without imposing a trade-model
+normalization on residence--workplace welfare.
+
+\subsubsection{Inverse-gap identity}
+
+Each rung compares two derivatives that share the welfare row and policy
+forcing but use different Jacobians. The matrix identity
+\(J_A^{-1}-J_B^{-1}=J_A^{-1}(J_B-J_A)J_B^{-1}\) therefore implies
+\[
+ q_c^\top J_{c,A}^{-1}b_c-q_c^\top J_{c,B}^{-1}b_c
+ =q_c^\top J_{c,A}^{-1}
+ (J_{c,B}-J_{c,A})J_{c,B}^{-1}b_c.
 \]
 The package checks this identity for the edge, terminal, mode, and route
-comparisons. It is a direct algebraic test of the signs, orientation, and
-closure construction.
+comparisons in both spatial models. It is a direct algebraic test of the
+signs, orientation, and Jacobian construction.
 
-\subsection{Analytical Jacobian blocks}
+\subsubsection{Economic-geography analytical components}
 
-Each closure Jacobian is represented as
-\[
- J_S=D_S+u_Sv_S^\top
-     +\Delta_{edge,S}
-     +\Delta_{terminal,S}.
-\]
-The sparse block \(D_S\) contains local allocation and route shares. The
-rank-one term imposes aggregate labor feedback and normalization. The last
-two terms are analytically constructed congestion updates.
-
-For road and terminal rungs the inverse difference is evaluated with a
-structured parallel-sum formula. Their allocation and equilibrium-correction
-components are zero under the common-baseline construction; the scarcity
-component carries the wedge.
-
-For mode and route comparisons, the package evaluates the mixed update
-\[
- \widetilde K_{A:F}=J_F+S_{A:F}+C_{A:F},
- \qquad
- J_A=\widetilde K_{A:F}+R_{A:F}Q_{A:F}^\top.
-\]
-The welfare gap is divided into:
+The inverse-gap identity gives the total difference between two closures. For
+economic geography, the package further separates each mode or route wedge
+into allocation, congestion-scarcity, and aggregate-equilibrium components:
 \[
  d_r=d_r^{alloc}+d_r^{scar}+d_r^{eq},
  \qquad r\in\{mode,route\}.
 \]
-The allocation term changes the sparse core, the scarcity term changes
-congestion exposure, and the equilibrium term is the Woodbury correction
-associated with aggregate feedback. In the current common-baseline model, the
-sparse and aggregate-feedback terms are common across transport closures, so
-some channels evaluate to exact structural zeros. The code evaluates the
-general formulas and checks the reconstruction rather than writing zeros by
-convention.
+Under the common-baseline construction used here, the sparse spatial
+allocation block and aggregate-feedback term are the same across the five
+closures.
+Their contributions are therefore exact zeros for the road, terminal, mode,
+and route comparisons, and the congestion-scarcity component carries each
+wedge. The package nevertheless evaluates the general mixed update for the
+mode and route comparisons and checks both the implied zeros and the
+reconstruction of the total wedge. Appendix \ref{app:algorithm} gives the
+Jacobian blocks, rank-two update, and structured inverse formulas.
 
-\subsection{The Hulten gap}
+\subsubsection{The economic-geography Hulten gap}
 
-The realized-friction comparison is
+Substituting
+\(\Ereal_{e,F}=\rho\Xi_e m_{e,F}\) from
+\eqref{eq:guide-normalized-multiplier} into the difference between traffic and
+the full realized derivative gives
 \[
  \Xi_e-\Ereal_{e,F}
  =\Xi_e(1-\rho)+\rho\Xi_e(1-m_{e,F}).
 \]
 The first term is the common externality scaling. The second is equilibrium
-propagation relative to the traffic-only benchmark.
+propagation relative to the Traditional approach.
 
-Using the congestion ladder and primitive pass-through gives
+For a nonzero realized derivative, define
+\(\chi_e^{eff}=\Eprimitive_{e,F}/\Ereal_{e,F}\). Next substitute the first equality in
+\eqref{eq:guide-closure-ladder} and use
+\(\Eprimitive_{e,F}=\chi_e^{eff}\Ereal_{e,F}\). This produces
 \begin{align*}
  \Xi_e-\Eprimitive_{e,F}
  ={}&\Xi_e(1-\rho)
  +\rho\Xi_e(1-m_{e,NC})\\
  &+\rho\Xi_e d_{edge,e}
  +\rho\Xi_e d_{terminal,e}
- +\rho\Xi_e m_{e,F}(1-\chi_e).
+ +\rho\Xi_e m_{e,F}(1-\chi_e^{eff}).
 \end{align*}
-The output reports each term in levels. Signed percentages can be misleading
-when large positive and negative components nearly cancel.
+A zero realized derivative leads the output to compute the
+primitive-minus-realized contribution directly in levels instead of forming a
+ratio. Signed percentages can be misleading if large positive and negative
+components nearly cancel.
 
-\subsection{Physical-link aggregation}
+The identity reports all terms in units of the Traditional approach minus
+primitive-cost welfare. A positive contribution widens that gap; a negative
+contribution offsets it. The sign convention applies even when \(\rho<0\).
+
+For the urban model, the package reports
+\(\Xi_e-E_{U,F}^r\) and
+\(\Xi_e-E_{U,F}^{\theta}\), together with the closure gaps above. It does not
+label these differences as externality scaling or trade-market-access
+propagation because those labels come from the economic-geography
+factorization.
+
+\subsubsection{Physical-link aggregation}
 
 The model is directed. To obtain a two-direction physical-link experiment, the
-software first sums:
-\begin{itemize}
-  \item primitive and realized elasticities;
-  \item Hulten traffic;
-  \item each additive Hulten-gap component;
-  \item each analytical channel contribution.
-\end{itemize}
+software first sums the primitive and realized elasticities across the two
+directions. It applies the same operation to Hulten traffic, all additive
+Hulten-gap components, and all analytical components.
 Only after summation does it calculate a physical-link normalized multiplier.
 This order avoids averaging ratios with different traffic denominators.
 
@@ -134,16 +169,20 @@ policy arcs have opposite endpoints and a common physical-link identifier.
 Transit services and one-way links that lack such a pair remain directed
 policies.}
 
-\subsection{Reading a decomposition}
+\subsubsection{Reading a decomposition}
 
-A useful interpretation sequence is:
-\begin{enumerate}
-  \item compare the traditional statistic with the full primitive result;
-  \item separate common externality scaling from link-specific propagation;
-  \item inspect edge and terminal congestion;
-  \item compare primitive and realized effects to measure pass-through;
-  \item use mode and route closures to diagnose ranking changes;
-  \item check identity residuals before discussing economics.
-\end{enumerate}
-The decomposition explains a result conditional on the model. It does not
-identify which parameter or closure is empirically correct.
+Begin with the gap between the Traditional approach and the full
+primitive-cost result. In the economic-geography model, separate the common
+externality scale from link-specific equilibrium propagation before examining
+edge and terminal congestion. Next compare the primitive- and realized-cost
+effects to measure pass-through. The fixed-mode and fixed-route cases then show
+whether modal or route adjustment contributes to ranking changes. Interpret
+these economic differences only after the identity residuals have passed their
+numerical checks.
+The decomposition explains a result within the specified model. It does not
+show which parameters or model assumptions are empirically appropriate.
+
+Applying these identities requires a baseline whose flows, units, and policy
+definition satisfy the model's accounting restrictions. Subsection
+\ref{ch:data} states that empirical contract before the guide turns to the
+software.

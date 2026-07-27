@@ -1,5 +1,10 @@
-\section{Verification matrix}
+\section{Numerical verification}
 \label{app:verification}
+
+Subsection \ref{ch:diagnostics} explains how to interpret accounting, algebraic,
+and empirical checks. This appendix records the tests and numerical gates used
+to accept the first two classes. Passing them establishes fidelity to the
+specified model; it does not establish external validity.
 
 \subsection{Acceptance tolerances}
 
@@ -22,11 +27,11 @@ Maximum accepted condition number & \(10^{12}\) \\
 
 \subsection{Modal tests}
 
-For both \code{ChoiceLogsum} and \code{ComponentCES}, tests differentiate the
-nonlinear modal cost index independently and compare it with the analytical
-matrix. The choice specification must shift traffic toward a mode whose cost
-falls. Mode permutation must leave aggregate results unchanged after labels
-are restored.
+Tests differentiate the nonlinear \code{ChoiceLogsum} independently and
+compare it with the analytical modal matrix. A cost reduction must shift
+traffic toward the improved mode. Mode permutation must leave aggregate
+results unchanged after labels are restored. \code{ComponentCES} is also kept
+under regression test, but only as a legacy specification.
 
 One-mode cases must satisfy \(\code{FM}=\code{F}\). A zero-flow mode is not an
 interior active pair and cannot be a policy target.
@@ -54,13 +59,11 @@ Zero terminal congestion implies \(\code{NT}=\code{F}\). Unknown congestion
 keys, positive values for inactive modes, and missing terminal identifiers
 must fail during validation.
 
-Edge-specific BPR elasticities in the Sioux Falls builder are checked against
-\[
- \lambda_e=
- \frac{p_eB_e(v_e/c_e)^{p_e}}
- {1+B_e(v_e/c_e)^{p_e}}.
-\]
-Their analytical derivative is compared with finite differences.
+The grid example checks edge and endpoint-terminal congestion separately. Its
+zero-terminal version must satisfy \(\code{NT}=\code{F}\). Package examples
+with edge-specific BPR elasticities retain a separate formula and
+finite-difference regression test, but they are outside the guide's worked
+example.
 
 \subsection{Spatial and welfare tests}
 
@@ -69,9 +72,15 @@ economic-geography system. Julia fixtures compare Jacobian blocks, the welfare
 row, the Hulten limit, and the legacy result interfaces.
 
 The active choice-logsum path is checked independently using nonlinear
-equilibria. The RSUE verification chooses a deterministic traffic-stratified
+equilibria. The freight verification chooses a deterministic traffic-stratified
 set of arcs, solves positive and negative primitive shocks, and binds the
 report to configuration, input, and source hashes.
+
+The guide example adds central finite differences for one road improvement and
+one transit improvement. It also checks its efficient Hulten limit, one-mode
+limit, zero-terminal limit, route contraction, and full decomposition
+identities. Unique-route equality is covered by a separate deterministic
+fixture because a grid intentionally has alternative routes.
 
 \subsection{Urban tests}
 
@@ -85,15 +94,11 @@ congestion; and mode and node permutation.
 
 \subsection{Output tests}
 
-Output tests verify:
-\begin{itemize}
-  \item directed, physical, and both policy-unit behavior;
-  \item reciprocal aggregation without dropped or duplicated directions;
-  \item strict JSON treatment of missing values and key collisions;
-  \item shock-fraction scaling of generated TeX macros;
-  \item deterministic output hashes;
-  \item full Census CBSA labels, including hyphenated names.
-\end{itemize}
+Output tests verify the behavior of directed, physical-link, and combined policy
+units, including reciprocal aggregation without dropped or duplicated
+directions. They also check strict JSON treatment of missing values and key
+collisions, shock-fraction scaling of generated TeX macros, deterministic
+output hashes, and full Census CBSA labels, including hyphenated names.
 
 \subsection{Clean-clone acceptance}
 
@@ -101,15 +106,19 @@ A release candidate must pass:
 \begin{lstlisting}[language=bash]
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. -e 'using Pkg; Pkg.test()'
-julia --project=. bin/tnw.jl validate examples/toy/config.toml
-julia --project=. bin/tnw.jl decompose examples/toy/config.toml
+julia --project=. bin/tnw.jl validate \
+  examples/grid_multimodal/config.toml
+julia --project=. bin/tnw.jl decompose \
+  examples/grid_multimodal/config.toml
 julia --project=docs -e \
   'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
 julia --project=docs docs/make.jl
+make practitioner-guide-assets
 make practitioner-guide-check
 python3 scripts/verify_provenance.py
 python3 scripts/scan_secrets.py
 git diff --check
 \end{lstlisting}
-The toy and guide commands may not depend on restricted inputs, Overleaf,
-Dropbox, credentials, or Python plotting packages.
+The Julia calculations and PDF build require no restricted inputs, Overleaf,
+Dropbox, or credentials. Asset regeneration uses the pinned environment in
+\code{plots/requirements.txt}; ordinary analysis and PDF compilation do not.

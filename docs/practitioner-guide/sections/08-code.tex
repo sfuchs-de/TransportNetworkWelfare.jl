@@ -1,19 +1,27 @@
-\section{Package architecture and computational algorithm}
+\subsection{Software workflow and outputs}
 \label{ch:code}
 
-\subsection{Public interface}
+Once the inputs satisfy the data contract, the software must carry them
+through the same sequence as the derivation: construct the transport block,
+form the spatial Jacobian, solve the adjoint, and write results with their
+diagnostics and provenance. The public interface exposes that sequence without
+requiring an application to modify the solver.
 
-The package exposes a small typed API:
+\subsubsection{Public interface}
+
+The package exposes the data-to-derivative sequence through a small typed API.
+The same calls validate inputs, build the model selected in the configuration,
+and write results with their provenance:
 \begin{lstlisting}[language=Julia]
 using TransportNetworkWelfare
 
-project = load_project("examples/toy/config.toml")
+project = load_project("examples/grid_multimodal/config.toml")
 validate(project)
 model = build_model(project)
 welfare = welfare_effects(model)
 components = decompose_welfare(model)
 sensitivity = sensitivity_path(model, :eta, [0.9, 1.099, 1.25])
-write_results(components, "examples/toy/output/guide-api/"; project)
+write_results(components, "examples/grid_multimodal/output/guide-api/"; project)
 \end{lstlisting}
 
 The configuration determines the spatial, modal, congestion, and policy
@@ -22,90 +30,88 @@ editing the solver.
 
 The CLI calls the same public functions:
 \begin{lstlisting}[language=bash]
-julia --project=. bin/tnw.jl validate examples/toy/config.toml
-julia --project=. bin/tnw.jl analyze examples/toy/config.toml
-julia --project=. bin/tnw.jl decompose examples/toy/config.toml
-julia --project=. bin/tnw.jl sensitivity examples/toy/config.toml
+julia --project=. bin/tnw.jl validate \
+  examples/grid_multimodal/config.toml
+julia --project=. bin/tnw.jl analyze \
+  examples/grid_multimodal/config.toml
+julia --project=. bin/tnw.jl decompose \
+  examples/grid_multimodal/config.toml
+julia --project=. bin/tnw.jl sensitivity \
+  examples/grid_multimodal/config.toml
 \end{lstlisting}
 
-\subsection{Module responsibilities}
+\subsubsection{Project isolation and package updates}
 
-\begin{longtable}{p{0.29\textwidth}p{0.63\textwidth}}
-\toprule
-Module & Responsibility \\
-\midrule
-\endhead
-\code{Specifications.jl} & Typed spatial, modal, congestion, route-curvature,
-and policy specifications. \\
-\code{ProjectConfig.jl} & TOML parsing, environment-path expansion, and
-configuration validation. \\
-\code{DataIO.jl} & CSV schemas, accounting checks, active mode construction,
-and generic network loading. \\
-\code{RSUEAdapter.jl} & Hash-bound external-data transformations for the paper
-replication. \\
-\code{SharedTransport.jl} & Spatial-model-neutral route reconstruction and
-flexible/fixed route operators. \\
-\code{CompleteEngine.jl} & Economic-geography closure construction, Schur
-elimination, primitive forcing, and exact decomposition. \\
-\code{EdgeLocalEngine.jl} & Sparse headline derivative for edge-local
-congestion without dense fixed-route incidence. \\
-\code{UrbanEngine.jl} & Urban residual, welfare row, and shared transport
-closures. \\
-\code{UrbanNonlinear.jl} & Independently solved nonlinear urban
-counterfactuals used for finite differences. \\
-\code{Analysis.jl} & Directed and physical results, diagnostics, and
-aggregation. \\
-\code{Output.jl} & Strict CSV/JSON serialization and run manifests. \\
-\bottomrule
-\end{longtable}
+Section \ref{ch:quickstart} gives the initial setup and run commands. Keep the
+resulting empirical project outside the package checkout so application inputs
+and outputs remain separate from package updates. Before updating, preserve
+the package commit and manifest used for archived results. Then fast-forward
+the package and rerun its tests:
+\begin{lstlisting}[language=bash]
+git rev-parse HEAD
+git switch main
+git pull --ff-only
+julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
+\end{lstlisting}
+Revalidate and rerun the external project after any package, configuration, or
+data change. A changed output belongs to a new result vintage; retain the
+earlier commit, inputs, and manifest when earlier results must remain
+reproducible.
 
-\subsection{Build stages}
+\subsubsection{Implementation boundary}
 
-For economic geography, \code{build\_model} performs:
-\begin{enumerate}
-  \item load and validate the project and network;
-  \item enumerate positive-flow edge-mode pairs;
-  \item reconstruct the route kernel and bilateral flow matrix;
-  \item build flexible and fixed route derivatives;
-  \item assemble the no-congestion spatial Jacobian and welfare row;
-  \item construct modal and congestion maps for each closure;
-  \item eliminate congestion quantities by the Schur complement;
-  \item check route, transport, and equilibrium condition numbers;
-  \item expose the closure system for welfare and decomposition.
-\end{enumerate}
+Users normally interact with the API or CLI rather than individual source
+modules. The implementation follows the derivation's dependency order:
+validate data, reconstruct routes and modes, construct the selected spatial
+system, eliminate congestion feedback, and project each policy onto welfare.
+Appendices \ref{app:crosswalk} and \ref{app:algorithm} map these operations to
+source files and functions. The tracked theory--code audit records the
+line-level correspondence for contributors.
+
+\subsubsection{Build stages}
+
+Figure \ref{fig:guide-pipeline} in the quick start summarizes the calculation.
+Each arrow passes a checked result to the next stage, beginning with
+model-ready inputs and ending with archived results.
+
+For either spatial model, \code{build\_model} begins by loading and validating
+the project and network, identifying the positive-flow edge--mode pairs, and
+reconstructing the route kernel and bilateral flow matrix. It uses these
+objects to form the flexible and fixed route derivatives. The
+economic-geography or urban builder then supplies the no-congestion spatial
+Jacobian, cost loading, and welfare row.
+
+The remaining stages construct the modal and congestion maps for each
+decomposition case and eliminate congestion quantities through the Schur
+complement. After checking the route, transport, and equilibrium condition
+numbers, the builder exposes the equilibrium system used for the welfare and
+decomposition calculations.
 
 \code{analyze} uses a welfare-only builder. It constructs the full flexible
-closure but omits the dense fixed-route incidence object. \code{decompose}
-constructs all closures. This distinction is important for moderate networks:
-the fixed-route object scales with origins, destinations, and edges.
+case but omits the dense fixed-route incidence matrix. \code{decompose}
+constructs all decomposition cases. Omitting fixed-route incidence from ordinary analysis
+reduces memory use because that matrix scales with origins, destinations, and
+edges.
 
-\subsection{Policy derivatives}
+\subsubsection{Policy derivatives}
 
 For all directed policy arcs, the code constructs a sparse selector matrix.
 The realized forcing changes the aggregate cost on the selected edge. The
-primitive forcing passes the edge-mode shock through:
-\begin{enumerate}
-  \item the modal response;
-  \item route response;
-  \item edge or terminal congestion;
-  \item aggregation to the directed edge;
-  \item loading into the spatial residual.
-\end{enumerate}
+primitive forcing first passes the edge--mode shock through the modal and route
+responses. It then incorporates edge or terminal congestion, aggregates the
+result to the directed edge, and loads the resulting cost change into the
+spatial residual.
 
 The adjoint gain function solves the transposed Jacobian and multiplies the
 forcing matrix. It returns one elasticity per policy arc. The decomposition
 then applies inverse-gap and structured-update identities to the same forcing.
 
-\subsection{Outputs and manifests}
+\subsubsection{Outputs and manifests}
 
-Analysis writes:
-\begin{itemize}
-  \item \code{welfare\_directed.csv} and, when requested,
-  \code{welfare\_physical.csv};
-  \item decomposition tables for \code{decompose};
-  \item \code{diagnostics.json};
-  \item \code{run\_manifest.json}.
-\end{itemize}
+Analysis writes directed results to \code{welfare\_directed.csv} and, when
+requested, reciprocal-link results to \code{welfare\_physical.csv}. The
+\code{decompose} command adds the corresponding decomposition tables. Each run
+also writes \code{diagnostics.json} and \code{run\_manifest.json}.
 
 The manifest records the package version and Git state, Julia and BLAS
 environment, configuration hash, input hashes, model variants, parameters,
@@ -113,25 +119,66 @@ transformations, output hashes, and verification status. JSON serialization is
 strict: unsupported values and colliding stringified keys are errors rather
 than silently converted strings.
 
-\subsection{Legacy kernels}
+\begin{longtable}{L{0.28\textwidth}L{0.39\textwidth}L{0.24\textwidth}}
+\toprule
+Field & Meaning & Unit or sign \\
+\midrule
+\endhead
+\code{physical\_link\_id} &
+Identifier shared by the reciprocal directed policies. &
+Identifier. \\
+\code{hulten} &
+Traditional approach: baseline policy-mode value traffic. &
+Positive welfare elasticity. \\
+\code{realized\_F} &
+Full-model response to a reduction in the cost users face. &
+Benefit elasticity; may be zero. \\
+\code{primitive\_F} &
+Extended approach: full-model response to the primitive infrastructure cost. &
+Headline benefit elasticity. \\
+\code{chi\_effective} &
+Ratio \(\code{primitive\_F}/\code{realized\_F}\). &
+Missing when the denominator is numerically zero. \\
+\code{primitive\_externality}\\
+\code{primitive\_propagation} &
+Common externality scale and link-specific equilibrium-propagation terms in
+the signed Hulten gap. &
+Signed welfare elasticities. \\
+\code{primitive\_edge}\\
+\code{primitive\_terminal}\\
+\code{primitive\_pass\_through} &
+Edge congestion, terminal congestion, and primitive-to-realized cost
+contributions. &
+Signed welfare elasticities. \\
+\code{identity\_residual\_*} and \code{channel\_residual\_*} &
+Reconstruction errors for the closure ladder and analytical-component identities. &
+Absolute numerical residuals; target below \(10^{-10}\). \\
+\bottomrule
+\end{longtable}
 
-The \code{src/kernels} directory retains frozen or adapted mathematical
-kernels for provenance and regression testing. The active paper path uses
-\code{ChoiceLogsum} through \code{modal\_power=-eta}. The functions
-\code{AdjointRSUE.congestion\_J} and \code{AdjointRSUE.chi\_wedge} implement
-the older positive-power component system and are legacy validation helpers.
-They should not be called to construct a choice-logsum application.
+The \code{decomposition\_physical.csv} file sums opposite-direction
+elasticities and signed components before calculating link-level ratios and
+normalized multipliers. Ranks are derived from the selected welfare column;
+they are not stored as primitive output fields. Join the physical-link file to
+engineering costs using \code{physical\_link\_id}, and preserve the mapping
+used for that merge. A link is ready for economic comparison only when the
+run-level accounting, conditioning, and identity diagnostics pass.
 
-\subsection{Computational cost}
+\subsubsection{Computational cost}
 
 The sparse welfare calculation is appropriate for many candidate edges on a
 moderate network. The exact route decomposition is more demanding because it
 constructs baseline origin-destination edge incidence. Before decomposition,
 the validator reports an incidence-memory estimate. Large traffic-assignment
-benchmarks may be suitable for the welfare derivative but not the full
+standard networks may be suitable for the welfare derivative but not the full
 fixed-route decomposition on a laptop.
 
-The package fails rather than changing the model through low-rank fitting,
-ridge regularization, or dropped routes. A user who needs a larger problem
-should exploit sparsity or derive an alternative route comparison, not relax
-the verification gates silently.
+The package does not replace an ill-conditioned model with low-rank fitting,
+ridge regularization, or dropped routes. Larger applications should exploit
+sparsity or use a separately derived route comparison while retaining the
+verification gates.
+
+The public grid exposes the intermediate quantities and diagnostics used in the
+calculation. Before applying the architecture to that baseline, the next
+subsection states the numerical and reporting checks that a calculation must
+pass.

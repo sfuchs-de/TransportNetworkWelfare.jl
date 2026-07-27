@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -126,14 +127,66 @@ class NetworkExamplePlotTests(unittest.TestCase):
             prepare_surface.prepare(
                 self.surface, offline=True, manifest=manifest)
 
-    def test_missing_link_fails(self):
+    def test_policy_result_subset_is_allowed(self):
         with self.results.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.writer(handle)
             writer.writerow(("physical_link_id", "primitive_F"))
             writer.writerow(("AB", 0.2))
+        output = self.root / "network.png"
+        network_example.plot_network(
+            self.nodes, self.edges, self.results, output)
+        self.assertGreater(output.stat().st_size, 1000)
+
+    def test_unknown_result_link_fails(self):
+        self.results.write_text(
+            "physical_link_id,primitive_F\nUNKNOWN,0.2\n",
+            encoding="utf-8",
+        )
         with self.assertRaises(ValueError):
             network_example.plot_network(
                 self.nodes, self.edges, self.results, self.root / "network.png")
+
+    def test_urban_nodes_and_geojson_geometry(self):
+        urban_nodes = self.root / "urban_nodes.csv"
+        urban_nodes.write_text(
+            "node_id,residents,employment,longitude,latitude\n"
+            "A,0.3,0.2,0,0\nB,0.4,0.5,1,1\nC,0.3,0.3,2,0\n",
+            encoding="utf-8",
+        )
+        links = self.root / "links.geojson"
+        links.write_text(json.dumps({
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"physical_link_id": "AB"},
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[0, 0], [0.4, 0.7], [1, 1]],
+                    },
+                },
+                {
+                    "type": "Feature",
+                    "properties": {"physical_link_id": "BC"},
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[1, 1], [1.6, 0.7], [2, 0]],
+                    },
+                },
+            ],
+        }), encoding="utf-8")
+        basemap = self.root / "basemap.geojson"
+        basemap.write_text(json.dumps({
+            "type": "Polygon",
+            "coordinates": [[[-0.2, -0.2], [2.2, -0.2], [2.2, 1.2],
+                             [-0.2, 1.2], [-0.2, -0.2]]],
+        }), encoding="utf-8")
+        output = self.root / "urban-map.png"
+        network_example.plot_network(
+            urban_nodes, self.edges, self.results, output,
+            link_geometry=links, basemap=basemap, transparent=True,
+        )
+        self.assertGreater(output.stat().st_size, 1000)
 
 
 if __name__ == "__main__":
