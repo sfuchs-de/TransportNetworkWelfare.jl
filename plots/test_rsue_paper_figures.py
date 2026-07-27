@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 HERE = Path(__file__).resolve().parent
@@ -42,6 +43,82 @@ class MapFigureTests(unittest.TestCase):
                 rendered = output.with_suffix(suffix)
                 self.assertTrue(rendered.is_file())
                 self.assertGreater(rendered.stat().st_size, 10_000)
+
+
+class ScatterFigureTests(unittest.TestCase):
+    def test_selected_labels_do_not_overlap(self):
+        rows = [
+            {"physical_link_id": "6_10"},
+            {"physical_link_id": "6_11"},
+            {"physical_link_id": "185_188"},
+            {"physical_link_id": "184_200"},
+        ]
+        x = np.asarray([18.7, 14.5, 8.6, 13.4])
+        y = np.asarray([8.7, 8.1, 6.6, 5.5])
+        figure, axis = plt.subplots(figsize=(4.8, 4.4))
+        annotations = FIGURES.add_scatter_labels(
+            axis, rows, x, y, labels={},
+        )
+        axis.set_xlim(0.0, 20.0)
+        axis.set_ylim(0.0, 20.0)
+        figure.canvas.draw()
+        renderer = figure.canvas.get_renderer()
+        boxes = [
+            annotation.get_bbox_patch().get_window_extent(renderer)
+            for annotation in annotations
+        ]
+        for left_index, left in enumerate(boxes):
+            for right in boxes[left_index+1:]:
+                self.assertFalse(left.overlaps(right))
+        plt.close(figure)
+
+
+class DecompositionFigureTests(unittest.TestCase):
+    @staticmethod
+    def rows():
+        return [{
+            "hulten": "0.0010",
+            "realized_NC": "0.0009",
+            "realized_F": "0.00085",
+            "realized_FM": "0.00086",
+            "realized_FR": "0.00088",
+            "primitive_F": "0.0007",
+            "primitive_externality": "0.0002",
+            "primitive_propagation": "-0.0001",
+            "primitive_edge": "0.00005",
+            "primitive_terminal": "0.0",
+            "primitive_pass_through": "0.00015",
+        }]
+
+    def test_summary_reconstructs_closure_levels_and_gap(self):
+        summary = FIGURES.decomposition_summary(self.rows())
+        self.assertAlmostEqual(summary["no_congestion"], 0.0009)
+        self.assertAlmostEqual(summary["realized_full"], 0.00085)
+        self.assertAlmostEqual(summary["extended"], 0.0007)
+        self.assertAlmostEqual(summary["net_gap"], 0.0003)
+        self.assertAlmostEqual(
+            summary["externality"]+summary["propagation"]+
+            summary["road"]+summary["terminal"]+
+            summary["pass_through"],
+            summary["net_gap"],
+        )
+
+    def test_summary_fails_on_identity_error(self):
+        rows = self.rows()
+        rows[0]["primitive_F"] = "0.0008"
+        with self.assertRaisesRegex(ValueError, "does not reconstruct"):
+            FIGURES.decomposition_summary(rows)
+
+    def test_figure_writes_transparent_pdf_and_png(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "decomposition"
+            FIGURES.decomposition_figure(self.rows(), output)
+            self.assertTrue(output.with_suffix(".pdf").is_file())
+            png = output.with_suffix(".png")
+            self.assertTrue(png.is_file())
+            rendered = plt.imread(png)
+            self.assertEqual(rendered.shape[-1], 4)
+            self.assertLess(float(rendered[..., 3].min()), 1.0)
 
 
 if __name__ == "__main__":
