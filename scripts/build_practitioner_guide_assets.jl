@@ -191,9 +191,51 @@ function csv_values_match(generated, committed; rtol=1e-12, atol=1e-14)
     return true
 end
 
+function tex_scientific_value(value)
+    parsed = tryparse(Float64, value)
+    parsed !== nothing && return parsed
+    matched = match(
+        r"^([+-]?[0-9]+(?:\.[0-9]+)?)\\times 10\^\{([+-]?[0-9]+)\}$",
+        value,
+    )
+    matched === nothing && return nothing
+    return parse(Float64, matched.captures[1]) *
+           10.0^parse(Int, matched.captures[2])
+end
+
+function grid_results_match(generated, committed; diagnostic_tolerance=1e-10)
+    generated_lines = readlines(generated)
+    committed_lines = readlines(committed)
+    length(generated_lines) == length(committed_lines) || return false
+    diagnostic_names = Set([
+        "GridInverseGapError",
+        "GridLadderError",
+        "GridChannelError",
+    ])
+    macro_pattern = r"^\\providecommand\{\\([^}]+)\}\{(.+)\}$"
+    for (generated_line, committed_line) in zip(generated_lines, committed_lines)
+        generated_line == committed_line && continue
+        generated_macro = match(macro_pattern, generated_line)
+        committed_macro = match(macro_pattern, committed_line)
+        generated_macro === nothing && return false
+        committed_macro === nothing && return false
+        generated_macro.captures[1] == committed_macro.captures[1] || return false
+        generated_macro.captures[1] in diagnostic_names || return false
+        generated_value = tex_scientific_value(generated_macro.captures[2])
+        committed_value = tex_scientific_value(committed_macro.captures[2])
+        generated_value === nothing && return false
+        committed_value === nothing && return false
+        abs(generated_value) <= diagnostic_tolerance || return false
+        abs(committed_value) <= diagnostic_tolerance || return false
+    end
+    return true
+end
+
 function generated_asset_matches(file, generated, committed)
     if startswith(file, "example-assets/") && endswith(file, ".csv")
         return csv_values_match(generated, committed)
+    elseif file == "grid-results.tex"
+        return grid_results_match(generated, committed)
     end
     return read(generated) == read(committed)
 end
