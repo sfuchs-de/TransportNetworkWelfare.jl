@@ -24,6 +24,12 @@ except ModuleNotFoundError:
 
 MAP_EXTENT = (-125.0, -66.0, 24.0, 50.0)
 MAP_ASSET_DIR = Path(__file__).resolve().parent / "assets"
+PAPER_SENSITIVITY_PARAMETERS = (
+    "alpha",
+    "beta",
+    "net_dispersion",
+    "lambda_road",
+)
 
 
 def read_rows(path: Path):
@@ -385,14 +391,11 @@ def decomposition_figure(rows, output):
 
 
 def sensitivity_figure(rows, output):
-    parameters = [
-        "alpha", "beta", "net_dispersion", "eta", "lambda_road",
-    ]
+    parameters = PAPER_SENSITIVITY_PARAMETERS
     labels = {
         "alpha": "Productivity externality\n" + r"$\alpha$",
         "beta": "Amenity externality\n" + r"$\beta$",
         "net_dispersion": "Net dispersion",
-        "eta": "Mode substitution\n" + r"$\eta$",
         "lambda_road": "Road congestion",
     }
     grouped = {parameter: [] for parameter in parameters}
@@ -400,7 +403,7 @@ def sensitivity_figure(rows, output):
         if row["parameter"] in grouped:
             grouped[row["parameter"]].append(row)
     figure, axes = plt.subplots(
-        len(parameters), 2, figsize=(8.2, 7.6), squeeze=False)
+        len(parameters), 2, figsize=(8.2, 6.4), squeeze=False)
     for row_index, parameter in enumerate(parameters):
         data = sorted(grouped[parameter], key=lambda row: float(row["value"]))
         baseline = [

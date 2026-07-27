@@ -126,6 +126,10 @@ class DecompositionFigureTests(unittest.TestCase):
 
 class SensitivityFigureTests(unittest.TestCase):
     def test_headline_paths_render_and_extension_rows_are_ignored(self):
+        self.assertEqual(
+            FIGURES.PAPER_SENSITIVITY_PARAMETERS,
+            ("alpha", "beta", "net_dispersion", "lambda_road"),
+        )
         rows = []
         for parameter in (
                 "alpha", "beta", "net_dispersion", "eta", "lambda_road",
