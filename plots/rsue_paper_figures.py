@@ -32,13 +32,10 @@ def read_rows(path: Path):
 
 
 def plot_link_label(row):
-    """Wrap complete CBSA names without altering their official spelling."""
-    first = row.get("cbsa_name_a", "").strip()
-    second = row.get("cbsa_name_b", "").strip()
-    if first and second:
-        return f"{first}\n{second}"
-    if first or second:
-        return f"Approach to {first or second}"
+    """Use the verified Census label or the physical-link identifier."""
+    verified = row.get("verified_label", "").strip()
+    if verified:
+        return verified
     return row.get("verified_label") or row["physical_link_id"]
 
 
@@ -99,7 +96,9 @@ def add_us_context(axis):
         spine.set_visible(False)
 
 
-def map_figure(rows, field, label, output, *, norm=None, cmap=None):
+def map_figure(
+        rows, field, label, output, *, norm=None, cmap=None,
+        value_scale=1.0):
     segments, values = [], []
     for row in rows:
         coordinates = [row[key] for key in (
@@ -108,7 +107,7 @@ def map_figure(rows, field, label, output, *, norm=None, cmap=None):
             continue
         lon_a, lat_a, lon_b, lat_b = map(float, coordinates)
         segments.append(((lon_a, lat_a), (lon_b, lat_b)))
-        values.append(float(row[field]))
+        values.append(value_scale*float(row[field]))
     values = np.asarray(values)
     if norm is None or cmap is None:
         norm, cmap = welfare_norm(values, robust=True, include_zero=True)
@@ -151,7 +150,9 @@ def scatter_figure(rows, output, labels=None):
     pearson, spearman = correlations(x, y)
     axis.text(
         0.03, 0.97,
-        f"Pearson $r = {pearson:.3f}$\nRank correlation $= {spearman:.3f}$",
+        f"All {len(rows)} physical links\n"
+        f"Pearson $r = {pearson:.3f}$\n"
+        f"Rank correlation $= {spearman:.3f}$",
         transform=axis.transAxes, ha="left", va="top", fontsize=7.5,
     )
     add_scatter_labels(axis, rows, x, y, labels or {})
@@ -275,17 +276,18 @@ def decomposition_figure(rows, output):
     summary = decomposition_summary(rows)
     scale = 1.0e4
     figure, axes = plt.subplots(
-        1, 2, figsize=(10.8, 4.9),
+        1, 2, figsize=(10.8, 5.4),
         gridspec_kw={"width_ratios": (1.0, 1.0)},
     )
 
     ladder_axis = axes[0]
     ladder_fields = (
         ("traditional", "Traditional approach", MUTED),
-        ("fixed_route", "Welfare effect, fixed routes", MUTED),
-        ("flexible_efficient", "+ Route and mode choice", MUTED),
+        ("fixed_route", "Welfare effect with routes fixed", MUTED),
+        ("flexible_efficient", "Flexible route and mode choice", MUTED),
         ("efficient_congestion", "+ Road congestion", TEAL),
         ("spatial_equilibrium", "+ Net spatial externalities", PURPLE),
+        ("extended", "+ Primitive-cost pass-through", RED),
         ("extended", "Extended approach", BLUE),
     )
     ladder_x = [scale*summary[field] for field, _, _ in ladder_fields]
@@ -314,7 +316,7 @@ def decomposition_figure(rows, output):
 
     ladder_axis.set_yticks(ladder_y)
     ladder_axis.set_yticklabels([label for _, label, _ in ladder_fields])
-    ladder_axis.set_ylim(-0.75, 5.45)
+    ladder_axis.set_ylim(-0.75, 6.45)
     ladder_axis.set_xlim(0.0, max(ladder_x)*1.18)
     ladder_axis.set_xlabel(r"Mean welfare elasticity ($\times 10^{-4}$)")
     style_axis(ladder_axis, grid_axis="x")
@@ -324,17 +326,29 @@ def decomposition_figure(rows, output):
 
     component_axis = axes[1]
     components = (
-        ("fixed_route_change", "Fixed-route welfare effect", MUTED),
-        ("route_mode_change", "Route and mode choice", MUTED),
-        ("congestion_change", "Road congestion", TEAL),
-        ("spatial_externality_change", "Net spatial externalities", PURPLE),
-        ("pass_through_change", "Cost pass-through", RED),
+        (None, "Traditional approach", MUTED),
+        ("fixed_route_change", "Welfare effect with routes fixed", MUTED),
+        ("route_mode_change", "Flexible route and mode choice", MUTED),
+        ("congestion_change", "+ Road congestion", TEAL),
+        ("spatial_externality_change", "+ Net spatial externalities", PURPLE),
+        ("pass_through_change", "+ Primitive-cost pass-through", RED),
+        ("net_change", "Extended approach: net change", BLUE),
     )
     component_y = np.arange(len(components)-1, -1, -1)
-    component_values = [scale*summary[field] for field, _, _ in components]
+    component_values = [
+        np.nan if field is None else scale*summary[field]
+        for field, _, _ in components
+    ]
     component_axis.axvline(0.0, color=MUTED, linewidth=0.7, zorder=0)
-    for y_value, value, (_, _, color) in zip(
+    for y_value, value, (field, _, color) in zip(
             component_y, component_values, components):
+        if field is None:
+            component_axis.annotate(
+                "baseline", (0.0, y_value), xytext=(5, 0),
+                textcoords="offset points", ha="left", va="center",
+                fontsize=7, color=MUTED,
+            )
+            continue
         if abs(value) > 1.0e-12:
             component_axis.plot(
                 [0.0, value], [y_value, y_value], color=color,
@@ -354,8 +368,9 @@ def decomposition_figure(rows, output):
         )
     component_axis.set_yticks(component_y)
     component_axis.set_yticklabels([label for _, label, _ in components])
-    component_axis.set_ylim(-0.75, 5.45)
-    limit = 1.18*max(abs(value) for value in component_values)
+    component_axis.set_ylim(-0.75, 6.45)
+    limit = 1.18*max(
+        abs(value) for value in component_values if np.isfinite(value))
     component_axis.set_xlim(-limit, limit)
     component_axis.set_xlabel(
         r"Change in mean welfare elasticity ($\times 10^{-4}$)")
@@ -364,8 +379,8 @@ def decomposition_figure(rows, output):
     component_axis.tick_params(axis="y", length=0)
     component_axis.text(
         0.0, -0.16,
-        f"Net change from Traditional to Extended: "
-        f"{scale*summary['net_change']:+.2f}",
+        "The first two changes are zero welfare effects under the "
+        "efficient-envelope result.",
         transform=component_axis.transAxes, ha="left", va="top",
         fontsize=7, color=MUTED,
     )
@@ -380,7 +395,6 @@ def decomposition_figure(rows, output):
 def sensitivity_figure(rows, output):
     parameters = [
         "alpha", "beta", "net_dispersion", "eta", "lambda_road",
-        "common_congestion", "lambda_terminal",
     ]
     labels = {
         "alpha": "Productivity externality\n" + r"$\alpha$",
@@ -388,14 +402,13 @@ def sensitivity_figure(rows, output):
         "net_dispersion": "Net dispersion",
         "eta": "Mode substitution\n" + r"$\eta$",
         "lambda_road": "Road congestion",
-        "common_congestion": "Common congestion\nscale",
-        "lambda_terminal": "Terminal congestion\nextension",
     }
     grouped = {parameter: [] for parameter in parameters}
     for row in rows:
-        grouped[row["parameter"]].append(row)
+        if row["parameter"] in grouped:
+            grouped[row["parameter"]].append(row)
     figure, axes = plt.subplots(
-        len(parameters), 2, figsize=(8.2, 10.0), squeeze=False)
+        len(parameters), 2, figsize=(8.2, 7.6), squeeze=False)
     for row_index, parameter in enumerate(parameters):
         data = sorted(grouped[parameter], key=lambda row: float(row["value"]))
         x = np.asarray([float(row["value"]) for row in data])
@@ -454,6 +467,11 @@ def main():
     ))
     map_norm, map_cmap = welfare_norm(
         map_values, robust=True, include_zero=True)
+    map_figure(
+        geometry, "hulten", "Traffic share",
+        args.output_dir / "rsue_traffic_map",
+        value_scale=1.0e4,
+    )
     map_figure(
         geometry, "hulten", "Traditional approach: welfare elasticity",
         args.output_dir / "rsue_hulten_map",

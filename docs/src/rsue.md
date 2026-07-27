@@ -20,7 +20,7 @@ julia --project=. bin/tnw.jl replicate-rsue \
 
 Use `rsue_legacy_ports_all_modes_control.toml` for a like-for-like comparison. It activates the same four modes under the same component-CES and congestion specifications but retains the legacy symmetrized port layer.
 
-The July 2026 paper specification is `rsue_paper_choice_edge_census_2017.toml`. It combines `ChoiceLogsum(1.099)`, all four transport modes, road edge congestion of `0.092`, and the directional Census port layer. The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. `rsue_paper_terminal_extension_census_2017.toml` adds endpoint rail-terminal congestion only for the extension sensitivity panels. `rsue_paper_choice_edge_legacy_ports_control.toml` holds the paper model fixed and restores the legacy port layer as a data robustness check.
+The July 2026 paper specification is `rsue_paper_choice_edge_census_2017.toml`. It combines `ChoiceLogsum(1.099)`, all four transport modes, road edge congestion of `0.092`, and the directional Census port layer. The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. `rsue_paper_terminal_extension_census_2017.toml` adds endpoint rail-terminal congestion for package diagnostics; those paths do not enter the paper's five-parameter sensitivity figure. `rsue_paper_choice_edge_legacy_ports_control.toml` holds the paper model fixed and restores the legacy port layer as a data robustness check.
 
 The legacy adapter records six historical operations: domestic-node count, foreign-node padding, modal symmetrization, within-mode normalization, RSUE modal weights, and terminal-based rail filtering. Generic projects do none of these operations.
 
@@ -46,8 +46,17 @@ It reports every physical-link result, welfare rank, and rank change for each
 of the 35 sensitivity points. The builder requires 352 links in every group
 and checks its means and rank correlations against `paper_sensitivity.csv`.
 The link-level file is derived from restricted inputs and is not committed.
+The published sensitivity figure uses the 25 points for \(\alpha\), \(\beta\),
+net dispersion, \(\eta\), and road congestion. The remaining ten points are
+common- and terminal-congestion extension diagnostics.
 The generated top-10 and top-30 comparison tables are drawn from the same
 ranked result object.
+
+The claim ledger also reports correlations within the 50 and 100 links with
+the largest Traditional traffic statistics. Ties are broken by the stable
+physical-link identifier. Modal-competition diagnostics record the number of
+treated road arcs with one active mode, the distribution of road modal shares,
+and the rank movement along the \(\eta\) path.
 
 The builder also writes `paper_mechanism_path_links.csv`. This file supports
 the main decomposition figure with a nested sequence of welfare calculations.
@@ -68,7 +77,14 @@ julia --project=replication/rsue/environment \
   replication/rsue/verify_choice_logsum_fd.jl
 ```
 
-The builder uses the official 2018 Census CBSA archive with a pinned SHA-256. With both the verified archive and its derived GeoJSON in the cache, it can run offline without GDAL. A fresh conversion requires `ogr2ogr`, whose version is recorded. No corridor name is written unless the public polygon file assigns it. Generated maps and scatterplots have no internal title and are saved as PDF and transparent PNG.
+The builder uses official 2018 Census CBSA polygons and pinned Census Place
+archives for the ambiguous North Carolina and Washington links. With the
+verified archives and derived GeoJSON files in the cache, it can run offline
+without GDAL. A fresh conversion requires `ogr2ogr`, whose version is
+recorded. When the endpoints do not identify two places, the output reports
+the metropolitan area and physical-link identifier rather than inventing a
+corridor name. Generated maps and scatterplots have no overall title and are
+saved as PDF and transparent PNG.
 
 Legacy acceptance values and frozen output hashes are in `expected_summary.toml`; the corresponding Census-candidate targets are in `census_ports/expected_summary.toml`. The full result comparisons run only when the external data are present:
 
