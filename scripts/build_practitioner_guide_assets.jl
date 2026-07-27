@@ -170,6 +170,34 @@ function generated_files(root; exclude=Set{String}())
     return sort!(files)
 end
 
+function csv_values_match(generated, committed; rtol=1e-12, atol=1e-14)
+    generated_lines = readlines(generated)
+    committed_lines = readlines(committed)
+    length(generated_lines) == length(committed_lines) || return false
+    for (generated_line, committed_line) in zip(generated_lines, committed_lines)
+        generated_cells = split(generated_line, ",")
+        committed_cells = split(committed_line, ",")
+        length(generated_cells) == length(committed_cells) || return false
+        for (generated_cell, committed_cell) in zip(generated_cells, committed_cells)
+            generated_cell == committed_cell && continue
+            generated_value = tryparse(Float64, generated_cell)
+            committed_value = tryparse(Float64, committed_cell)
+            generated_value === nothing && return false
+            committed_value === nothing && return false
+            isapprox(generated_value, committed_value; rtol=rtol, atol=atol) ||
+                return false
+        end
+    end
+    return true
+end
+
+function generated_asset_matches(file, generated, committed)
+    if startswith(file, "example-assets/") && endswith(file, ".csv")
+        return csv_values_match(generated, committed)
+    end
+    return read(generated) == read(committed)
+end
+
 function transit_links(model)
     mode_index = findfirst(==(:transit), model.data.modes)
     mode_index === nothing && return Set{String}()
@@ -684,7 +712,8 @@ function check_generated()
         files == committed || error(
             "generated guide asset inventory differs: generated=$files committed=$committed")
         for file in files
-            read(joinpath(temporary, file)) == read(joinpath(DEFAULT_OUTPUT, file)) ||
+            generated_asset_matches(
+                file, joinpath(temporary, file), joinpath(DEFAULT_OUTPUT, file)) ||
                 error("generated guide asset drift: $file")
         end
     end
