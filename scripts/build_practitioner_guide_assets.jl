@@ -240,6 +240,22 @@ function generated_asset_matches(file, generated, committed)
     return read(generated) == read(committed)
 end
 
+function report_first_difference(file, generated, committed)
+    generated_lines = readlines(generated)
+    committed_lines = readlines(committed)
+    for index in 1:max(length(generated_lines), length(committed_lines))
+        generated_line = index <= length(generated_lines) ?
+                         generated_lines[index] : "<missing>"
+        committed_line = index <= length(committed_lines) ?
+                         committed_lines[index] : "<missing>"
+        generated_line == committed_line && continue
+        println(stderr, "first generated asset difference in $file at line $index")
+        println(stderr, "generated: $generated_line")
+        println(stderr, "committed: $committed_line")
+        return
+    end
+end
+
 function transit_links(model)
     mode_index = findfirst(==(:transit), model.data.modes)
     mode_index === nothing && return Set{String}()
@@ -754,9 +770,12 @@ function check_generated()
         files == committed || error(
             "generated guide asset inventory differs: generated=$files committed=$committed")
         for file in files
-            generated_asset_matches(
-                file, joinpath(temporary, file), joinpath(DEFAULT_OUTPUT, file)) ||
+            generated = joinpath(temporary, file)
+            committed_file = joinpath(DEFAULT_OUTPUT, file)
+            if !generated_asset_matches(file, generated, committed_file)
+                report_first_difference(file, generated, committed_file)
                 error("generated guide asset drift: $file")
+            end
         end
     end
     println("practitioner-guide generated sources accepted")
