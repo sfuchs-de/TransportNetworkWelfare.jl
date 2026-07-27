@@ -58,14 +58,19 @@ physical-link identifier. Modal-competition diagnostics record the number of
 treated road arcs with one active mode, the distribution of road modal shares,
 and the rank movement along the \(\eta\) path.
 
-The builder also writes `paper_mechanism_path_links.csv`. This file supports
-the main decomposition figure with a nested sequence of welfare calculations.
-It begins from the Traditional traffic statistic, verifies the efficient
-fixed-route and flexible route-modal collapses, then adds road congestion,
-net spatial externalities, and primitive-cost pass-through. The original
-`H`/`NC`/`NT`/`F`/`FM`/`FR` closure outputs remain unchanged and continue to
-support the more detailed appendix identities. Terminal congestion is absent
-from the headline path and remains an extension.
+The builder also writes `paper_welfare_path_links.csv`. This file supports the
+main decomposition figure with an exact identity evaluated at the accepted
+baseline. It starts from the Traditional traffic statistic, adds the net
+spatial-equilibrium adjustment in the no-congestion closure, and then combines
+road congestion with primitive-cost pass-through to reach the Extended result.
+The file also retains the direct externality, market-access propagation, road,
+terminal, and pass-through components needed to verify both grouped changes.
+The paper-facing road-congestion adjustment compares the primitive-cost
+derivative in the full model with the no-congestion derivative. The separate
+realized-cost and pass-through terms are retained only for technical diagnosis.
+The original `H`/`NC`/`NT`/`F`/`FM`/`FR` closure outputs remain unchanged and
+continue to support the more detailed appendix identities. Terminal congestion
+is absent from the headline specification and remains an extension.
 
 The tracked replication manifest fixes the Julia package environment. The artifact manifest also records the Julia and BLAS configuration, Python version, GDAL version, lockfile hashes, input hashes, and source hashes.
 

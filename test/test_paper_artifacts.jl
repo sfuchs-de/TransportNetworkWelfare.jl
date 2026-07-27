@@ -27,12 +27,18 @@ include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.j
         "primitive_to_realized_percent" => 4.0,
         "primitive_to_hulten_percent" => 5.0,
     )
-    mechanism = Dict{String,Any}(
+    welfare_path = Dict{String,Any}(
         "mean_traditional" => 0.0004,
-        "mean_efficient_congestion" => 0.0002,
-        "mean_flexible_efficient" => 0.0004,
-        "mean_spatial_equilibrium" => 0.0005,
+        "mean_spatial_no_congestion" => 0.0005,
         "mean_extended" => 0.0003,
+        "mean_direct_externality_adjustment" => -0.0002,
+        "mean_market_access_propagation_adjustment" => 0.0003,
+        "mean_spatial_adjustment" => 0.0001,
+        "mean_road_congestion_adjustment" => -0.00005,
+        "mean_pass_through_adjustment" => -0.00015,
+        "mean_road_congestion_policy_adjustment" => -0.0002,
+        "mean_congestion_pass_through_change" => -0.0002,
+        "mean_net_change" => -0.0001,
     )
     ranking = Dict{String,Any}("overlap_count" => 6, "jaccard_index" => 0.5)
     robustness = Dict{String,Any}(
@@ -49,15 +55,18 @@ include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.j
     )
     mktempdir() do directory
         path = write_tex_macros(joinpath(directory, "paper_results.tex"), statistics,
-            decomposition, mechanism, ranking, robustness, diagnostics,
+            decomposition, welfare_path, ranking, robustness, diagnostics,
             modal_diagnostics)
         output = read(path, String)
         @test occursin("\\PaperPtenGainPercent}{0.01}", output)
         @test occursin("\\PaperPninetiethGainPercent}{0.02}", output)
         @test occursin("\\PaperTopTenTableCount}{10}", output)
         @test occursin("\\PaperTopLinkTableCount}{30}", output)
-        @test occursin("\\PaperCongestionStepPercent}{-50.0}", output)
-        @test occursin("\\PaperSpatialExternalityStepPercent}{150.0}", output)
+        @test occursin("\\PaperSpatialNoCongestionMeanScaled}{5.0}", output)
+        @test occursin("\\PaperNetSpatialAdjustmentScaled}{1.0}", output)
+        @test occursin("\\PaperRoadCongestionPolicyAdjustmentScaled}{-2.0}", output)
+        @test occursin("\\PaperCongestionPassThroughAdjustmentScaled}{-2.0}", output)
+        @test occursin("\\PaperNetExtendedAdjustmentScaled}{-1.0}", output)
         @test occursin("\\PaperTopFiftyTrafficCorrelation}{0.7}", output)
         @test occursin("\\PaperTopHundredTrafficRankCorrelation}{0.75}", output)
         @test occursin("\\PaperSingleModeRoadArcCount}{5}", output)
@@ -79,28 +88,32 @@ end
     @test isapprox(subsets["3"]["spearman"], -1.0; atol=1.0e-12)
 end
 
-@testset "Nested mechanism statistics preserve the welfare hierarchy" begin
+@testset "Policy-relevant path preserves the welfare identity" begin
     rows = [(
         traditional=0.0010,
-        fixed_route=0.0010,
-        flexible_efficient=0.0010,
-        efficient_congestion=0.0008,
-        spatial_equilibrium=0.0011,
+        spatial_no_congestion=0.0011,
         extended=0.0007,
-        fixed_route_change=0.0,
-        route_mode_change=0.0,
-        congestion_change=-0.0002,
-        spatial_externality_change=0.0003,
-        pass_through_change=-0.0004,
+        direct_externality_adjustment=-0.0002,
+        market_access_propagation_adjustment=0.0003,
+        road_congestion_adjustment=-0.0001,
+        terminal_congestion_adjustment=0.0,
+        pass_through_adjustment=-0.0003,
+        spatial_adjustment=0.0001,
+        road_congestion_policy_adjustment=-0.0004,
+        congestion_pass_through_change=-0.0004,
         net_change=-0.0003,
+        spatial_component_residual=0.0,
+        congestion_component_residual=0.0,
         identity_residual=0.0,
     )]
-    summary = mechanism_path_statistics(rows)
+    summary = welfare_path_statistics(rows)
     @test summary["mean_traditional"] == 0.001
     @test summary["mean_extended"] == 0.0007
-    @test summary["mean_congestion_change"] == -0.0002
-    @test summary["maximum_fixed_route_collapse_error"] == 0.0
-    @test summary["maximum_flexible_efficient_collapse_error"] == 0.0
+    @test summary["mean_spatial_adjustment"] == 0.0001
+    @test summary["mean_road_congestion_policy_adjustment"] == -0.0004
+    @test summary["mean_congestion_pass_through_change"] == -0.0004
+    @test summary["maximum_spatial_component_residual"] == 0.0
+    @test summary["maximum_congestion_component_residual"] == 0.0
     @test summary["maximum_identity_residual"] == 0.0
 end
 

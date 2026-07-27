@@ -218,48 +218,47 @@ def interval_plot(axis, rows, specifications, scale=1.0, zero_line=False):
 
 
 def decomposition_summary(rows, tolerance=1.0e-12):
-    """Verify and summarize the nested welfare-mechanism path."""
+    """Verify and summarize the policy-relevant welfare path."""
     if not rows:
-        raise ValueError("Mechanism-path rows must be nonempty.")
+        raise ValueError("Welfare-path rows must be nonempty.")
     fields = (
-        "traditional", "fixed_route", "flexible_efficient",
-        "efficient_congestion", "spatial_equilibrium", "extended",
-        "fixed_route_change", "route_mode_change", "congestion_change",
-        "spatial_externality_change", "pass_through_change", "net_change",
+        "traditional", "spatial_no_congestion", "extended",
+        "direct_externality_adjustment",
+        "market_access_propagation_adjustment",
+        "road_congestion_adjustment", "terminal_congestion_adjustment",
+        "pass_through_adjustment", "spatial_adjustment",
+        "road_congestion_policy_adjustment",
+        "congestion_pass_through_change", "net_change",
     )
     numeric = []
     for row in rows:
         values = {field: float(row[field]) for field in fields}
-        reconstructed = (
-            values["traditional"]
-            + values["fixed_route_change"]
-            + values["route_mode_change"]
-            + values["congestion_change"]
-            + values["spatial_externality_change"]
-            + values["pass_through_change"]
-        )
         residuals = (
-            values["fixed_route"]
+            values["spatial_no_congestion"]
             - values["traditional"]
-            - values["fixed_route_change"],
-            values["flexible_efficient"]
-            - values["fixed_route"]
-            - values["route_mode_change"],
-            values["efficient_congestion"]
-            - values["flexible_efficient"]
-            - values["congestion_change"],
-            values["spatial_equilibrium"]
-            - values["efficient_congestion"]
-            - values["spatial_externality_change"],
+            - values["spatial_adjustment"],
             values["extended"]
-            - values["spatial_equilibrium"]
-            - values["pass_through_change"],
-            values["extended"]-reconstructed,
-            values["net_change"]-(values["extended"]-values["traditional"]),
+            - values["spatial_no_congestion"]
+            - values["road_congestion_policy_adjustment"],
+            values["spatial_adjustment"]
+            - values["direct_externality_adjustment"]
+            - values["market_access_propagation_adjustment"],
+            values["congestion_pass_through_change"]
+            - values["road_congestion_adjustment"]
+            - values["terminal_congestion_adjustment"]
+            - values["pass_through_adjustment"],
+            values["road_congestion_policy_adjustment"]
+            - values["congestion_pass_through_change"],
+            values["net_change"]
+            - values["spatial_adjustment"]
+            - values["road_congestion_policy_adjustment"],
+            values["net_change"]
+            - values["extended"]
+            + values["traditional"],
         )
         if max(abs(value) for value in residuals) > tolerance:
             raise ValueError(
-                "The nested mechanism path does not reconstruct the "
+                "The policy-relevant welfare path does not reconstruct the "
                 "reported welfare levels."
             )
         numeric.append(values)
@@ -276,18 +275,14 @@ def decomposition_figure(rows, output):
     summary = decomposition_summary(rows)
     scale = 1.0e4
     figure, axes = plt.subplots(
-        1, 2, figsize=(10.8, 5.4),
+        1, 2, figsize=(10.8, 3.8),
         gridspec_kw={"width_ratios": (1.0, 1.0)},
     )
 
     ladder_axis = axes[0]
     ladder_fields = (
         ("traditional", "Traditional approach", MUTED),
-        ("fixed_route", "Welfare effect with routes fixed", MUTED),
-        ("flexible_efficient", "Flexible route and mode choice", MUTED),
-        ("efficient_congestion", "+ Road congestion", TEAL),
-        ("spatial_equilibrium", "+ Net spatial externalities", PURPLE),
-        ("extended", "+ Primitive-cost pass-through", RED),
+        ("spatial_no_congestion", "Spatial equilibrium\n(no congestion)", PURPLE),
         ("extended", "Extended approach", BLUE),
     )
     ladder_x = [scale*summary[field] for field, _, _ in ladder_fields]
@@ -308,31 +303,29 @@ def decomposition_figure(rows, output):
             [x_value], [y_value], s=48, color=color, edgecolor="white",
             linewidth=0.7, zorder=3,
         )
+        to_left = x_value >= 0.92*max(ladder_x)
         ladder_axis.annotate(
             _format_effect(summary[field]), (x_value, y_value),
-            xytext=(6, 0), textcoords="offset points",
-            ha="left", va="center", fontsize=7, color=INK,
+            xytext=(-6 if to_left else 6, 0), textcoords="offset points",
+            ha="right" if to_left else "left", va="center",
+            fontsize=7, color=INK,
         )
 
     ladder_axis.set_yticks(ladder_y)
     ladder_axis.set_yticklabels([label for _, label, _ in ladder_fields])
-    ladder_axis.set_ylim(-0.75, 6.45)
+    ladder_axis.set_ylim(-0.55, 2.45)
     ladder_axis.set_xlim(0.0, max(ladder_x)*1.18)
     ladder_axis.set_xlabel(r"Mean welfare elasticity ($\times 10^{-4}$)")
     style_axis(ladder_axis, grid_axis="x")
     ladder_axis.spines["left"].set_visible(False)
     ladder_axis.tick_params(axis="y", length=0)
-    add_panel_label(axes[0], "A", "Successive welfare effects")
+    add_panel_label(axes[0], "A", "Mean welfare elasticity")
 
     component_axis = axes[1]
     components = (
-        (None, "Traditional approach", MUTED),
-        ("fixed_route_change", "Welfare effect with routes fixed", MUTED),
-        ("route_mode_change", "Flexible route and mode choice", MUTED),
-        ("congestion_change", "+ Road congestion", TEAL),
-        ("spatial_externality_change", "+ Net spatial externalities", PURPLE),
-        ("pass_through_change", "+ Primitive-cost pass-through", RED),
-        ("net_change", "Extended approach: net change", BLUE),
+        (None, "Traditional baseline", MUTED),
+        ("spatial_adjustment", "Net spatial adjustment", PURPLE),
+        ("road_congestion_policy_adjustment", "Road congestion", RED),
     )
     component_y = np.arange(len(components)-1, -1, -1)
     component_values = [
@@ -361,14 +354,14 @@ def decomposition_figure(rows, output):
         )
         component_axis.annotate(
             f"{value:+.2f}", (value, y_value),
-            xytext=(5 if value >= 0 else -5, 0),
+            xytext=(0, 7),
             textcoords="offset points",
-            ha="left" if value >= 0 else "right",
-            va="center", fontsize=7, color=color,
+            ha="center",
+            va="bottom", fontsize=7, color=color,
         )
     component_axis.set_yticks(component_y)
     component_axis.set_yticklabels([label for _, label, _ in components])
-    component_axis.set_ylim(-0.75, 6.45)
+    component_axis.set_ylim(-0.55, 2.45)
     limit = 1.18*max(
         abs(value) for value in component_values if np.isfinite(value))
     component_axis.set_xlim(-limit, limit)
@@ -378,16 +371,15 @@ def decomposition_figure(rows, output):
     component_axis.spines["left"].set_visible(False)
     component_axis.tick_params(axis="y", length=0)
     component_axis.text(
-        0.0, -0.16,
-        "The first two changes are zero welfare effects under the "
-        "efficient-envelope result.",
-        transform=component_axis.transAxes, ha="left", va="top",
+        0.98, 0.03,
+        f"Net change: {scale*summary['net_change']:+.2f}",
+        transform=component_axis.transAxes, ha="right", va="bottom",
         fontsize=7, color=MUTED,
     )
-    add_panel_label(axes[1], "B", "Change added at each step")
+    add_panel_label(axes[1], "B", "Change in mean welfare elasticity")
 
     figure.subplots_adjust(
-        left=0.18, right=0.99, bottom=0.20, top=0.91, wspace=0.44,
+        left=0.18, right=0.99, bottom=0.24, top=0.87, wspace=0.68,
     )
     save_figure(figure, output)
 
@@ -465,8 +457,8 @@ def main():
     args = parser.parse_args()
     geometry = read_rows(args.input_dir / "paper_link_geometry.csv")
     physical = read_rows(args.input_dir / "decomposition_physical.csv")
-    mechanism_path = read_rows(
-        args.input_dir / "paper_mechanism_path_links.csv")
+    welfare_path = read_rows(
+        args.input_dir / "paper_welfare_path_links.csv")
     sensitivity = read_rows(args.input_dir / "paper_sensitivity.csv")
     label_rows = read_rows(args.input_dir / "paper_link_labels.csv")
     labels = {
@@ -497,7 +489,7 @@ def main():
     scatter_figure(
         physical, args.output_dir / "rsue_hulten_vs_ift", labels)
     decomposition_figure(
-        mechanism_path, args.output_dir / "rsue_decomposition")
+        welfare_path, args.output_dir / "rsue_decomposition")
     sensitivity_figure(sensitivity, args.output_dir / "rsue_sensitivity")
 
 
