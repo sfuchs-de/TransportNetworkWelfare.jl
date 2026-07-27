@@ -80,7 +80,7 @@ jobs:
       - name: Install TeX and PDF checks
         run: |
           sudo apt-get update
-          sudo apt-get install -y file latexmk lmodern poppler-utils texlive-fonts-recommended texlive-latex-extra texlive-pictures
+          sudo apt-get install -y file latexmk lmodern poppler-utils qpdf texlive-fonts-recommended texlive-latex-extra texlive-pictures
       - name: Build and check practitioner guide
         run: make practitioner-guide-check
       - name: Upload practitioner guide
