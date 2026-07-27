@@ -115,48 +115,26 @@ end
 function build_route_basis(project::Project, data::NetworkData; include_fixed::Bool=true)
     c = AdjointRSUE.coefs(
         project.parameters.alpha, project.parameters.beta, project.parameters.sigma)
-    pairs = build_pair_basis(project, data)
-    route = IFTDecomposition.reconstruct_route_kernel(data.mu, data.sx, data.nu, data.Xi)
     S, D, dlogY = bilateral_state_rows(data.N, c)
     dlogY[1:data.N] .= data.nu
-        dlogY[data.N+1:2*data.N] .= data.nu
-    soft = IFTDecomposition.soft_route_operators(
-        route, pairs.active_network_edges, data.nu, data.sx, S, D, dlogY,
-        project.parameters.sigma)
+    dlogY[data.N+1:2*data.N] .= data.nu
     Vz = inverse_state_map(data.N, data.omega, c)
-    Qz_soft = soft.Qz * Vz
     accepted = IFTDecomposition.response_rows(
-        data.N, pairs.active_network_edges, data.omega, data.nu, c)
-    edge_target = [data.Xi[i, j] for (i, j) in pairs.active_network_edges]
-    soft_edge_error = maximum(abs.(soft.edge_traffic .- edge_target) ./ max.(edge_target, eps()))
-    soft_edge_error <= project.tolerance ||
-        error("route traffic reconstruction exceeded tolerance")
-    fixed = include_fixed ? IFTDecomposition.fixed_route_operators(
-        route, pairs.active_network_edges, route.Xod, S, D, dlogY,
-        project.parameters.sigma) : nothing
-    Qz_fixed = include_fixed ? fixed.Qz * Vz : nothing
-    fixed_edge_error = include_fixed ? maximum(
-        abs.(fixed.edge_traffic .- edge_target) ./ max.(edge_target, eps())) : missing
-    include_fixed && fixed_edge_error > project.tolerance &&
-        error("fixed-route traffic reconstruction exceeded tolerance")
-    return merge(pairs, (;
-        sigma=project.parameters.sigma,
-        route,
-        Croute_soft=(1-project.parameters.sigma) .* soft.C,
-        Croute_fixed=include_fixed ? (1-project.parameters.sigma) .* fixed.C : nothing,
-        Qz_soft,
-        Qz_fixed,
-        fixed_source_weights=include_fixed ? fixed.source_weights : nothing,
-        fixed_destination_weights=include_fixed ? fixed.destination_weights : nothing,
-        diagnostics=(;
-            route.diagnostics...,
-            soft_state_error=maximum(abs.(Qz_soft .- accepted)),
-            soft_edge_relative_error=soft_edge_error,
-            fixed_edge_relative_error=fixed_edge_error,
-            fixed_source_weight_error=include_fixed ? fixed.source_weight_error : missing,
-            fixed_destination_weight_error=include_fixed ? fixed.destination_weight_error : missing,
-        ),
-    ))
+        data.N, build_pair_basis(project, data).active_network_edges,
+        data.omega, data.nu, c)
+    basis = build_spatial_transport_basis(
+        project, data;
+        source=data.nu,
+        destination=data.nu,
+        source_state=S,
+        destination_state=D,
+        aggregate_state=dlogY,
+        route_curvature=project.parameters.sigma-1,
+        state_map=Vz,
+        include_fixed,
+        accepted_state=accepted,
+    )
+    return merge(basis, (; sigma=project.parameters.sigma))
 end
 
 function route_state_matrix(data::NetworkData, basis, c::AdjointRSUE.Coef;
@@ -405,7 +383,7 @@ end
 
 "Load project data and build the common route-modal-congestion closure system."
 function build_model(project::Project)
-    project.spatial isa UrbanCommuting && return build_urban_welfare_model(project)
+    project.spatial isa UrbanCommuting && return build_urban_model(project)
     isfinite(project.condition_limit) && 1 < project.condition_limit <= 1e12 ||
         throw(ArgumentError("condition_limit must be finite and lie in (1, 1e12]"))
     isfinite(project.tolerance) && project.tolerance > 0 ||
@@ -442,9 +420,11 @@ function build_welfare_model(project::Project)
     return TransportModel(project, data, point_basis, closures)
 end
 
-function primitive_forcing(model::TransportModel)
+function primitive_forcing(model::TransportModel, closure_name::Symbol=:F)
     basis = model.basis
-    closure = model.closures.transport.F
+    hasproperty(model.closures.transport, closure_name) ||
+        throw(ArgumentError("transport closure $closure_name is unavailable"))
+    closure = getproperty(model.closures.transport, closure_name)
     R = length(basis.policy_pairs)
     selectors = sparse(basis.policy_pairs, collect(1:R), ones(R), basis.P, R)
     Kedge = basis.Sagg * selectors

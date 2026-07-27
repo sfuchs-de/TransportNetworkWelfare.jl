@@ -1,0 +1,179 @@
+\subsection{Numerical checks and reporting}
+\label{ch:diagnostics}
+
+A numerical solve is not sufficient evidence that a reported elasticity
+represents the intended model. The inputs, derivative identities, and
+empirical mapping require separate checks. Distinguishing these layers also
+prevents a successful implementation test from being described as external
+validation.
+
+\subsubsection{Three layers of verification}
+
+A credible application must pass accounting, mathematical, and empirical
+tests. The accounting test asks whether the input margins, exposure stocks,
+routes, and edge flows describe the same baseline. The mathematical test asks
+whether the code implements the declared derivative and closure identities.
+The empirical test asks whether the calibrated model can explain outcomes that
+were not imposed in constructing that baseline. The package automates the
+accounting and mathematical tests; external validation requires
+application-specific evidence.
+
+\subsubsection{Route diagnostics}
+
+The run manifest records the route spectral radius and the absorption error. It
+also reports the bilateral row and column errors and the directed-edge
+reconstruction errors under flexible and fixed routing.
+The spectral radius must be below one. A value close to one can produce a
+well-defined but poorly conditioned resolvent in which traffic circulates for
+many expected steps before absorption.
+
+Large margin or edge errors usually indicate inconsistent inputs, reversed
+orientation, duplicated arcs, or an undeclared transformation. They should not
+be repaired by increasing the tolerance.
+
+\subsubsection{Linear-system diagnostics}
+
+Each decomposition case reports the condition numbers of its transport and spatial
+systems. The default upper gate is \(10^{12}\). This is a permissive numerical
+ceiling rather than a target. Results near the gate can be sensitive to small
+changes in data or parameters.
+
+The package also records solve residuals and finiteness checks. A low residual
+with a very high condition number does not establish a stable economic
+derivative. Both should be examined.
+
+\subsubsection{Identity diagnostics}
+
+For \code{decompose}, both spatial models report the maximum inverse-gap and
+closure-ladder errors, the realized and primitive Hulten-accounting errors, the
+closure-Jacobian reconstruction error, and the primitive transport residual.
+Economic-geography output also reports a reconstruction error for its three
+analytical subchannels: allocation, scarcity, and equilibrium correction.
+That subcomponent decomposition is not defined for the urban model.
+The package acceptance target for algebraic identities is \(10^{-10}\). An
+identity failure is a code or model-construction problem. It is not an
+interesting economic result.
+
+\subsubsection{Finite differences}
+
+An analytical derivative should be compared with independently solved
+nonlinear equilibria. Let \(h\) be a small change in primitive log cost and
+re-solve welfare on either side of the baseline. The central-difference
+estimate is
+\[
+ E_p^{FD}
+ =-\frac{\log W(\theta_p+h)-\log W(\theta_p-h)}{2h}.
+\]
+The nonlinear solver must re-solve all equilibrium and transport quantities.
+Reusing the analytical derivative inside the counterfactual would make the
+test circular.
+
+The package tests efficient, externality, congestion, asymmetric, multiple
+mode, unique-route, and parallel-route cases. The archived freight verification
+uses a deterministic traffic-stratified sample of road arcs. The absolute
+derivative error must be below \(10^{-6}\), and nonlinear solve residuals below
+\(10^{-10}\).
+
+\subsubsection{First-order accuracy}
+
+Finite-difference verification establishes the derivative at the baseline. To
+assess a finite policy, compare the first-order prediction
+\[
+ \Delta\log W_{\mathrm{linear}}=-E_p\Delta\theta_p
+\]
+with a nonlinear counterfactual. The package checks changes of \(0.1\), \(1\),
+and \(5\) percent only for models with an independently implemented nonlinear
+solver. If the derivative and nonlinear solver are correct and the equilibrium
+is smooth, the approximation error should shrink at the rate implied by a
+first-order expansion as the shock approaches zero.
+
+The urban module supplies such a nonlinear solver. The current
+economic-geography grid verifies the local derivative against a re-solved
+nonlinear route--mode--congestion system, but it does not supply a global
+economic-geography counterfactual for a five-percent project. A finite-size
+accuracy chart for that model would therefore overstate what has been
+verified. Analysts should report this distinction and the policy scale used
+with the approximation.
+
+\subsubsection{Sensitivity}
+
+A sensitivity path should report both average effects and rank stability. A
+parameter can scale all links similarly while leaving the ordering nearly
+unchanged, or leave the average stable while reshuffling the top links.
+
+The paper exercises vary \(\alpha\), \(\beta\), net dispersion, \(\eta\), and
+road congestion in the headline model. Common road/terminal and terminal-only
+paths are extension diagnostics. Each point must remain on the declared
+regular branch and pass all numerical gates.
+
+For an urban application, sensitivity replaces the trade elasticity with
+commuting heterogeneity \(\theta_U\) and should separately vary the modal and
+congestion inputs used by that application. A transferred value of \(\eta\)
+or an unestimated terminal elasticity should be labeled as such.
+
+At each accepted point on a sensitivity path, report the mean and median
+primitive-cost welfare elasticities together with their Pearson and Spearman
+correlations with the baseline. Ranking stability should be summarized by
+top-\(k\) overlap, maximum absolute rank movement, and the number of links that
+enter or leave the top decile. The report should also identify sign changes,
+changes in the signed decomposition, transport and spatial condition numbers,
+and any branch failures or rejected parameter values.
+One-at-a-time paths isolate separate parameter effects. Joint low, central,
+and high scenarios are worth reporting when spatial externalities,
+congestion, or modal substitution are expected to move together. These
+exercises report rankings for each assumed calibration; the package does not
+estimate sampling uncertainty.
+
+\subsubsection{Common failures}
+
+\begin{longtable}{L{0.30\textwidth}L{0.29\textwidth}L{0.33\textwidth}}
+\toprule
+Message or symptom & Likely cause & Correct response \\
+\midrule
+\endhead
+Route kernel is not contractive & Cyclic continuation shares do not absorb &
+Revisit flow accounting or local absorption; do not truncate paths silently. \\
+Stock disagreement & Incoming and outgoing flows imply different exposure &
+Document and perform a balancing transformation outside the package. \\
+Policy edge lacks active mode & Zero or missing policy-mode flow & Remove the
+policy or provide a defensible positive-flow baseline. \\
+Missing terminal ID & Positive terminal congestion on an unidentified terminal
+& Add explicit endpoint terminal identifiers. \\
+Condition-number gate & Near-singular modal, transport, or spatial system &
+Review parameters, baseline support, and model identification. \\
+Undefined effective pass-through & Realized derivative is numerically zero &
+Use the level pass-through component; do not force a ratio. \\
+Physical link rejected & Missing or inconsistent reciprocal direction &
+Report directed policies or correct the physical-link identifier. \\
+\bottomrule
+\end{longtable}
+
+\subsubsection{Reporting standards}
+
+An empirical application should disclose how the network and flows were
+constructed, the units in which they are measured, and all transformations
+used to make them model-ready. It should define the policy primitive,
+direction, mode, and scale and report the sources of all parameters together
+with the modal and congestion specifications.
+
+The results should be accompanied by the route, accounting, conditioning, and
+identity diagnostics, as well as sensitivity of both levels and rankings.
+Finally, the application should distinguish external-validation evidence from
+quantities matched by construction and state the limitations of that evidence.
+This information is part of the economic result, not software housekeeping.
+
+\implementationbox{\textbf{Copy-ready reporting template.}
+``We evaluate a \(s\)-percent reduction in the primitive generalized cost of
+each existing [mode] link. The headline statistic is the full primitive-cost
+welfare elasticity. We compare it with the Traditional approach and the full
+realized-cost effect. We report the signed congestion, equilibrium-propagation,
+and pass-through components; Pearson and Spearman correlations; top-\(k\)
+overlap and rank movements; route and accounting errors; condition numbers;
+finite-difference errors; and parameter sensitivity. The statistic measures
+model-implied gross economic benefits and excludes construction costs and
+omitted externalities.''}
+
+The public grid in Section \ref{ch:worked} satisfies these numerical checks by
+construction. Section \ref{ch:applications} then separates that generic
+verification from the additional data and validation claims required by the
+U.S. freight and Seattle applications.

@@ -2,6 +2,12 @@
 
 This package evaluates local transport improvements in a spatial equilibrium model. A project consists of two CSV files and one TOML file. The computation returns directed-arc effects, physical-link effects, closure decompositions, parameter sensitivity paths, and diagnostics.
 
+For a paper-centered treatment of the theory and a complete computational
+walkthrough, build the
+[practitioner guide](https://github.com/sfuchs-de/TransportNetworkWelfare.jl/tree/main/docs/practitioner-guide) with
+`make practitioner-guide-assets`, `make practitioner-guide`, and
+`make practitioner-guide-check` from the repository root.
+
 ## Install and run the toy project
 
 ```bash

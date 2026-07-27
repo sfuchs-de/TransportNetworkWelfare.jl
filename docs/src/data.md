@@ -10,6 +10,10 @@ Required columns:
 | `labor` | Positive labor level |
 | `income` | Positive income level |
 
+For `[model].spatial_specification = "urban_commuting"`, the required economic
+columns are instead `residents` and `employment`. Both are positive and are
+normalized only when the corresponding transformations are declared.
+
 Optional plotting columns are `longitude`, `latitude`, and `elevation`. They do
 not enter the economic model. The loader normalizes labor and income only when
 the TOML file declares those transformations.
@@ -41,6 +45,16 @@ For each node $i$, baseline edge-mode traffic must satisfy
 ```
 
 This is an equilibrium accounting identity, not a numerical tolerance for arbitrary traffic counts. Vehicle counts, tons, and unbalanced origin-destination records therefore require an application-specific conversion into value-flow shares before loading.
+
+Urban projects use the distinct-margin accounting identity
+
+```math
+l_i^F+\sum_{j,m}\Xi_{ij,m}
+=l_i^R+\sum_{j,m}\Xi_{ji,m}.
+```
+
+The same edge-mode, mode-order, congestion, terminal, and policy fields apply
+to both spatial closures.
 
 The generic loader does not pad nodes, symmetrize edges, or rescale modes. Both policy directions must appear in the CSV. The RSUE legacy adapter is separate because it reproduces historical declared transformations and records each one in the manifest.
 

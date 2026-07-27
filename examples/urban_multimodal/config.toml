@@ -1,0 +1,47 @@
+schema_version = 1
+name = "four-location-multimodal-urban-commuting"
+
+[input]
+adapter = "generic_csv_v1"
+nodes = "data/nodes.csv"
+edge_modes = "data/edge_modes.csv"
+mode_order = ["road", "transit"]
+
+[input.transformations]
+normalize_residents = true
+normalize_employment = true
+flow_conversion = "none"
+symmetrize = false
+pad_nodes = 0
+modal_rescale = false
+
+[model]
+spatial_specification = "urban_commuting"
+alpha = -0.08
+beta = -0.12
+theta = 6.0
+modal_specification = "choice_logsum"
+eta = 1.4
+route_curvature = "theorem"
+
+[congestion]
+specification = "composite"
+endpoint_scale = 1.0
+
+[congestion.edge]
+road = 0.06
+
+[congestion.terminal]
+transit = 0.04
+
+[policy]
+mode = "road"
+unit = "both"
+shock_fraction = 0.01
+
+[output]
+directory = "output"
+
+[diagnostics]
+tolerance = 1.0e-10
+condition_limit = 1.0e12

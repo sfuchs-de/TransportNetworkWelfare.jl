@@ -1,0 +1,140 @@
+\subsection{Routes, modes, and congestion}
+\label{ch:routing}
+
+The spatial models defined above take bilateral generalized costs as inputs,
+but the data describe directed edges and modes. The transport block connects
+these levels. It aggregates edges into routes, reconstructs baseline traffic,
+combines modal costs, and maps traffic changes into congestion.
+
+\subsubsection{Recursive path aggregation}
+
+Each spatial model takes bilateral transport costs as inputs. Those costs
+must therefore be related to the directed edges and modes observed in the
+network before either model can compute a welfare response.
+A path from \(i\) to \(j\) is a sequence of directed edges. If
+\(\kappa_{kl}\) is an iceberg cost factor, a path cost is the product of its
+edge costs. Equivalently, generalized costs add after taking logs. With a hard
+minimum, the bilateral cost is
+\[
+ \widetilde\tau_{ij}
+ =\min_{p\in\mathcal P^{ij}}\prod_{(k,l)\in p}\kappa_{kl}.
+\]
+
+The model instead smooths this choice over feasible routes
+\citep{AllenFuchsWong2026}:
+\[
+ \tau_{ij}^{-\omega}
+ =\mathbf 1\{i=j\}
+  +\sum_{k\in\mathcal N^+(i)}
+    \kappa_{ik}^{-\omega}\tau_{kj}^{-\omega}.
+\]
+The symbol \(\omega\) denotes route curvature. For the
+economic-geography theorem, \(\omega=\sigma-1\); for the urban model,
+\(\omega=\theta_U\), its commuting heterogeneity parameter. The package
+rejects an independent economic-geography route curvature because the paper's
+derivative is proved for the common-curvature case.
+
+The recursion can be written using a substochastic continuation matrix \(K\).
+For a spectral radius below one, the route resolvent is
+\[
+ T=(I-K)^{-1}=I+K+K^2+\cdots.
+\]
+The series shows why the inverse has a route interpretation: it sums weighted
+walks of arbitrary length until traffic is absorbed. Differentiating the same
+resolvent measures how an edge-cost change alters all origin--destination
+pairs whose weighted walks use that edge.
+
+\subsubsection{Reconstructing baseline routes}
+
+The package starts from directed edge traffic and the location margins
+appropriate to the selected model, not an unobserved path table. It
+reconstructs the route kernel from continuation shares and obtains bilateral
+flows as
+\[
+ X^{OD}=\operatorname{diag}(o)\,
+        (I-K)^{-1}\,
+        \operatorname{diag}(a).
+\]
+Here \(o\) is the source margin and \(a\) the destination absorption vector
+in the relevant model. For economic geography the source and destination
+margins coincide with normalized income. For urban commuting they are
+constructed from the distinct residence and workplace margins described in
+Section \ref{ch:equilibrium}.
+
+The reconstruction is accepted only when the route kernel is contractive and
+the absorption probabilities add to one. The resulting bilateral flows must
+match the declared row and column margins, while the traffic reconstructed on
+each directed edge must match the input. In addition, each edge affected by a
+policy must carry positive baseline flow in the relevant mode.
+
+The fixed-route case stores baseline origin-destination edge incidence.
+The flexible-route case differentiates the resolvent. Both are evaluated at
+the same observed baseline, which makes their difference an exact local route
+wedge rather than a comparison of two separately calibrated models.
+
+Route reconstruction treats \(\kappa_e\) as an aggregate edge cost. The modal
+block determines how the costs and traffic of the modes available on that edge
+combine into \(\kappa_e\).
+
+\subsubsection{Choice-consistent modal aggregation}
+
+Each directed edge can carry several modes. The active paper specification
+adapts the multimodal structure in \citet{FuchsWong2026Multimodal} and uses
+\[
+ \kappa_e
+ =\left(\sum_m\kappa_{e,m}^{-\eta}\right)^{-1/\eta},
+ \qquad
+ s_{e,m}
+ =\frac{\kappa_{e,m}^{-\eta}}
+        {\sum_n\kappa_{e,n}^{-\eta}}.
+\]
+The share is both the cost elasticity
+\(\partial\log\kappa_e/\partial\log\kappa_{e,m}\) and the modal traffic share
+in this logsum. A lower modal cost raises its share. A larger
+\(\eta\) makes modal allocation more responsive to relative costs.
+Baseline modal shares are model-ready data inputs, with mode-specific shifters
+rationalizing those shares. The parameter \(\eta\) governs the local response
+to a cost change; it does not overwrite the baseline allocation.
+
+The active economic-geography and urban specifications use
+\code{ChoiceLogsum}. \code{ComponentCES} is \textbf{legacy-only}; Appendices
+\ref{app:crosswalk} and \ref{app:provenance} document that earlier
+positive-power implementation.
+
+Modal substitution changes edge-mode traffic. When realized costs depend on
+that traffic, the modal and congestion responses must be solved jointly.
+
+\subsubsection{Congestion maps}
+
+Realized edge-mode cost can differ from the primitive infrastructure cost:
+\[
+ \log\kappa_{e,m}
+ =\log\bar\kappa_{e,m}
+  +\gamma_{e,m}\log\Xi_{e,m}
+\]
+for edge-local congestion. The headline application sets
+\(\gamma_{e,\mathrm{road}}=0.092\), following
+\citet{AllenArkolakis2020}, and sets other headline congestion elasticities to
+zero.
+
+The package also allows endpoint-terminal congestion. In that extension, an
+edge-mode cost depends on total affected traffic at the declared origin and
+destination terminals. This specification applies to ports, rail terminals,
+or transit hubs, but it is not part of the paper's main theorem application.
+
+Section \ref{ch:ift} differentiates the route, modal, and congestion equations
+jointly and eliminates their responses before solving the spatial system. The
+code checks that transport system before adding its feedback to the spatial
+Jacobian; a singular system stops the calculation.
+
+\warningbox{Traffic must be measured in the units implied by the congestion
+elasticity. An economic-geography value-flow elasticity cannot be applied
+automatically to a vehicle count. An urban commuter-flow elasticity cannot be
+applied to scheduled service frequency without a documented mapping. A BPR
+elasticity also requires a declared baseline volume-to-capacity ratio.}
+
+These transport equations determine how shippers or commuters reallocate
+after a cost change. At an efficient baseline, the envelope theorem implies
+that even substantial reallocation need not affect welfare at first order. The
+next section establishes when traffic alone measures welfare exactly and then
+derives the correction produced by congestion or spatial externalities.

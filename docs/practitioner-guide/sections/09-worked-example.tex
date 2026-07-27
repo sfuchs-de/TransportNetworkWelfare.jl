@@ -1,0 +1,303 @@
+\section{Worked example: a multimodal grid}
+\label{ch:worked}
+
+The theory, data contract, and software workflow have so far been presented
+separately. The grid reunites them in one reproducible calculation. Its small
+network makes the route and modal mechanisms visible while exercising the same
+validation, welfare, decomposition, and plotting commands used by larger
+applications.
+
+\subsection{Economic setting}
+
+The worked example uses the economic-geography model. Transit is a second
+mode in its transport network; the example does not use the urban
+residence--workplace model. It has \GridNodeCount{} economic locations
+arranged on a five-by-five grid. Adjacent locations are connected by
+reciprocal road arcs. Transit is also available on the four links along the
+central east--west axis and has a larger baseline modal share there. The
+committed mode shifters rationalize these baseline shares; \(\eta\) governs
+their response to a cost change rather than identifying relative cost levels
+from shares alone. Each transit stop has an explicit terminal identifier, so
+the example can include congestion from traffic using the two endpoint
+terminals of a trip. Figure
+\ref{fig:grid-network} shows the network.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.60\textwidth]{grid-network.pdf}
+\caption{Synthetic road grid and transit spine. Thin gray links are roads;
+thick blue links also carry transit. Gold node area represents economic
+activity, and blue rings identify transit terminals. Road and transit
+connections are reciprocal.}
+\label{fig:grid-network}
+\end{figure}
+
+Activity is positive throughout the grid and is higher near the central spine,
+the north--south cross-axis, and the central node. A small eastward gradient
+breaks otherwise arbitrary ranking ties. The input builder assigns symmetric
+directional flows and generates location margins from the same accounting
+system. The package therefore reconstructs the route kernel without silently
+balancing the network.
+
+To keep the equilibrium forces comparable with the paper while making the
+network fully reproducible, the example uses
+\[
+ \alpha=0.10,\qquad \beta=-0.30,\qquad \sigma=9,
+ \qquad \eta=1.099.
+\]
+These reference values mirror the paper calibration described in Section
+\ref{ch:data}, drawing on
+\citet{AllenArkolakis2014,AllenArkolakis2020} and
+\citet{FuchsWong2026Multimodal}.
+Modes enter through \code{ChoiceLogsum}. Road congestion has elasticity
+0.08, and the illustrative endpoint-terminal elasticity for transit is 0.025.
+The two congestion values make the model comparisons visible; they are not
+estimates for a particular city.
+
+\subsection{Build the inputs, run the model, and draw the results}
+
+The committed input has \GridDirectedRoadArcCount{} directed road arcs,
+\GridPhysicalRoadLinkCount{} reciprocal road links, and
+\GridActiveEdgeModeCount{} positive-flow edge--mode pairs. The difference
+between the first and third counts is the eight directed transit edge--mode
+rows on the central spine.
+
+The input builder is
+\code{examples/grid\_multimodal/build\_inputs.jl}. It first assigns positive
+labor and income across the grid. It then writes reciprocal horizontal
+and vertical road arcs and adds transit rows only along the central axis. The
+following excerpt shows the construction that an empirical preprocessing
+script must replace:
+\begin{lstlisting}[language=Julia]
+const GRID_SIZE = 5
+const TRANSIT_ROW = 3
+
+node_id(row, column) = @sprintf("r%dc%d", row, column)
+
+for row in 1:GRID_SIZE, column in 1:(GRID_SIZE - 1)
+    west = node_id(row, column)
+    east = node_id(row, column + 1)
+    link = @sprintf("H_r%d_c%d", row, column)
+    road = road_flow(:horizontal, row, column)
+    edge_row(io, link * "_E", link, west, east, "road", road)
+    edge_row(io, link * "_W", link, east, west, "road", road)
+    if row == TRANSIT_ROW
+        transit = transit_flow(column)
+        edge_row(io, link * "_E", link, west, east,
+                 "transit", transit;
+                 origin_terminal=terminal_id(row, column),
+                 destination_terminal=terminal_id(row, column + 1))
+        edge_row(io, link * "_W", link, east, west,
+                 "transit", transit;
+                 origin_terminal=terminal_id(row, column + 1),
+                 destination_terminal=terminal_id(row, column))
+    end
+end
+\end{lstlisting}
+The complete script also writes vertical links and explicit origin and
+destination terminal identifiers. Symmetric directional flows make incoming
+and outgoing traffic equal at each node. This is a transparent device for a
+synthetic example, not a balancing rule that should be imposed on empirical
+commuting or freight data.
+
+Rebuild the CSVs and inspect the first rows before running the model:
+\begin{lstlisting}[language=bash]
+julia examples/grid_multimodal/build_inputs.jl
+head examples/grid_multimodal/data/nodes.csv
+head examples/grid_multimodal/data/edge_modes.csv
+\end{lstlisting}
+The configuration names the input files, selects
+\code{economic\_geography} and \code{ChoiceLogsum}, declares road and terminal
+congestion, and defines a one-percent bidirectional road policy. These are the
+fields an analyst changes after replacing the CSVs:
+\begin{lstlisting}
+[model]
+spatial_specification = "economic_geography"
+alpha = 0.10
+beta = -0.30
+sigma = 9.0
+eta = 1.099
+modal_specification = "choice_logsum"
+
+[policy]
+mode = "road"
+unit = "both"
+shock_fraction = 0.01
+\end{lstlisting}
+
+Validation should precede the numerical work. From the repository root, run:
+\begin{lstlisting}[language=bash]
+julia --project=. bin/tnw.jl validate \
+  examples/grid_multimodal/config.toml
+julia --project=. bin/tnw.jl analyze \
+  examples/grid_multimodal/config.toml
+julia --project=. bin/tnw.jl decompose \
+  examples/grid_multimodal/config.toml
+julia --project=. bin/tnw.jl sensitivity \
+  examples/grid_multimodal/config.toml
+\end{lstlisting}
+The analysis writes directed and physical-link welfare tables. The
+decomposition adds the closure and component columns used below, while the
+sensitivity command writes one row for each declared parameter value. Each run
+also updates \code{diagnostics.json} and \code{run\_manifest.json}.
+
+The figures, tables, and TeX macros in this section are generated from those
+validated outputs rather than transcribed by hand. The documentation asset
+target rebuilds the inputs, reruns the example, and redraws the figures:
+\begin{lstlisting}[language=bash]
+make practitioner-guide-assets
+\end{lstlisting}
+For an external application, the equivalent standalone map command is given in
+Subsection \ref{sec:own-data-maps}; it reads
+\code{welfare\_physical.csv} and can use line and polygon GeoJSON layers.
+
+The policy improves one physical road link at a time by lowering primitive
+cost by one percent in both directions. Transit remains available throughout
+the equilibrium response. The result therefore measures how a road
+improvement affects a network in which users can also change mode.
+
+\subsection{Baseline checks}
+
+The reconstructed route kernel has spectral radius
+\(\GridRouteSpectralRadius\), safely below one. The full equilibrium Jacobian
+has condition number \(\GridConditionF\), below the package gate of
+\(10^{12}\). The maximum inverse-gap residual is
+\(\GridInverseGapError\), the closure-ladder residual is
+\(\GridLadderError\), and the largest analytical component-reconstruction
+residual is \(\GridChannelError\). These checks establish that the reported
+derivatives solve the stated numerical model. They do not turn the synthetic
+parameters into empirical estimates.
+
+\subsection{Traffic and primitive-cost rankings}
+
+The mean Traditional-approach elasticity is \GridMeanTraditional, compared with a mean
+primitive-cost welfare elasticity of \GridMeanExtended. The median and maximum
+primitive-cost elasticities are \GridMedianExtended{} and
+\GridMaximumExtended. For the configured \GridPolicyShockPercent{} percent
+primitive improvement, the mean primitive-cost elasticity implies a
+first-order log-welfare gain of
+\GridMeanExtendedLogGain, approximately \GridMeanExtendedPercentGain{} percent.
+This is a local benefit prediction, not a project net present value.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.70\textwidth]{grid-welfare-map.pdf}
+\caption{Extended-approach primitive-cost welfare elasticities for physical
+road-link policies. Multiplying an elasticity by \(0.01\) gives the
+first-order welfare gain from the configured one-percent improvement. The blue
+line and terminal rings mark links on which transit is also available.}
+\label{fig:grid-welfare}
+\end{figure}
+
+Benefits are largest on the central row and column, where economic activity
+and network use are concentrated. The transit spine does not make the central
+road links unimportant. It changes how their direct cost savings propagate
+through modal allocation and congestion.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.66\textwidth]{grid-scatter.pdf}
+\caption{Traditional- and Extended-approach welfare elasticities for the
+\GridPhysicalRoadLinkCount{} physical road improvements. The dashed line is
+the 45-degree line. Labels identify the largest upward and downward rank
+changes.}
+\label{fig:grid-scatter}
+\end{figure}
+
+The Pearson correlation is \GridPearson, and the Spearman correlation is
+\GridSpearman. The close linear relation reflects the importance of baseline
+traffic. It does not imply identical rankings. Link \GridRiseLink{} rises from
+\GridRiseTraditionalRank{} under the Traditional approach to
+\GridRiseExtendedRank{} under the primitive-cost effect. Link \GridFallLink{}
+falls from \GridFallTraditionalRank{} to \GridFallExtendedRank. These links
+have similar traffic but differ in their access to the high-activity cross-axis
+and the transit spine. The Extended approach values that difference in
+equilibrium incidence.
+
+\begin{table}[H]
+\centering
+\caption{Highest-ranked physical road links under the primitive-cost welfare
+effect}
+\label{tab:grid-top-links}
+\input{docs/practitioner-guide/tables/grid-top-links}
+\end{table}
+
+The highest-ranked link, \GridTopLink, has a Traditional-approach elasticity of
+\GridTopTraditional, a full realized-cost effect of \GridTopRealized, and a
+primitive-cost effect of \GridTopPrimitive. The highest-ranked links are
+stable across the traffic and primitive-cost measures. Ranking changes
+occur farther down the list, where direct traffic differences are smaller and
+equilibrium propagation has more scope to matter. A high correlation or
+agreement at the top therefore does not establish that the two criteria are
+equivalent.
+
+\subsection{Closure ladder}
+
+The common-baseline ladder separates the modeled effects without recalibrating the
+starting equilibrium. Applying the cases defined in Section
+\ref{ch:decomposition}, the mean realized-cost elasticities are
+\[
+\begin{array}{c|ccccc}
+  & NC & NT & F & FM & FR\\
+\hline
+\text{mean elasticity}
+  & \GridMeanRealizedNC
+  & \GridMeanRealizedNT
+  & \GridMeanRealizedF
+  & \GridMeanRealizedFM
+  & \GridMeanRealizedFR .
+\end{array}
+\]
+Moving from \(NC\) to \(NT\) adds road congestion; moving from \(NT\) to \(F\)
+adds terminal congestion. Comparing \(F\) with \(FM\) or \(FR\) isolates the
+local mode and route wedges. Their mean normalized values are
+\GridMeanModeWedge{} and \GridMeanRouteWedge, respectively. Because these are
+normalized multipliers, their signs should be interpreted together with
+\(\rho\), not as welfare levels on their own.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth]{grid-decomposition.pdf}
+\caption{Closure ladder and exact welfare decomposition. Panel (a) moves from
+the Traditional approach through the no-congestion,
+road-congestion, and full realized-cost cases to the Extended-approach
+primitive-cost effect. The hollow
+\(FM\) and \(FR\) markers hold modes and routes fixed. Panel (b) reports the
+signed contributions to Traditional-approach welfare minus primitive-cost welfare;
+positive values widen the gap and negative values offset it.}
+\label{fig:grid-decomposition}
+\end{figure}
+
+Panel (a) of Figure \ref{fig:grid-decomposition} shows which additions change
+the mean welfare elasticity. Panel (b) accounts for the gap between the
+Traditional approach and the primitive-cost mean. The common externality term is
+\GridExternalityComponent, but general-equilibrium propagation contributes
+\GridPropagationComponent{} and nearly cancels it. Road and terminal
+congestion contribute \GridRoadComponent{} and \GridTerminalComponent.
+Primitive-cost pass-through contributes \GridPassThroughComponent{} in the
+opposite direction. The components sum exactly to the mean difference between
+the Traditional and Extended approaches.
+
+The cancellation reflects opposing economic effects rather than a failed
+identity: the reported residuals are below the stated tolerance. Spatial
+externalities generate a common scale, whereas market-access propagation
+depends on each link's position in the network, so the two contributions can
+have opposite signs. The road and terminal terms measure changes in congestion
+exposure. Pass-through measures a separate margin: induced traffic partly
+offsets the primitive cost reduction before it reaches aggregate edge costs.
+Reporting signed levels displays these offsets without dividing by a net gap
+that is small relative to its components.
+
+\subsection{Adapting the example}
+
+First reproduce the committed grid before replacing its inputs. Section
+\ref{sec:own-data-workflow} then gives the complete workflow for creating an
+external data project, updating the package without overwriting that project,
+validating the new baseline, and recording a new result vintage. The generic
+loader requires model-ready flows and does not automatically balance,
+symmetrize, or rescale them.
+
+Other examples exercise specialized parsers and geometries and are catalogued
+in the repository's examples index. Subsection \ref{ch:diagnostics} defines
+the distinction between numerical verification and external validation that
+also governs those examples.

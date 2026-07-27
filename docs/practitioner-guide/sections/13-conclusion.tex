@@ -1,0 +1,47 @@
+\section{Interpretation, scope, and reporting}
+\label{ch:conclusion}
+
+A transport improvement first changes the generalized cost of using a link.
+Traffic on that link measures the direct saving. At an efficient interior
+baseline, the envelope theorem makes this traffic-based statistic the complete
+first-order welfare effect: subsequent changes in routes, modes, prices, and
+locations have no additional first-order value. This result explains both
+the appeal of social-savings calculations and the conditions under which they
+are sufficient.
+
+The Extended approach is needed when the baseline contains congestion or
+spatial externalities. Route and modal responses then move activity across
+wedges, and the primitive policy shock need not pass one for one into the
+realized transport cost. Proposition 2 organizes these adjustments as traffic
+times pass-through and market-access multipliers. The adjoint calculation
+implements the same derivative for the declared set of candidate links without
+resolving a separate counterfactual equilibrium for each one. The model
+decomposition then asks which modeled effect accounts for the difference
+from the Traditional approach.
+
+The economic-geography and urban-commuting applications share this transport
+calculation. They differ in the spatial equilibrium that maps transport costs
+into production and consumption or into residence and workplace choices.
+Consequently, a practitioner must choose the spatial model before
+interpreting the welfare result. The same network and traffic data can imply
+different welfare derivatives when the underlying economic adjustment margin
+changes.
+
+Three checks support different claims. Accounting checks establish that the
+input flows, routes, modes, and policy units form a coherent baseline.
+Derivative and finite-difference checks establish that the code computes the
+stated model. Comparisons with untargeted flows, costs, or outcomes assess
+whether that model fits a particular application. Passing one class
+of checks does not substitute for passing the others.
+
+The output is a local model-implied benefit from a specified transport-cost
+change. It is not a complete project appraisal. Construction and financing
+costs, safety, local pollution, displacement, and distributional incidence
+must be added separately when they matter for the decision. A reproducible run
+therefore reports the policy unit, economic model, parameters, input
+transformations, diagnostics, and artifact hashes alongside the welfare
+elasticity. Reported in this form, the statistic extends traffic-based
+accounting by measuring the spatial-equilibrium correction implied by the
+stated model and data. The reference appendices provide the notation-to-code
+crosswalk, algorithms, schemas, numerical tests, example results, and
+provenance needed to audit that calculation.

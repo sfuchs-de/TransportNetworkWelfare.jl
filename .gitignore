@@ -2,6 +2,9 @@
 Manifest.toml
 !replication/rsue/environment/Manifest.toml
 docs/build/
+docs/practitioner-guide/build/
+docs/audits/practitioner-guide-reasoning-*/slop-trace/
+docs/audits/practitioner-guide-reasoning-*/structural*/
 output/
 replication/rsue/staging/
 replication/rsue/census_ports/cache/
@@ -22,5 +25,8 @@ examples/sioux_falls/generated/
 examples/sioux_falls/output-efficient/
 examples/sioux_falls/output-extended/
 examples/seattle_urban/generated/
-examples/westeros_urban/generated/
+examples/seattle_multimodal/raw/
+examples/seattle_multimodal/generated/
+examples/westeros/generated/
 examples/urban_toy/output/
+examples/grid_multimodal/output/

@@ -1,0 +1,330 @@
+\subsection{Extended approach: implicit derivative and adjoint}
+\label{ch:ift}
+
+The efficient case removes the need to trace equilibrium adjustment.
+Externalities and congestion remove that simplification because reallocations
+then have first-order welfare effects. The Extended approach differentiates
+the equilibrium system and projects the resulting state response onto welfare.
+
+\subsubsection{Need for an implicit derivative}
+
+With externalities or congestion, the welfare effect of a link improvement is
+not exhausted by its direct resource saving. The improvement changes realized
+costs, routes, and modal allocation. It also changes either trade, wages, and
+mobile labor or commuting, residence, and workplace choices. These outcomes
+are determined jointly. Differentiating one equation at a time while holding
+the remaining equilibrium quantities fixed would omit the feedback that
+motivates the exercise.
+
+Let \(c\in\{G,U\}\) index the economic-geography or urban model. Let
+\(z_c\in\mathbb R^{n_c}\) be the column vector of transformed equilibrium
+variables defined in Section \ref{ch:equilibrium}, and write its \(n_c\)
+residual equations as
+\begin{equation}
+  G_c(z_c,\theta)=0.
+\label{eq:guide-residual}
+\end{equation}
+For economic geography, \(z_G\) contains changes in the transformed \(x\) and
+\(y\) variables. For the urban model, \(z_U\) contains changes in residence,
+workplace, and \(\varpi_U\). The column vector \(\theta\) contains primitive
+edge--mode log costs. Around an interior differentiable baseline,
+\[
+ J_c\,dz_c+G_{c,\theta}\,d\theta=0,
+ \qquad
+ J_c=G_{c,z}.
+\]
+If \(J_c\) is nonsingular, the Implicit Function Theorem gives
+\begin{equation}
+ \frac{dz_c}{d\theta}=-J_c^{-1}G_{c,\theta}.
+\label{eq:guide-ift-state}
+\end{equation}
+Let \(q_c^\top=d\log W/dz_c\) be the model-specific welfare row and let
+\(b_{c,p}=G_{c,\theta_p}\) be the residual response to policy \(p\).
+Substituting \eqref{eq:guide-ift-state} into the welfare differential gives
+\begin{equation}
+ -\frac{d\log W}{d\theta_p}
+ =q_c^\top J_c^{-1}b_{c,p}.
+\label{eq:guide-ift-welfare}
+\end{equation}
+The sign convention makes a reduction in cost a positive benefit when the
+reported elasticity is positive.
+
+\subsubsection{The adjoint solve}
+
+There may be hundreds or thousands of candidate links but only one welfare
+criterion for the selected model. Solving
+\(J_c x_p=b_{c,p}\) separately for each policy repeats most of the linear
+algebra. The adjoint method instead solves
+\[
+ J_c^\top \psi_c=q_c
+\]
+once and evaluates
+\begin{equation}
+ E_{c,p}=\psi_c^\top b_{c,p}.
+\label{eq:guide-adjoint}
+\end{equation}
+Since \(\psi_c^\top=q_c^\top J_c^{-1}\), this expression is identical to
+\eqref{eq:guide-ift-welfare}. After the adjoint solve, each additional policy
+requires only sparse matrix products.
+
+The package does not form an explicit matrix inverse. It factorizes the
+relevant systems and uses linear solves. This matters for numerical stability
+and for moderately large sparse networks.
+
+\subsubsection{Spatial and transport blocks}
+
+Each model has a sparse spatial block and uses the common
+route--mode--congestion block. For transport case \(S\), stack active
+edge--mode log-traffic changes in \(\xi\) and realized edge--mode log-cost
+changes in \(h\). The differentiated transport block is
+\[
+ d\xi=Q_{z_c}^S dz_c+C^Sdh,\qquad
+ dh=d\theta+\Gamma^S d\xi.
+\]
+The matrix \(Q_{z_c}^S\) maps spatial changes into traffic, \(C^S\) maps
+realized costs into traffic through routes and modes, and \(\Gamma^S\) maps
+traffic into congestion costs. Substitution of the traffic equation into the
+cost equation gives
+\[
+ dh=(I-\Gamma^SC^S)^{-1}
+ \left(d\theta+\Gamma^SQ_{z_c}^S dz_c\right).
+\]
+This expression separates the two roles of the transport block. The term in
+\(dz_c\) feeds congestion back into the equilibrium Jacobian. The term in
+\(d\theta\) transmits the primitive policy through modal, route, and
+congestion responses and supplies the primitive forcing vector. A
+realized-cost experiment instead treats the change in \(h\) as the
+user-facing policy input.
+
+Let \(J_{c,0}\) be model \(c\)'s no-congestion spatial Jacobian.
+\(B_{\kappa,c}\) loads aggregate directed-edge costs into its residuals, while
+\(S_{\mathrm{agg}}\) aggregates edge--mode costs. Setting \(d\theta=0\) in
+the preceding expression isolates state feedback. Substituting that term into
+the spatial residuals gives
+\begin{equation}
+ J_{c,S}
+ =J_{c,0}+B_{\kappa,c}S_{\mathrm{agg}}
+ (I-\Gamma^SC^S)^{-1}
+ \Gamma^SQ_{z_c}^S.
+\label{eq:guide-reduced-jacobian}
+\end{equation}
+
+Equation \eqref{eq:guide-reduced-jacobian} is the Schur complement obtained by
+eliminating the differentiated transport quantities. The transport matrices
+have the same definitions in both models; their entries depend on each model's
+margins and state responses. Replacing \(J_c\) in
+\eqref{eq:guide-ift-welfare} with \(J_{c,S}\), and using the forcing generated
+by the \(d\theta\) term above, gives the welfare derivative for transport case
+\(S\). Appendix \ref{app:algorithm} gives this computational sequence, and the
+test suite compares the reduced and uneliminated systems.
+
+\subsubsection{Realized- and primitive-cost effects}
+
+The output contains two full-model derivatives. A realized-cost shock changes
+the cost users face after congestion:
+\[
+ \vartheta_{klm}=\log\kappa_{kl,m}.
+\]
+A primitive-cost shock changes the infrastructure component:
+\[
+ \theta_{klm}=\log\bar\kappa_{kl,m}.
+\]
+With congestion, these are different experiments. Traffic induced by a
+primitive improvement can attenuate the fall in the cost users face. The CSV
+field \code{realized\_F} reports the first effect; \code{primitive\_F} is the
+Extended approach and the headline policy measure.
+
+To separate modal exposure from the transport system's response, define
+\begin{equation}
+ \zeta_{klm}
+ =\left.
+ \frac{\partial\log\kappa_{kl}}
+      {\partial\theta_{klm}}
+ \right|_{dz_c=0},
+ \qquad
+ \chi_{klm}=\frac{\zeta_{klm}}{s_{kl,m}}.
+\label{eq:guide-pass-through}
+\end{equation}
+The derivative is taken through the route--mode--congestion block while holding
+the selected spatial state fixed. With no congestion feedback,
+\(\zeta_{klm}=s_{kl,m}\) and \(\chi_{klm}=1\); deviations from one measure
+attenuation or amplification within the transport block. The spatial
+equilibrium then responds through \(J_c^{-1}\). The implementation constructs
+the full primitive forcing rather than assigning \(\chi\) separately.
+
+For a nonzero realized welfare derivative, the output reports the
+welfare-effective ratio
+\[
+ \chi_e^{eff}=\frac{\Eprimitive_{e,F}}{\Ereal_{e,F}}.
+\]
+If the denominator is numerically zero, the ratio is missing and the
+pass-through contribution is still reported in levels. A zero derivative is
+a valid result, not an exception.
+
+\begin{longtable}{L{0.20\textwidth}L{0.31\textwidth}L{0.39\textwidth}}
+\toprule
+Measure & Comparison & Interpretation \\
+\midrule
+\endhead
+\(\chi_{klm}\) &
+\(\zeta_{klm}/s_{kl,m}\) &
+Elasticity of the aggregate edge cost with respect to a primitive edge--mode
+cost, holding the spatial state fixed. \\
+\(\chi_e^{eff}\) &
+\(\Eprimitive_{e,F}/\Ereal_{e,F}\) &
+Ratio of two full-equilibrium welfare derivatives. It can include nonlocal
+congestion responses and is undefined when the realized derivative is zero. \\
+\bottomrule
+\end{longtable}
+
+\subsubsection{Economic-geography factorization}
+
+The adjoint formula computes the declared policy derivatives efficiently, but
+it does not by itself show why links with similar traffic can have different
+welfare effects. For the paper's economic-geography specification with common route
+curvature and edge-local congestion, the expression in
+\eqref{eq:guide-ift-welfare} can be factored into traffic, primitive-cost
+pass-through, a common externality scale, and link-specific market-access
+multipliers. Using the regularity scalar \(e\) from Section
+\ref{ch:equilibrium},
+\citet{AllenFuchsWong2026} define
+\[
+ \rho=\frac{1+\alpha+\beta}
+ {1+\beta(\sigma-1)+\alpha\sigma}
+ =\frac{1+\alpha+\beta}{e}.
+\]
+Let \(\mathcal M_i^{in}\) and \(\mathcal M_i^{out}\) be the adjoint
+market-access multipliers normalized by trade exposure
+\(\mathcal T_i^G\). The primitive edge--mode welfare elasticity is
+\begin{equation}
+ -\frac{d\log W}{d\theta_{klm}}
+ =\chi_{klm}\rho\Xi_{kl,m}
+ \left(\mathcal M_k^{in}+\mathcal M_l^{out}\right).
+\label{eq:guide-prop2}
+\end{equation}
+
+The factorization is algebraically equivalent to the economic-geography
+adjoint derivative. Each term answers a different part of the welfare
+calculation. Traffic \(\Xi_{kl,m}\) measures the economic activity directly
+exposed to the improvement. The externality scale \(\rho\) applies the same
+transformation of welfare and spatial responses uniformly across links for a
+given parameter vector. Pass-through \(\chi_{klm}\) measures how much of the primitive
+change reaches the aggregate edge cost after modal and congestion responses.
+The inward and outward market-access multipliers then determine how the shock
+propagates through equilibrium at the two endpoints.
+
+Appendix \ref{app:crosswalk} maps these factors to their code counterparts.
+The paper's Appendix A supplies the full residual-system and adjoint
+derivation; Appendix \ref{app:algorithm} here records the corresponding order
+of computation.
+
+The factorization reduces to the Traditional approach in the efficient case. At
+an efficient interior baseline with no congestion,
+\[
+ \alpha=\beta=0,\qquad \Gamma=0
+ \quad\Longrightarrow\quad
+ \rho=1,\quad
+ \chi_{klm}=1,\quad
+ \mathcal M_k^{in}+\mathcal M_l^{out}=1.
+\]
+Substitution into \eqref{eq:guide-prop2} gives
+\[
+ -\frac{d\log W}{d\theta_{klm}}=\Xi_{kl,m},
+\]
+the result in Proposition \ref{prop:hulten}. Congestion or spatial externalities
+change at least one of the three nontraffic factors and create the correction
+measured by the Extended approach.
+
+\subsubsection{Urban welfare projection}
+
+The economic-geography factorization relies on its trade equilibrium and
+therefore should not be relabeled as an urban formula. The urban model uses
+the same adjoint calculation and primitive transport forcing, but it does not
+reuse \(\rho\) or the trade-model market-access multipliers. Its exact
+derivative is
+\[
+ E_{U,p}
+ =q_U^\top J_{U,S}^{-1}b_{U,p}^{\theta},
+ \qquad
+ q_U^\top=(0,\ldots,0,-1/\theta_U).
+\]
+The residence--workplace Jacobian determines how a commuting-cost shock
+changes \(l^R\), \(l^F\), and \(\varpi_U\). Flexible routes, modal substitution,
+edge or terminal congestion, and primitive-cost pass-through enter
+\(J_{U,S}\) and \(b_{U,p}^{\theta}\) through the same transport operators as
+in economic geography. The urban result is therefore methodologically
+parallel to Proposition 2 without being its scalar trade-exposure
+factorization.
+
+\subsubsection{Status of inputs and computed quantities}
+\label{sec:object-status}
+
+The derivative combines model-ready inputs with reconstructed, calibrated, and
+computed quantities. Keeping those categories separate prevents an accounting
+identity from being described as external validation.
+\begin{longtable}{L{0.20\textwidth}L{0.34\textwidth}L{0.36\textwidth}}
+\toprule
+Status & Inputs or quantities & Empirical responsibility \\
+\midrule
+\endhead
+Model-ready inputs &
+Location margins, edge--mode flows, edge and terminal identifiers, and the
+policy-to-edge definition &
+Observe directly or construct through a documented preprocessing step in the
+units required by the selected model. \\
+Reconstructed &
+Absorption and continuation shares, route kernel, bilateral flows, and exposure
+stocks &
+Verify accounting, contraction, margins, and recovery of directed-edge
+traffic. \\
+Calibrated &
+Spatial, route, modal, and congestion elasticities &
+Cite an estimate, report a transfer from another setting, or provide a
+sensitivity range. \\
+Computed &
+Jacobians, forcing matrices, adjoint vectors, welfare elasticities, and
+decomposition terms &
+Check solve residuals, conditioning, finite differences, limiting cases, and
+decomposition identities. \\
+\bottomrule
+\end{longtable}
+
+The exposure stocks show why the distinction matters. In economic
+geography, outgoing or incoming traffic gives
+\[
+ \mathcal T_i^G=\frac{O_i}{1-s_i^x}
+               =\frac{I_i}{1-s_i^y}.
+\]
+For the urban model, commuting exposure satisfies
+\[
+ \mathcal T_i^U=l_i^F+O_i=l_i^R+I_i.
+\]
+Both are model identities. Empirical implementation requires flows that satisfy
+the selected model's accounting identities. The package reports exposure disagreement
+rather than hiding it through an automatic balancing step.
+
+\implementationbox{The package constructs the common transport response, then
+combines it with either the economic-geography or residence--workplace
+equilibrium. The infrastructure shock vector is passed through modes, routes,
+and congestion before the model-specific welfare formula is applied.
+Appendices \ref{app:crosswalk} and \ref{app:algorithm} give the corresponding
+function names and matrix operations.}
+
+\subsubsection{Regularity and failure}
+
+The transport derivative requires an interior baseline with positive flows on
+active edge--mode pairs, a contractive route kernel, and positive exposure
+stocks. The economic-geography transformation further requires \(e\neq0\) and
+\(1+\alpha+\beta\neq0\). The urban transformation instead requires
+\(\theta_U>0\) and a nonsingular mapping between residence and workplace
+allocations.
+
+For either spatial model, the modal-congestion and spatial systems must be
+nonsingular, and their condition numbers must remain below the configured
+gate.
+The software fails explicitly when these conditions are violated. It does not
+use a ridge term to turn an unidentified derivative into a number.
+
+The derivative answers how one policy changes welfare. Comparing cases built
+from the same baseline and policy then identifies which modeled effects account for its
+difference from the Traditional approach.

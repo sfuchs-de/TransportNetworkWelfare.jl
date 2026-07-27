@@ -1,0 +1,102 @@
+\section{Traffic and spatial-equilibrium welfare}
+\label{ch:welfare}
+
+The preceding section maps a primitive link cost into bilateral costs and
+edge--mode traffic. We can now ask when that traffic is itself the welfare
+statistic and when equilibrium adjustment adds a first-order correction. The
+answer begins with the efficient social-savings benchmark.
+
+\subsection{Traditional approach: social savings}
+\label{ch:hulten}
+
+The Traditional approach first treats observed traffic as an accounting
+measure. The envelope argument that follows explains when the same expression
+also equals the full marginal welfare effect.
+
+\subsubsection{The accounting statistic}
+
+Social savings holds observed edge--mode use fixed and asks how much less it
+would cost to move the same goods or commuters after an infrastructure
+improvement. For a marginal proportional reduction in one edge--mode cost,
+homothetic preferences give the welfare elasticity
+\[
+ H_{klm}=\Xi_{kl,m}.
+\]
+The expression is attractive because it needs only the baseline value flow.
+It does not require solving a counterfactual spatial equilibrium.
+
+Holding the shipment pattern fixed describes how the statistic is computed,
+not the equilibrium content of the result. In the efficient case stated below,
+it is the exact first-order general-equilibrium effect even though
+trade, routes, modes, prices, and locations adjust.
+
+\begin{proposition}[Efficient social savings in economic geography]
+\label{prop:hulten}
+Suppose \(\alpha=\beta=0\) and all congestion elasticities are zero. At an
+interior efficient equilibrium,
+\[
+ -\frac{d\log W}{d\log\bar\kappa_{kl,m}}=\Xi_{kl,m}.
+\]
+\end{proposition}
+
+This is the formal result proved for the paper's economic-geography model.
+The urban model has a different residual system and welfare row. Its
+one-mode efficient limit must nevertheless reproduce the corresponding
+edge-mode commuter-traffic statistic; the package treats that equality as a
+separate urban regression test rather than reusing the trade-model proof.
+
+\subsubsection{Envelope logic}
+
+The result is an application of the envelope theorem and the network version
+of Hulten's theorem \citep{hulten1978growth,baqaee2019macroeconomic}. At an
+efficient allocation, the planner is locally indifferent to reallocations
+that preserve feasibility. A lower transport cost directly saves resources.
+The induced changes in routes, modes, trade or commuting, and location are
+responses along the feasible set. Their first-order welfare effects vanish at
+the optimum.
+
+The statement is stronger than saying that adjustment is quantitatively
+small. Adjustment can be large. What vanishes is its first-order contribution
+to welfare at an efficient baseline. This distinction explains why adding a
+rich spatial equilibrium to the model does not, by itself, invalidate social
+savings. Only wedges that give the induced reallocations a first-order welfare
+value require a correction.
+
+\subsubsection{Failures of the efficient result}
+
+Congestion and spatial externalities break the envelope result because a
+transport improvement changes exposure to pre-existing wedges. Route diversion
+can relieve or worsen congestion.
+Relocation can raise productivity through agglomeration or affect amenities
+through dispersion. These responses need not vanish at first order.
+
+The result also depends on the assumptions used to define welfare and mobility. The paper
+formally proves it under perfect labor mobility and the stated aggregate
+welfare criterion. Similar envelope logic can apply under other mobility
+settings only when the allocation is efficient in the enlarged problem and
+welfare is aggregated consistently. Fixed factors, taxes, heterogeneous
+households, or endogenous labor supply can add incidence terms.
+
+\subsubsection{Uses of the traffic measure}
+
+The package retains the Hulten statistic even when the full model is
+distorted. It provides the traffic-based Traditional approach and an exact unit
+test in the efficient limit. It also supplies the reference point for
+decomposing why the full primitive-cost result differs from traffic alone.
+
+If the efficient fixture does not collapse to traffic, the calculation has a
+sign, normalization, or indexing error. If the distorted model remains close
+to Hulten, the data and calibration produced that result; the model did not
+impose it.
+
+\implementationbox{The output column \code{hulten} is the policy-mode traffic
+share in the selected model's normalization: world-income-normalized value
+traffic for economic geography and normalized commuter traffic for the urban
+model. The full realized- and primitive-cost elasticities are reported
+separately. Physical-link results sum opposite directions before computing
+link-level comparisons.}
+
+Once congestion or spatial externalities break the envelope result, welfare
+depends on the equilibrium response rather than traffic alone. The next
+subsection obtains that response by differentiating the joint equilibrium
+system.

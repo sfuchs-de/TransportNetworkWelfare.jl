@@ -155,7 +155,15 @@ function load_project(config_path::AbstractString)
         check_trade_regularity=spatial isa EconomicGeography,
     )
     modal = parse_modal(model)
-    congestion = parse_congestion(get(raw, "congestion", Dict{String,Any}()))
+    congestion_raw = get(raw, "congestion", Dict{String,Any}())
+    congestion = parse_congestion(congestion_raw)
+    if spatial isa UrbanCommuting && haskey(model, "lambda")
+        congestion isa NoCongestion || throw(ArgumentError(
+            "legacy model.lambda cannot be combined with a modular [congestion] specification"))
+        legacy_lambda = spatial.congestion_elasticity
+        congestion = legacy_lambda == 0 ? NoCongestion() :
+            EdgeCongestion(Dict(:road => legacy_lambda))
+    end
     policy_raw = get(raw, "policy", Dict{String,Any}())
     policy = PolicySpecification(
         get(policy_raw, "mode", "road"),

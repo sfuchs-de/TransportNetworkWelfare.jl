@@ -125,6 +125,8 @@ end
         config = joinpath(destination, "config.toml")
         @test isfile(config)
         @test isfile(joinpath(destination, "README.md"))
+        @test isfile(joinpath(destination, "sources.toml"))
+        @test isfile(joinpath(destination, "scripts", "prepare_inputs.jl"))
         @test isfile(joinpath(destination, "data", "nodes.csv"))
         @test isfile(joinpath(destination, "data", "edge_modes.csv"))
         @test validate(load_project(config)).valid
@@ -132,7 +134,21 @@ end
         @test isfile(joinpath(destination, "output", "decomposition_directed.csv"))
         @test isfile(joinpath(destination, "output", "decomposition_physical.csv"))
         @test isfile(joinpath(destination, "output", "run_manifest.json"))
+        @test occursin(
+            "\"source_manifest\":{\"path\":\"sources.toml\",\"sha256\":",
+            read(joinpath(destination, "output", "run_manifest.json"), String))
         @test_throws ArgumentError initialize_project(destination)
+    end
+    mktempdir() do parent
+        destination = joinpath(parent, "my-urban-network")
+        @test TNW.main(["init", destination, "urban_commuting"]) == 0
+        project = load_project(joinpath(destination, "config.toml"))
+        @test validate(project).valid
+        @test project.spatial isa UrbanCommuting
+        @test occursin(
+            "urban_commuting",
+            read(joinpath(destination, "sources.toml"), String))
+        @test TNW.main(["init", joinpath(parent, "bad"), "unsupported"]) == 1
     end
 end
 

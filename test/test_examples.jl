@@ -1,6 +1,7 @@
 module CanonicalExampleTests
 
 using Test
+using LinearAlgebra
 using TransportNetworkWelfare
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
@@ -16,6 +17,128 @@ include(joinpath(ROOT, "examples", "cow", "build_mesh_network.jl"))
     @test length(result.physical) == 5
     @test maximum(abs(row.d_route) for row in result.directed) > 1e-3
     @test maximum(abs(row.identity_residual_route) for row in result.directed) < 1e-10
+end
+
+@testset "Multimodal grid guide example" begin
+    config = joinpath(ROOT, "examples", "grid_multimodal", "config.toml")
+    project = load_project(config)
+    report = validate(project)
+    @test report.valid
+    @test report.nodes == 25
+    @test report.directed_edges == 80
+    @test report.policy_arcs == 80
+
+    model = build_model(project)
+    result = decompose_welfare(model)
+    @test length(result.directed) == 80
+    @test length(result.physical) == 40
+    @test model.basis.P == 88
+    @test result.diagnostics["verified"]
+    @test result.diagnostics["route_spectral_radius"] < 1
+    @test result.diagnostics["max_inverse_gap_error"] < 1e-10
+    @test result.diagnostics["max_ladder_error"] < 1e-10
+    @test result.diagnostics["max_channel_reconstruction_error"] < 1e-10
+
+    hulten_rank = sort(result.physical; by=row -> row.hulten, rev=true)
+    extended_rank = sort(result.physical; by=row -> row.primitive_F, rev=true)
+    hulten_position = Dict(row.physical_link_id => rank
+                           for (rank, row) in enumerate(hulten_rank))
+    extended_position = Dict(row.physical_link_id => rank
+                             for (rank, row) in enumerate(extended_rank))
+    @test maximum(abs(hulten_position[id]-extended_position[id])
+                  for id in keys(hulten_position)) >= 8
+
+    function check_policy_finite_difference(candidate, edge_id)
+        candidate_result = decompose_welfare(candidate)
+        pair = findfirst(==(edge_id), candidate.basis.policy_edge_ids)
+        @test pair !== nothing
+        shock = 1e-5
+        plus = Main.ModalConventionTests.solve_full_closure(candidate, pair, shock)
+        minus = Main.ModalConventionTests.solve_full_closure(candidate, pair, -shock)
+        welfare_row = TransportNetworkWelfare.AdjointRSUE.welfare_gradient(
+            candidate.data.omega, candidate.closures.c)
+        n = size(candidate.closures.J0, 1)
+        finite_difference = -dot(welfare_row, plus[1:n]-minus[1:n])/(2shock)
+        @test isapprox(
+            finite_difference,
+            candidate_result.directed[pair].primitive_F;
+            atol=1e-8,
+            rtol=1e-6,
+        )
+    end
+
+    check_policy_finite_difference(model, "H_r3_c3_E")
+
+    mktempdir() do directory
+        mkpath(joinpath(directory, "data"))
+        cp(joinpath(dirname(config), "data", "nodes.csv"),
+           joinpath(directory, "data", "nodes.csv"))
+        cp(joinpath(dirname(config), "data", "edge_modes.csv"),
+           joinpath(directory, "data", "edge_modes.csv"))
+        transit_config = replace(
+            read(config, String),
+            "mode = \"road\"" => "mode = \"transit\"",
+        )
+        write(joinpath(directory, "config.toml"), transit_config)
+        transit_model = build_model(load_project(joinpath(directory, "config.toml")))
+        check_policy_finite_difference(transit_model, "H_r3_c3_E")
+    end
+
+    efficient = TransportNetworkWelfare.model_at(
+        model,
+        TransportNetworkWelfare.replace_project(
+            project; alpha=0.0, beta=0.0, congestion=NoCongestion()),
+    )
+    efficient_result = decompose_welfare(efficient)
+    @test maximum(abs(row.primitive_F-row.hulten)
+                  for row in efficient_result.directed) < 1e-8
+
+    zero_terminal = TransportNetworkWelfare.model_at(
+        model,
+        TransportNetworkWelfare.replace_project(
+            project;
+            congestion=CompositeCongestion(
+                EdgeCongestion(Dict(:road => 0.08)),
+                EndpointTerminalCongestion(Dict(:transit => 0.0)),
+            ),
+        ),
+    )
+    @test zero_terminal.closures.NT ≈ zero_terminal.closures.F atol=1e-12 rtol=0
+
+    mktempdir() do directory
+        mkpath(joinpath(directory, "data"))
+        cp(joinpath(dirname(config), "data", "nodes.csv"),
+           joinpath(directory, "data", "nodes.csv"))
+        lines = split(chomp(read(
+            joinpath(dirname(config), "data", "edge_modes.csv"), String)), '\n')
+        road_only = vcat(lines[1], filter(line -> occursin(",road,", line), lines[2:end]))
+        write(joinpath(directory, "data", "edge_modes.csv"), join(road_only, '\n')*"\n")
+        one_mode_config = read(config, String)
+        one_mode_config = replace(
+            one_mode_config,
+            "mode_order = [\"road\", \"transit\"]" => "mode_order = [\"road\"]",
+        )
+        old_congestion = """[congestion]
+specification = "composite"
+endpoint_scale = 1.0
+
+[congestion.edge]
+road = 0.08
+
+[congestion.terminal]
+transit = 0.025
+"""
+        new_congestion = """[congestion]
+specification = "edge"
+
+[congestion.edge]
+road = 0.08
+"""
+        one_mode_config = replace(one_mode_config, old_congestion => new_congestion)
+        write(joinpath(directory, "config.toml"), one_mode_config)
+        one_mode = build_model(load_project(joinpath(directory, "config.toml")))
+        @test one_mode.closures.F ≈ one_mode.closures.FM atol=1e-12 rtol=0
+    end
 end
 
 @testset "Cow network example" begin

@@ -165,18 +165,22 @@ similar to `mu`. Conditional route intensities and flow reconstructions are
 invariant to that diagonal similarity.
 """
 function reconstruct_route_kernel(mu::AbstractMatrix, sx::AbstractVector,
-                                  nu::AbstractVector, Xi::AbstractMatrix)
+                                  source::AbstractVector,
+                                  destination::AbstractVector,
+                                  Xi::AbstractMatrix)
     N = length(sx)
+    all(length(vector) == N for vector in (source, destination)) ||
+        throw(DimensionMismatch("route margins must have length N"))
     K = Matrix{Float64}(mu)
     T = (Matrix{Float64}(I, N, N) .- K) \ Matrix{Float64}(I, N, N)
     absorption = T * Diagonal(sx)
-    Xod = Diagonal(nu) * absorption
-    visits = vec(permutedims(nu) * T)
+    Xod = Diagonal(source) * absorption
+    visits = vec(permutedims(source) * T)
     Xi_reconstructed = Diagonal(visits) * K
 
     spectral_radius = maximum(abs.(eigvals(K)))
-    row_error = maximum(abs.(vec(sum(Xod; dims=2)) .- nu))
-    column_error = maximum(abs.(vec(sum(Xod; dims=1)) .- nu))
+    row_error = maximum(abs.(vec(sum(Xod; dims=2)) .- source))
+    column_error = maximum(abs.(vec(sum(Xod; dims=1)) .- destination))
     absorption_error = maximum(abs.(vec(sum(absorption; dims=2)) .- 1))
     edge_error = maximum(abs.(Xi_reconstructed .- Xi))
     edge_relative_error = maximum(abs.(Xi_reconstructed .- Xi) ./ max.(abs.(Xi), 1e-15))
@@ -199,6 +203,10 @@ function reconstruct_route_kernel(mu::AbstractMatrix, sx::AbstractVector,
     )
 end
 
+reconstruct_route_kernel(mu::AbstractMatrix, sx::AbstractVector,
+                         nu::AbstractVector, Xi::AbstractMatrix) =
+    reconstruct_route_kernel(mu, sx, nu, nu, Xi)
+
 """OD-by-edge expected traversal counts under the reconstructed soft-route kernel."""
 function route_incidence(T::AbstractMatrix, K::AbstractMatrix,
                          edges::Vector{Tuple{Int,Int}})
@@ -217,6 +225,19 @@ function soft_route_operators(route, active_edges::Vector{Tuple{Int,Int}},
                               source::AbstractVector, destination::AbstractVector,
                               S::AbstractMatrix, D::AbstractMatrix,
                               dlogY::AbstractVector, sigma::Real)
+    return soft_route_operators(
+        route, active_edges, source, destination, S, D, dlogY;
+        route_curvature=sigma-1,
+    )
+end
+
+function soft_route_operators(route, active_edges::Vector{Tuple{Int,Int}},
+                              source::AbstractVector, destination::AbstractVector,
+                              S::AbstractMatrix, D::AbstractMatrix,
+                              dlogY::AbstractVector;
+                              route_curvature::Real)
+    isfinite(route_curvature) && route_curvature > 0 ||
+        throw(ArgumentError("route curvature must be finite and positive"))
     N = length(source)
     nv = size(S, 2)
     T = route.T
@@ -233,8 +254,8 @@ function soft_route_operators(route, active_edges::Vector{Tuple{Int,Int}},
         k, l = active_edges[a]
         out_weights = T[:, k] .* kvals[a] .* Q[l] ./ Q
         in_weights = P[k] .* kvals[a] .* T[l, :] ./ P
-        B[1:N, a] .= (sigma - 1) .* out_weights
-        B[N+1:2N-1, a] .= (sigma - 1) .* in_weights[1:N-1]
+        B[1:N, a] .= route_curvature .* out_weights
+        B[N+1:2N-1, a] .= route_curvature .* in_weights[1:N-1]
     end
 
     Pz = zeros(N, nv)
@@ -274,6 +295,20 @@ function fixed_route_operators(route, active_edges::Vector{Tuple{Int,Int}},
                                S::AbstractMatrix, D::AbstractMatrix,
                                dlogY::AbstractVector, sigma::Real;
                                return_incidence::Bool=false)
+    return fixed_route_operators(
+        route, active_edges, Xod, S, D, dlogY;
+        route_curvature=sigma-1, return_incidence,
+    )
+end
+
+function fixed_route_operators(route, active_edges::Vector{Tuple{Int,Int}},
+                               Xod::AbstractMatrix,
+                               S::AbstractMatrix, D::AbstractMatrix,
+                               dlogY::AbstractVector;
+                               route_curvature::Real,
+                               return_incidence::Bool=false)
+    isfinite(route_curvature) && route_curvature > 0 ||
+        throw(ArgumentError("route curvature must be finite and positive"))
     N = size(Xod, 1)
     nv = size(S, 2)
     Cn = length(active_edges)
@@ -301,9 +336,10 @@ function fixed_route_operators(route, active_edges::Vector{Tuple{Int,Int}},
     for a in 1:Cn
         for i in 1:N
             row_mass[i] > 0 &&
-                (B[i, a] = (sigma - 1) * edge_traffic[a] * source_weights[a, i] / row_mass[i])
+                (B[i, a] = route_curvature * edge_traffic[a] *
+                    source_weights[a, i] / row_mass[i])
             if i <= N - 1 && column_mass[i] > 0
-                B[N+i, a] = (sigma - 1) * edge_traffic[a] *
+                B[N+i, a] = route_curvature * edge_traffic[a] *
                     destination_weights[a, i] / column_mass[i]
             end
         end

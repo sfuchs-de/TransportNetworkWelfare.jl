@@ -2,20 +2,40 @@
 
 ## Scope
 
-The urban specification follows the commuting model in Allen and Arkolakis,
-*The Welfare Effects of Transportation Infrastructure Improvements*. Individuals
-choose a residence, workplace, and route. Production externalities depend on
-workplace employment, while amenity externalities depend on residents.
+The urban specification follows the residence-workplace model in Allen and
+Arkolakis, *The Welfare Effects of Transportation Infrastructure
+Improvements*. It combines their urban equilibrium closure with the package's
+recursive multimodal transport block.
 
-The route and traffic logic is shared with the economic-geography model. The
-equilibrium closure is not. The urban state contains separate residence and
-workplace distributions, and aggregate welfare is recovered from a distinct
-scale variable. The package therefore implements a separate analytic IFT rather
-than relabeling labor and income.
+The transport equations are shared with the economic-geography model:
 
-The current implementation is the paper's single-mode road model. Multimodal
-choice and the `NC`/`NT`/`F`/`FM`/`FR` channel decomposition remain available for
-`economic_geography` only. `decompose` fails explicitly for `urban_commuting`.
+```math
+\kappa_e=\left(\sum_m\kappa_{e,m}^{-\eta}\right)^{-1/\eta},
+\qquad
+s_{e,m}=\frac{\kappa_{e,m}^{-\eta}}
+{\sum_n\kappa_{e,n}^{-\eta}},
+```
+
+```math
+\tau_{ij}^{-\theta}
+=\mathbf 1\{i=j\}+\sum_k\kappa_{ik}^{-\theta}\tau_{kj}^{-\theta}.
+```
+
+Here the urban commuting elasticity $\theta$ is the route curvature; the
+economic-geography model supplies $\sigma-1$. Flexible and fixed routes,
+flexible and fixed modes, edge congestion, terminal congestion, and
+primitive-cost pass-through use the same code in both spatial closures.
+
+The spatial equilibrium remains distinct. Its state is
+
+```math
+z_U=(d\log l^R,d\log l^F,d\log\chi),
+\qquad
+d\log W=-d\log\chi/\theta.
+```
+
+Residence and workplace choices therefore use an urban Jacobian and welfare
+row. They are not relabeled trade-model variables.
 
 ## Data contract
 
@@ -25,101 +45,150 @@ Urban `nodes.csv` uses:
 node_id,residents,employment,longitude,latitude
 ```
 
-Directed traffic remains in `edge_modes.csv`. The maintained orientation is from
-residence toward workplace. Let $l_i^R$ and $l_i^F$ denote normalized
-residence and workplace masses, and let $\Xi_{ij}$ denote traffic divided by the
-total commuter scale. The baseline openness objects are
+`edge_modes.csv` uses the generic edge-mode schema. Multiple rows may share an
+edge when they represent different modes. Terminal identifiers are required
+for every mode with positive endpoint-terminal congestion.
+
+Let $l_i^R$ and $l_i^F$ denote normalized residence and workplace masses, and
+let $\Xi_{ij}$ be total directed edge traffic. The recursive stock must satisfy
 
 ```math
-s_i^x=\frac{l_i^F}{l_i^F+\sum_j\Xi_{ij}},\qquad
-\mu_{ij}=\frac{\Xi_{ij}}{l_i^F+\sum_j\Xi_{ij}},
+\mathcal T_i
+=l_i^F+\sum_j\Xi_{ij}
+=l_i^R+\sum_j\Xi_{ji}.
 ```
+
+The loader then constructs
 
 ```math
-s_i^y=\frac{l_i^R}{l_i^R+\sum_j\Xi_{ji}},\qquad
-\lambda_{ji}=\frac{\Xi_{ji}}{l_i^R+\sum_j\Xi_{ji}}.
+s_i^x=\frac{l_i^F}{\mathcal T_i},\quad
+s_i^y=\frac{l_i^R}{\mathcal T_i},\quad
+\mu_{ij}=\frac{\Xi_{ij}}{\mathcal T_i},\quad
+\lambda_{ij}=\frac{\Xi_{ij}}{\mathcal T_j}.
 ```
 
-These are the two denominators in the Allen-Arkolakis exact-hat equations. The
-loader does not impose equality between them because residence, workplace, and
-traffic are separately observed in the Seattle replication.
+The package does not balance inconsistent empirical margins. A preprocessing
+pipeline may apply a documented balancing transformation, but its transformed
+CSV files and hashes must be the inputs supplied to the package.
 
-## Local equilibrium system
+## Urban IFT
 
-Write $r_i=d\log l_i^R$, $f_i=d\log l_i^F$, and
-$c=d\log\chi$. Define $d=1+\theta\lambda$ and
+At zero congestion, the first $N$ residuals are the workplace-side recursive
+equations, the next $N-1$ are their residence-side counterparts, and the final
+two hold aggregate residence and workplace masses fixed. This defines
+$G_U^0(z_U,\kappa)=0$, with Jacobian $J_U^0$, aggregate-edge-cost loading $B_U$,
+and welfare row
 
 ```math
-A=\begin{bmatrix}
-1-\beta\theta & \theta\lambda(1-\alpha\theta)/d\\
-\theta\lambda(1-\beta\theta)/d & 1-\alpha\theta
-\end{bmatrix}.
+q_U^\top=(0,\ldots,0,-1/\theta).
 ```
 
-The first $N$ residuals linearize the workplace-side exact-hat equation. The
-next $N-1$ residuals linearize its residence-side counterpart. Two final rows
-impose
+For each transport closure $S$, the package eliminates route, mode, and
+congestion quantities with the same Schur-complement operator used by the
+economic-geography model. Realized and primitive edge-mode elasticities are
 
 ```math
-\sum_i l_i^R r_i=0,\qquad \sum_i l_i^F f_i=0.
+E_{U,p}^r=q_U^\top J_{U,S}^{-1}b_{U,p}^r,
+\qquad
+E_{U,p}^{\theta}=q_U^\top J_{U,S}^{-1}b_{U,p}^{\theta}.
 ```
 
-For a primitive log-cost shock on edge $i\to j$, the direct residual loading is
+`decompose` reports the common-baseline closures:
 
-```math
-B_{i,e}=\frac{\theta}{d}\mu_{ij},\qquad
-B_{N+j,e}=\frac{\theta}{d}\lambda_{ij},
-```
+- `NC`: no congestion;
+- `NT`: edge congestion;
+- `F`: edge and endpoint-terminal congestion;
+- `FM`: full congestion with observed modal shares fixed;
+- `FR`: full congestion with baseline OD-edge use fixed.
 
-with the second entry omitted when that equilibrium row is replaced by a
-normalization. If $J$ is the resulting $(2N+1)\times(2N+1)$ Jacobian, then
-
-```math
-dz=-J^{-1}B\,d\log\bar t.
-```
-
-The replication's $\chi$ is inverse welfare raised to $\theta$. Hence
-
-```math
-d\log W=-\frac{1}{\theta}d\log\chi,
-```
-
-and the reported benefit elasticity is
-
-```math
--\frac{d\log W}{d\log\bar t_e}
-=q^\top J^{-1}B_e,
-\qquad q=(0,\ldots,0,-1/\theta)^\top.
-```
-
-When (alpha=\beta=\lambda=0) and the baseline accounting identities hold,
-this expression equals the directed-edge traffic share.
+The urban output reports the exact road, terminal, mode, and route closure
+gaps. The finer allocation/scarcity/equilibrium split remains limited to the
+economic-geography decomposition.
 
 ## Configuration
 
 ```toml
 [model]
 spatial_specification = "urban_commuting"
-alpha = -0.12
-beta = -0.10
-theta = 6.83
-lambda = 0.07144948755490483
+alpha = -0.08
+beta = -0.12
+theta = 6.0
+modal_specification = "choice_logsum"
+eta = 1.4
 route_curvature = "theorem"
 
 [congestion]
-specification = "none"
+specification = "composite"
+endpoint_scale = 1.0
+
+[congestion.edge]
+road = 0.06
+
+[congestion.terminal]
+transit = 0.04
 ```
 
-`model.lambda` is the Allen-Arkolakis congestion elasticity. A separate package
-`[congestion]` block is rejected for this specification to prevent double
-counting.
+Older one-road-mode projects may continue to specify `model.lambda`. The
+loader maps that value to road-edge congestion. It rejects simultaneous use of
+`model.lambda` and a modular `[congestion]` specification.
 
 ## Verification
 
-The synthetic example compares every analytic directed-edge derivative with a
-central finite difference from the nonlinear exact-hat system. The Seattle
-adapter additionally verifies the source hashes and reproduces the archive's
-217 nodes, 1,384 directed edges, and 692 physical links.
+The one-mode regression fixture compares the shared system with the independent
+Allen-Arkolakis kernel. Their residual Jacobians use different nonsingular row
+parameterizations, but their state responses and welfare derivatives agree
+below $10^{-10}$.
+
+The multimodal fixture checks primitive and realized shocks against an
+independently solved nonlinear equilibrium under `NC`, `NT`, `F`, `FM`, and
+`FR`. It also tests the one-mode, unique-route, zero-terminal, and
+zero-congestion limits, along with mode permutation and strict accounting
+failures.
+
+For moderate empirical networks, the nonlinear solver uses the exact
+direct-margin Jacobian at the baseline as its initial Newton preconditioner and
+updates it with independently evaluated residual changes. The Jacobian follows
+from residence and workplace response weights, the route resolvent, edge-cost
+exposure, and the congestion cost-state map. Synthetic tests compare it with
+numerical differentiation. Counterfactual acceptance still depends on the
+nonlinear residual and its tolerance, not on the preconditioner.
+
+The synthetic example is in `examples/urban_multimodal`. The empirical
+candidate in `examples/seattle_multimodal` uses the same transport block with
+2017 LODES OD commuters, ACS origin transit shares, and a hash-pinned June 2017
+King County GTFS network. It routes a common commuter population to produce
+model-consistent road and transit edge flows. This differs from the historical
+`examples/seattle_urban` adapter, which preserves HPMS AADT and therefore does
+not pass the strict LODES flow-accounting gate.
+
+The multimodal candidate is not an estimated Seattle transit model. GTFS
+provides schedules and paths, not passenger counts; ACS identifies residential
+mode shares, not route choices; and the modal elasticity remains user supplied.
+The builder reports these limits and fails closed if the historical feed or
+source hashes do not match.
+
+The Seattle impact workflow treats ``\eta=1.099`` as a transferred baseline
+calibration. Observed edge-mode shares fix the local modal baseline, while
+``\eta`` governs substitution following a cost change. Separate bus,
+rail/streetcar, ferry, and road policy models retain the same full multimodal
+equilibrium.
+The route-corridor output uses sparse bundles of edge-mode primitive-cost
+shocks. It is exact for the declared corridor intervention; shared segments
+affect the aggregate mode cost and are not route-exclusive service shocks.
+Only complete named corridors on the model's positive-flow support are
+reported. The workflow records excluded-route coverage and compares GTFS
+scheduled edge traversals with the Metro report's route ridership as an
+external check, not as a calibration target.
+
+The generated map suite parallels the Allen--Arkolakis Seattle displays. It
+places the observed road and GTFS networks beside the constructed multimodal
+network, maps road and transit welfare effects on a common scale, and aligns
+traditional and extended transit maps. A combined map distinguishes road, bus,
+Link light rail, Seattle Streetcar, and ferry links by color and uses a common
+line-width scale for the extended welfare gain. Link and streetcar remain one
+economic rail mode; the visual split uses the pinned GTFS route identities.
+Node area reflects residence plus workplace commuter mass; welfare colors
+never encode traffic.
 
 Sources: [Allen and Arkolakis paper](https://par.nsf.gov/servlets/purl/10383104),
 [replication archive](https://dl.dropbox.com/s/mmux9ys035xi6iu/RESTUD26454_Replication.zip).

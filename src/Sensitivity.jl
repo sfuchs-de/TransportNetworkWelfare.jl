@@ -205,8 +205,38 @@ end
 
 "Trace the mean local welfare effect while changing one declared parameter."
 function sensitivity_path(model::TransportModel, parameter::Symbol, values)
-    model.project.spatial isa UrbanCommuting && throw(ArgumentError(
-        "urban sensitivity paths require a separate residence-workplace branch audit"))
+    if model.project.spatial isa UrbanCommuting
+        rows = NamedTuple[]
+        for value in Float64.(values)
+            project = project_at(model.project, parameter, value)
+            candidate = build_welfare_model(project)
+            result = welfare_effects(candidate)
+            result.diagnostics["verified"] || error(
+                "urban sensitivity point $(parameter)=$(value) failed verification")
+            directed = getproperty.(result.directed, :primitive_F)
+            physical = getproperty.(result.physical, :primitive_F)
+            aggregation = !isempty(physical) ? "physical_link" : "directed_arc"
+            policy_values = !isempty(physical) ? physical : directed
+            isempty(policy_values) && error("urban sensitivity produced no policy results")
+            push!(rows, (;
+                parameter=String(parameter),
+                value,
+                aggregation_level=aggregation,
+                mean_policy_elasticity=mean(policy_values),
+                mean_policy_gain_pct=100*project.policy.shock_fraction*
+                    mean(policy_values),
+                mean_directed_elasticity=
+                    isempty(directed) ? missing : mean(directed),
+                mean_physical_elasticity=
+                    isempty(physical) ? missing : mean(physical),
+                theta=commuting_theta(project.parameters),
+                condition_F=result.diagnostics["condition_F"],
+                condition_transport_F=result.diagnostics["condition_transport_F"],
+                verified=true,
+            ))
+        end
+        return rows
+    end
     rows = NamedTuple[]
     for value in Float64.(values)
         project = project_at(model.project, parameter, value)

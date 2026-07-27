@@ -109,6 +109,12 @@ function run_manifest(project::Project, diagnostics::AbstractDict, outputs; comm
     output_names = basename.(output_paths)
     length(unique(output_names)) == length(output_names) ||
         throw(ArgumentError("manifest output basenames must be unique"))
+    source_manifest_path = joinpath(project.root, "sources.toml")
+    source_manifest = isfile(source_manifest_path) ?
+        Dict(
+            "path" => relpath(source_manifest_path, project.root),
+            "sha256" => file_sha256(source_manifest_path),
+        ) : missing
     return Dict{String,Any}(
         "schema_version" => 1,
         "created_at_utc" => string(now(UTC)),
@@ -121,18 +127,25 @@ function run_manifest(project::Project, diagnostics::AbstractDict, outputs; comm
         "command" => command,
         "config_path" => relpath(project.config_path, project.root),
         "config_sha256" => file_sha256(project.config_path),
+        "source_manifest" => source_manifest,
         "input_hashes" => diagnostics["input_hashes"],
         "transformations" => diagnostics["transformations"],
         "model_variant" => Dict(
+            "spatial_closure" => spatial_name(project.spatial),
             "modal" => modal_name(project.modal),
             "congestion" => string(nameof(typeof(project.congestion))),
             "route_curvature" => "theorem",
+            "route_curvature_value" => project.spatial isa UrbanCommuting ?
+                commuting_theta(project.parameters) : project.parameters.sigma-1,
+            "policy_mode" => String(project.policy.mode),
             "policy_unit" => String(project.policy.unit),
         ),
         "parameters" => Dict(
             "alpha" => project.parameters.alpha,
             "beta" => project.parameters.beta,
             "sigma" => project.parameters.sigma,
+            "theta" => project.spatial isa UrbanCommuting ?
+                commuting_theta(project.parameters) : missing,
             "eta" => project.modal.eta,
             "edge_congestion" => Dict(string(k) => v for (k, v) in edge_lambdas(project.congestion)),
             "edge_congestion_source" => edge_congestion_source(project.congestion),

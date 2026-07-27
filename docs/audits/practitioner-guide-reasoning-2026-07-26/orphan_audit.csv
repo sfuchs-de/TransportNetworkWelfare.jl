@@ -1,0 +1,8 @@
+id,type,location,diagnosis,disposition,status
+O01,paragraph,appendices/E-provenance.tex reproducibility statement,three consecutive short paragraphs repeated one public-versus-external-data boundary,merged into one causal paragraph,resolved
+O02,paragraph,sections/12-extensions.tex remaining empirical work,the post-list paragraph repeated the preceding warning and list,merged method status and empirical boundary,resolved
+O03,equation,sections/05-ift.tex transport elimination,the reduced Jacobian had no displayed substitution carrying dtheta into primitive forcing,added the complete dh substitution and interpreted both terms,resolved
+O04,figure,sections/09-worked-example.tex welfare map,the caption mixed an elasticity with the configured one-percent policy scale,separated the plotted elasticity from its 0.01 conversion,resolved
+O05,appendix,appendices/F-additional-examples.tex,additional examples do not advance the main argument but provide regression evidence,retained in the reference appendices and identified as non-worked examples,intentional
+O06,appendix,appendices/E-provenance.tex,provenance qualifies reproducibility rather than deriving welfare,retained as the terminal evidence boundary with explicit main-text authority,intentional
+O07,subsection,sections/12-extensions.tex Seattle candidate,the application is not empirically complete,retained as an explicitly labeled candidate because it documents the urban extension's empirical requirements,intentional

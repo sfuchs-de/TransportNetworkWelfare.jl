@@ -1,0 +1,107 @@
+\documentclass[tikz,border=4pt]{standalone}
+\pdfinfoomitdate=1
+\pdftrailerid{}
+\pdfsuppressptexinfo=-1
+\usepackage{pgfplots}
+\usepgfplotslibrary{groupplots}
+\usetikzlibrary{arrows.meta,calc}
+\pgfplotsset{compat=1.18}
+\definecolor{guideblue}{RGB}{30,113,164}
+\definecolor{guideteal}{RGB}{42,157,143}
+\definecolor{guideorange}{RGB}{202,104,42}
+\definecolor{guidegold}{RGB}{225,174,51}
+\definecolor{guidegray}{RGB}{103,112,119}
+\begin{document}
+\begin{tikzpicture}[x=1.08cm,y=1.08cm]
+\draw[guidegray!48,line width=0.85pt,line cap=round] (1.000,5.000)--(2.000,5.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (2.000,5.000)--(3.000,5.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (3.000,5.000)--(4.000,5.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (4.000,5.000)--(5.000,5.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (1.000,4.000)--(2.000,4.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (2.000,4.000)--(3.000,4.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (3.000,4.000)--(4.000,4.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (4.000,4.000)--(5.000,4.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (1.000,3.000)--(2.000,3.000);
+\draw[white,line width=4.2pt,line cap=round] (1.000,3.000)--(2.000,3.000);
+\draw[guideblue,line width=2.5pt,line cap=round] (1.000,3.000)--(2.000,3.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (2.000,3.000)--(3.000,3.000);
+\draw[white,line width=4.2pt,line cap=round] (2.000,3.000)--(3.000,3.000);
+\draw[guideblue,line width=2.5pt,line cap=round] (2.000,3.000)--(3.000,3.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (3.000,3.000)--(4.000,3.000);
+\draw[white,line width=4.2pt,line cap=round] (3.000,3.000)--(4.000,3.000);
+\draw[guideblue,line width=2.5pt,line cap=round] (3.000,3.000)--(4.000,3.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (4.000,3.000)--(5.000,3.000);
+\draw[white,line width=4.2pt,line cap=round] (4.000,3.000)--(5.000,3.000);
+\draw[guideblue,line width=2.5pt,line cap=round] (4.000,3.000)--(5.000,3.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (1.000,2.000)--(2.000,2.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (2.000,2.000)--(3.000,2.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (3.000,2.000)--(4.000,2.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (4.000,2.000)--(5.000,2.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (1.000,1.000)--(2.000,1.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (2.000,1.000)--(3.000,1.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (3.000,1.000)--(4.000,1.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (4.000,1.000)--(5.000,1.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (1.000,5.000)--(1.000,4.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (2.000,5.000)--(2.000,4.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (3.000,5.000)--(3.000,4.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (4.000,5.000)--(4.000,4.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (5.000,5.000)--(5.000,4.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (1.000,4.000)--(1.000,3.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (2.000,4.000)--(2.000,3.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (3.000,4.000)--(3.000,3.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (4.000,4.000)--(4.000,3.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (5.000,4.000)--(5.000,3.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (1.000,3.000)--(1.000,2.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (2.000,3.000)--(2.000,2.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (3.000,3.000)--(3.000,2.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (4.000,3.000)--(4.000,2.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (5.000,3.000)--(5.000,2.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (1.000,2.000)--(1.000,1.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (2.000,2.000)--(2.000,1.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (3.000,2.000)--(3.000,1.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (4.000,2.000)--(4.000,1.000);
+\draw[guidegray!48,line width=0.85pt,line cap=round] (5.000,2.000)--(5.000,1.000);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (1.000,5.000) circle (0.1050cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (2.000,5.000) circle (0.1084cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (3.000,5.000) circle (0.1208cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (4.000,5.000) circle (0.1146cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (5.000,5.000) circle (0.1175cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (1.000,4.000) circle (0.1050cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (2.000,4.000) circle (0.1084cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (3.000,4.000) circle (0.1208cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (4.000,4.000) circle (0.1146cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (5.000,4.000) circle (0.1175cm);
+\fill[white] (1.000,3.000) circle (0.1775cm);
+\draw[guideblue,line width=1.0pt] (1.000,3.000) circle (0.1675cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (1.000,3.000) circle (0.1325cm);
+\fill[white] (2.000,3.000) circle (0.1798cm);
+\draw[guideblue,line width=1.0pt] (2.000,3.000) circle (0.1698cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (2.000,3.000) circle (0.1348cm);
+\fill[white] (3.000,3.000) circle (0.2150cm);
+\draw[guideblue,line width=1.0pt] (3.000,3.000) circle (0.2050cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (3.000,3.000) circle (0.1700cm);
+\fill[white] (4.000,3.000) circle (0.1840cm);
+\draw[guideblue,line width=1.0pt] (4.000,3.000) circle (0.1740cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (4.000,3.000) circle (0.1390cm);
+\fill[white] (5.000,3.000) circle (0.1861cm);
+\draw[guideblue,line width=1.0pt] (5.000,3.000) circle (0.1761cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (5.000,3.000) circle (0.1411cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (1.000,2.000) circle (0.1050cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (2.000,2.000) circle (0.1084cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (3.000,2.000) circle (0.1208cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (4.000,2.000) circle (0.1146cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (5.000,2.000) circle (0.1175cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (1.000,1.000) circle (0.1050cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (2.000,1.000) circle (0.1084cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (3.000,1.000) circle (0.1208cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (4.000,1.000) circle (0.1146cm);
+\filldraw[fill=guidegold!72,draw=black!68,line width=0.45pt] (5.000,1.000) circle (0.1175cm);
+\draw[guidegray!70,line width=0.8pt] (5.0,4.0)--(5.32,4.35);
+\node[anchor=west,font=\small,text=guidegray] at (5.36,4.35) {road link};
+\draw[guideblue,line width=1.1pt] (5.0,3.0)--(5.32,3.35);
+\node[anchor=west,font=\small,text=guideblue] at (5.36,3.35) {transit spine};
+\draw[guideorange!85,line width=0.8pt] (3.0,3.0)--(3.42,2.60);
+\node[anchor=west,font=\small,text=guideorange!90!black] at (3.46,2.60) {economic activity};
+\node[anchor=north,font=\scriptsize,text=guideblue] at (1.0,2.77) {terminal};
+\end{tikzpicture}
+\end{document}

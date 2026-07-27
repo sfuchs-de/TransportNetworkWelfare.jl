@@ -1,0 +1,258 @@
+\section{Implementation and verification}
+\label{ch:implementation}
+
+Part II identifies the traffic, equilibrium, and policy objects required by
+the welfare derivative. An application must represent those objects in common
+units, construct a coherent baseline, and preserve the policy definition
+through the numerical calculation. Data and calibration come first because
+the validity of later software checks depends on that representation.
+
+\subsection{Data and calibration}
+\label{ch:data}
+
+Raw transport records rarely coincide with the model's nodes, flows, or cost
+units. This subsection states the model-ready schemas, accounting identities,
+parameter sources, and policy fields that convert those records into inputs
+the derivative can use.
+
+\subsubsection{Model-ready inputs}
+
+The theory identifies the inputs needed by the derivative; the data contract
+states how an application must represent them.
+The generic adapter reads two CSV files and one TOML configuration. The files
+are deliberately narrow. They contain a baseline that already satisfies the
+selected model's accounting identities; they are not a warehouse for raw
+transport records.
+
+For economic geography, the node file contains:
+\begin{lstlisting}
+node_id,labor,income,longitude,latitude
+\end{lstlisting}
+Labor and income shares must be finite, strictly positive, and normalized.
+Zero-mass locations are outside the interior baseline accepted by the generic
+loader. Coordinates are optional for analysis but required for maps.
+
+For urban commuting, the node file instead contains:
+\begin{lstlisting}
+node_id,residents,employment,longitude,latitude
+\end{lstlisting}
+Residence and workplace margins must be finite, positive, and normalized.
+Their geographic distributions may differ even though their aggregate totals
+refer to the same commuter population.
+
+The edge-mode file contains one row for each active mode on each directed edge:
+\begin{lstlisting}
+edge_id,physical_link_id,origin,destination,mode,flow,
+origin_terminal_id,destination_terminal_id,
+congestion_elasticity
+\end{lstlisting}
+The terminal and edge-specific congestion columns are optional unless selected
+by the configuration. The pair \((\code{edge\_id},\code{mode})\) must be
+unique. One directed \code{edge\_id} may therefore appear once for each active
+mode, but all such rows must share endpoints and a physical-link identifier.
+Each endpoint must exist in the node table.
+
+\implementationbox{\textbf{Recovering baseline cost derivatives from flows.}
+Given the recursive-route and modal-logsum assumptions, consistent
+edge--mode flows and node margins reveal the continuation and modal shares
+needed for the local cost derivative. The package reconstructs those shares
+without separately observed route-level generalized costs. This identification
+also requires calibrated route and modal elasticities and flows that satisfy
+the model's accounting identities. Subsection
+\ref{sec:object-status} distinguishes observed, reconstructed, calibrated, and
+computed quantities.}
+
+\subsubsection{Flow concepts and units}
+
+Economic geography uses value traffic normalized by world income. The urban
+model uses commuter traffic normalized by total commuters. Vehicle counts,
+passenger trips, tons, and scheduled services are not automatically
+interchangeable with either flow concept. A preprocessing pipeline may convert
+a physical measure to the model's flow, but that conversion must be explicit
+and defensible.
+
+All active modal flows on an edge sum to aggregate edge traffic:
+\[
+ \Xi_{ij}=\sum_m\Xi_{ij,m},
+ \qquad
+ s_{ij,m}=\frac{\Xi_{ij,m}}{\Xi_{ij}}.
+\]
+The package constructs modal shares from the input baseline. It does not use
+\(\eta\) to overwrite those baseline shares. The elasticity controls the local
+response after a shock.
+
+For economic geography, labor and income shares each sum to one, and edge value
+flows use the same world-income denominator. For urban commuting, residence and
+workplace margins each sum to one, and edge flows use the same total-commuter
+denominator. In either model, modal shares sum to one within a directed edge.
+Edge traffic does not generally sum to one because the same shipment or
+commuter can traverse several edges along a route.
+Renormalizing the edge table to unit total would therefore change the welfare
+scale and violate the route accounting.
+
+The unit contract extends to congestion. A log elasticity such as
+\(\gamma=0.092\) is invariant to proportional rescaling of a correctly
+matched flow measure. It is not invariant to replacing value or commuter
+traffic with an unrelated vehicle, passenger, or schedule measure.
+
+\subsubsection{Accounting checks}
+
+For economic geography, outgoing and incoming traffic must recover the same
+trade exposure:
+\[
+ \mathcal T_i^G=\frac{O_i}{1-s_i^x}
+               =\frac{I_i}{1-s_i^y}.
+\]
+For urban commuting, residence and workplace absorption must recover the same
+commuting exposure:
+\[
+ \mathcal T_i^U=l_i^F+O_i=l_i^R+I_i.
+\]
+Using the identity selected by the configuration, the loader first verifies
+node and mode identifiers, positivity, and finiteness. It then checks flow
+conservation and agreement between alternative measures of the exposure stock.
+For the requested policy, it also verifies reciprocal physical-link pairing,
+coverage of the policy mode, terminal identifiers for modes subject to terminal
+congestion, and congestion keys against the observed active modes.
+
+Perform any symmetrization, padding, modal rescaling, or balancing before
+loading the generic adapter. When empirical sources do not agree, create a
+preprocessing artifact that states the transformation and supply its output to
+the package. The run manifest records the hashes of the transformed inputs.
+
+\subsubsection{Preparing model-ready flows}
+
+Different sources require different preprocessing. This table identifies the
+main empirical gap without presuming a universal conversion.
+\begin{longtable}{L{0.34\textwidth}L{0.57\textwidth}}
+\toprule
+Available information & Required construction \\
+\midrule
+\endhead
+Directed edge value flows &
+Apply unit, price-basis, and accounting checks directly. \\
+Vehicle or passenger counts &
+Map the physical count to the model's value or commuter flow and match the
+congestion elasticity to that measure. \\
+Origin--destination value flows &
+Assign each OD flow to directed edge--modes under a declared routing model. \\
+Scheduled transit service &
+Combine schedules with ridership or a modeled commuter baseline; schedules
+alone are not observed traffic. \\
+Imports and exports with different margins &
+Project them onto declared common margins while preserving and reporting the
+chosen support. \\
+Incomplete modal coverage &
+Define a defensible residual mode or limit the application to the observed
+choice set. \\
+Zero-flow proposed infrastructure &
+Use a finite counterfactual or entry model; the interior local derivative does
+not identify the new alternative. \\
+\bottomrule
+\end{longtable}
+
+Reconcile inconsistent source matrices in a separate, versioned balancing
+step. First choose the target node margins and preserve
+structural zeros that represent unavailable connections. Then solve a
+constrained projection, such as iterative proportional fitting when its
+support conditions hold, that changes the source matrix as little as possible
+while matching those margins. Report the projection rule, fixed margins,
+support changes, convergence tolerance, iteration count, maximum margin error,
+and a distance between raw and balanced flows. Archive both the raw-source
+hashes and the model-ready output hash. The freight adapter below implements
+this procedure for directional port trade; other applications must justify
+their own targets and support.
+
+\subsubsection{Parameters}
+
+After the accounting inputs are fixed, the configuration supplies the
+elasticities governing spatial, route, modal, and congestion responses. The
+economic-geography parameter vector is
+\[
+ (\alpha,\beta,\sigma,\eta,\gamma_{e,m}).
+\]
+Here \(\gamma_{e,m}\) denotes the declared edge--mode congestion elasticity;
+the route curvature is tied to \(\sigma-1\) by the paper's theorem. The paper
+baseline uses
+\[
+ \alpha=0.10,\quad
+ \beta=-0.30,\quad
+ \sigma=9,\quad
+ \eta=1.099,\quad
+ \gamma_{\mathrm{road}}=0.092.
+\]
+These values are external calibration inputs, not parameters estimated by the
+package. The spatial elasticities \(\alpha=0.10\) and \(\beta=-0.30\) follow
+the economic-geography calibration in \citet{AllenArkolakis2014}, as used in
+the December 2020 revision of \citet{AllenArkolakis2020}. The route curvature
+\(\sigma-1=8\) matches the value used by
+\citet{FuchsWong2026Multimodal}, while their estimated modal elasticity gives
+\(\eta=1.099\). The road-congestion elasticity
+\(\gamma_{\mathrm{road}}=0.092\) comes from
+\citet{AllenArkolakis2020}. The endpoint-terminal extension uses the
+\(0.096\) dwell-time elasticity estimated by
+\citet{FuchsWong2026Multimodal}. These citations identify the source of each
+baseline value; they do not substitute for sensitivity analysis in a new
+application.
+
+The urban parameter vector replaces \(\sigma\) with commuting heterogeneity
+\(\theta_U\):
+\[
+ (\alpha,\beta,\theta_U,\eta,\gamma_{e,m}).
+\]
+The package uses \(\theta_U\) as the urban route curvature. Its modal and
+congestion elasticities remain application inputs. The Seattle candidate
+transfers \(\eta=1.099\) from the freight application and reports sensitivity
+rather than presenting it as a Seattle estimate.
+
+Sensitivity should vary one parameter while remaining on a regular branch.
+The paper sensitivity runner maintains
+\[
+ \alpha+\beta<0,\qquad e<0,\qquad
+ |e|\geq0.05,\qquad 1+\alpha+\beta>0.05.
+\]
+Thus ``net dispersion'' means \(\alpha+\beta<0\), and the remaining conditions
+keep the path on the baseline sign branch and away from the two transformation
+singularities. The generic model builder requires the corresponding
+denominators to be nonzero. Both models reject singular route, transport, or
+spatial systems, and the economic-geography implementation rejects an
+independent route curvature not covered by the theorem.
+
+\subsubsection{Policy definition}
+
+The configuration states the policy mode and whether the output concerns
+directed arcs, reciprocal physical links, or both. It also records the
+proportional shock used to translate elasticities into reported gains and
+indicates whether the policy combines several edge--mode shocks in a bundle.
+
+A policy bundle is a sparse list:
+\begin{lstlisting}
+bundle_id,edge_id,mode,weight
+\end{lstlisting}
+The first-order welfare effect is linear in these weights. Duplicate entries,
+unknown edges, inactive modes, and nonfinite weights are rejected.
+
+\subsubsection{External-data adapters}
+
+The freight replication adapter, retained in code under its historical
+\code{RSUE} name, performs transformations required to reproduce the paper's
+research pipeline. Unlike the generic adapter, it may pad, symmetrize, filter,
+or rescale because those operations are part of the declared replication
+contract. Each transformation is listed in TOML and written to the manifest.
+
+The Seattle adapter combines a published urban archive with LODES commuting,
+ACS mode shares, and a pinned historical GTFS network
+\citep{CensusLODES,CensusACS2017B08301,KingCountyGTFS2017}. The raw sources
+remain outside Git. Schedule data identify service paths and frequency, not
+observed route ridership. The model builder therefore reports its construction
+and external comparisons without presenting schedule counts as passenger
+flows.
+
+\warningbox{A successful schema check establishes internal consistency, not
+external validity. Validation against untargeted traffic, ridership, prices,
+or location outcomes is a separate empirical exercise.}
+
+Once the data and policy satisfy this contract, the computation constructs the
+route basis, assembles the relevant equilibrium system, and converts each
+policy forcing into a welfare effect. The next subsection follows that
+sequence.

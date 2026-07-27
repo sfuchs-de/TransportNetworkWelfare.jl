@@ -1,0 +1,90 @@
+\section*{Reading guide}
+\addcontentsline{toc}{section}{Reading guide}
+
+The guide has four parts. Part I gives a stand-alone route from data to
+results. Parts II and III form the detailed guide: Part II develops the
+economic argument, and Part III turns that argument into data, software, and
+applications. Part IV collects technical material that is easier to consult
+separately.
+
+\subsection*{Document structure}
+
+\textbf{Part \ref{part:quickstart}: Quick start.}
+Section \ref{ch:quickstart} is a stand-alone operating procedure for a new
+application. It distinguishes the economic-geography and urban-commuting
+models, states the input accounting conditions, shows the required file
+schemas and configuration choices, and gives the commands for validation,
+analysis, and decomposition. Begin there when the immediate question is whether
+an existing network dataset can be used with the package.
+
+\textbf{Part \ref{part:theory}: Detailed guide---theory and welfare.}
+Section \ref{ch:question} fixes the policy experiment, the three reported
+welfare measures, and the boundary between model-implied benefits and project
+appraisal. Section \ref{ch:equilibrium} then defines the economic-geography and
+urban models together with their shared transport equations. Section
+\ref{ch:welfare} uses those definitions to establish the traffic result,
+derive the extended welfare elasticity, and decompose the difference between
+the two approaches.
+
+\textbf{Part \ref{part:implementation}: Detailed guide---implementation and
+applications.}
+Section \ref{ch:implementation} states the data contract, follows the software
+calculation, and gives the numerical and reporting checks. Section
+\ref{ch:worked} applies the complete sequence to the public multimodal grid.
+Section \ref{ch:applications} distinguishes the reproducible U.S. freight
+results from the urban and Seattle extensions. Section \ref{ch:conclusion}
+collects the interpretation and scope conditions needed when reporting a
+result.
+
+\textbf{Part \ref{part:appendices}: Reference appendices.}
+The appendices are reference material rather than another stage of the main
+argument. Appendix \ref{app:crosswalk} maps notation to code; Appendix
+\ref{app:algorithm} records the computational sequence; Appendix
+\ref{app:config} gives the configuration and schema reference; and Appendix
+\ref{app:verification} states the numerical tests and tolerances. Appendices
+\ref{app:additional-examples} and \ref{app:provenance} summarize the other
+package examples and document the sources behind the guide.
+
+\subsection*{Suggested reading paths}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{L{0.25\textwidth}X}
+\toprule
+Reader's task & Suggested path \\
+\midrule
+Adapt a new dataset &
+Section \ref{ch:quickstart}; then Sections \ref{ch:implementation} and
+\ref{ch:worked}; keep Appendices \ref{app:config} and
+\ref{app:verification} open while preparing the inputs. \\
+Assess the economics &
+Sections \ref{ch:question}--\ref{ch:welfare}; then Appendix
+\ref{app:crosswalk} for the equation-to-code map. \\
+Build an urban or public-transit application &
+The model comparison in Section \ref{ch:quickstart}; the urban model and shared
+transport equations in Section \ref{ch:equilibrium}; then the urban material
+in Section \ref{ch:applications}. \\
+Extend the package &
+Sections \ref{ch:equilibrium}--\ref{ch:implementation}; then Appendices
+\ref{app:crosswalk}--\ref{app:verification}. \\
+Audit or reproduce a result &
+Sections \ref{ch:implementation}, \ref{ch:worked}, and
+\ref{ch:applications}; then Appendices \ref{app:verification} and
+\ref{app:provenance}. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection*{Conventions used throughout}
+
+The economic-geography and urban models share routing, modal choice,
+congestion, and primitive-cost pass-through, but they have different spatial
+states and welfare projections. Public transit is therefore a set of modes in
+the common transport block, not a third spatial model. The guide uses three
+labels consistently. The \emph{Traditional approach} uses traffic on the
+improved edge--mode.
+The \emph{full realized-cost effect} changes the cost users face after
+congestion. The \emph{Extended approach} is the full primitive-cost effect of
+the infrastructure-side improvement. Model-ready flows are an input
+requirement. Vehicle counts, passenger counts, schedules, or tonnage require a
+documented conversion and balancing step before they enter the package.

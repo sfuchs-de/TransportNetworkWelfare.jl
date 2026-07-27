@@ -8,10 +8,13 @@ build_model
 welfare_effects
 decompose_welfare
 sensitivity_path
+load_policy_bundles
+bundle_welfare_effects
 write_results
 EconomicGeography
 UrbanCommuting
 ChoiceLogsum
 ComponentCES
 urban_finite_difference
+urban_multimodal_finite_difference
 ```

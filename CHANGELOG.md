@@ -4,6 +4,10 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+- Add a symmetric multimodal urban IFT with shared route, mode, edge
+  congestion, terminal congestion, and pass-through operators.
+- Add urban `NC`, `NT`, `F`, `FM`, and `FR` closure results, an independent
+  nonlinear finite-difference solver, and a distributable road/transit example.
 - Support edge-mode-specific congestion elasticities supplied by a validated
   input column, including common-scale sensitivity and manifest diagnostics.
 - Add self-contained Braess-style and three-dimensional cow networks, plus a pinned, on-demand
@@ -16,7 +20,7 @@ All notable changes are documented here. The project follows semantic versioning
   workplace distributions, an analytic adjoint, nonlinear exact-hat checks,
   a self-contained toy example, and a hash-pinned Seattle replication adapter.
 - Add an on-demand Westeros example that converts hash-pinned public ArcGIS
-  geography into a transparent synthetic commuting baseline.
+  geography into a transparent synthetic economic-geography baseline.
 - Add a sparse edge-local adjoint solver and an all-vertex cow-mesh builder for
   networks whose exact fixed-route decomposition is too large to construct.
 - Validate congestion keys, inactive modes, terminal identifiers, and the RSUE

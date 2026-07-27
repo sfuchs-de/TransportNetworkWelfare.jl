@@ -1,0 +1,157 @@
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=0.80in]{geometry}
+\usepackage{setspace}
+\setstretch{0.98}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs,longtable,tabularx,array}
+\usepackage{etoolbox}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{xcolor}
+\definecolor{guideblue}{RGB}{30,113,164}
+\definecolor{guideink}{RGB}{32,39,43}
+\definecolor{guidegray}{RGB}{242,244,245}
+\definecolor{guideorange}{RGB}{202,104,42}
+\definecolor{codegreen}{RGB}{42,157,143}
+\usepackage{listings}
+\usepackage[round,authoryear]{natbib}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=guideblue]{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\color{black!62}Transport Network Welfare}
+\fancyhead[R]{\footnotesize\color{black!62}Practitioner Guide}
+\fancyfoot[C]{\footnotesize\color{black!62}\thepage}
+\renewcommand{\headrulewidth}{0.35pt}
+\renewcommand{\footrulewidth}{0pt}
+\setlength{\headheight}{14pt}
+\setlength{\parskip}{0.12em}
+\raggedbottom
+\AtBeginDocument{\color{guideink}}
+
+\titleformat{\part}
+  {\Large\bfseries\color{guideink}}
+  {\color{guideblue}Part \thepart}
+  {0.65em}
+  {}
+\titleformat{\section}
+  {\Large\bfseries\color{guideink}}
+  {\color{guideblue}\thesection}
+  {0.65em}
+  {}
+\titleformat{\subsection}
+  {\large\bfseries\color{guideink}}
+  {\color{guideblue}\thesubsection}
+  {0.6em}
+  {}
+\titleformat{\subsubsection}
+  {\normalsize\bfseries\color{guideink}}
+  {\color{guideblue}\thesubsubsection}
+  {0.55em}
+  {}
+\titlespacing*{\part}{0pt}{0pt}{1.05em}
+\titlespacing*{\section}{0pt}{1.55em plus 0.35em minus 0.1em}{0.75em}
+\titlespacing*{\subsection}{0pt}{1.1em plus 0.2em minus 0.1em}{0.5em}
+\titlespacing*{\subsubsection}{0pt}{0.8em plus 0.2em minus 0.1em}{0.35em}
+\setcounter{tocdepth}{1}
+\setcounter{secnumdepth}{3}
+\renewcommand{\cftsecfont}{\normalfont}
+\renewcommand{\cftsecpagefont}{\normalfont}
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
+\setlength{\cftsecindent}{0pt}
+\setlength{\cftsecnumwidth}{2.2em}
+\setlength{\cftbeforesecskip}{0.34em}
+\captionsetup{
+  font=small,
+  labelfont={bf,color=guideink},
+  justification=raggedright,
+  singlelinecheck=false,
+  skip=0.45em
+}
+
+% Uncaptioned longtables are reference layouts rather than numbered floats.
+% Keep their internal counter advance away from the public table counter and
+% give each internal hyperref anchor a unique name.
+\newcounter{guidelongtable}
+\AtBeginEnvironment{longtable}{%
+  \stepcounter{guidelongtable}%
+  \renewcommand{\theHtable}{guide.\arabic{guidelongtable}}%
+  \addtocounter{table}{-1}}
+
+\lstdefinestyle{guidecode}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{guidegray},
+  frame=single,
+  rulecolor=\color{black!15},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{codegreen},
+  keywordstyle=\color{guideblue},
+  aboveskip=0.8em,
+  belowskip=0.8em,
+  framesep=5pt,
+  xleftmargin=0.15em,
+  xrightmargin=0.15em
+}
+\lstdefinelanguage{Julia}{
+  morekeywords={using,function,end,struct,mutable,abstract,type,where,if,else,
+    elseif,for,while,return,let,begin,try,catch,finally,do,const,local,global,
+    module,export,import,true,false,nothing,missing},
+  sensitive=true,
+  morecomment=[l]{\#},
+  morestring=[b]"
+}
+\lstdefinelanguage{bash}{
+  morekeywords={export,cd,make,test,if,then,else,fi,for,do,done},
+  sensitive=true,
+  morecomment=[l]{\#},
+  morestring=[b]',
+  morestring=[b]"
+}
+\lstset{style=guidecode}
+
+\newcommand{\pkg}{\texttt{TransportNetworkWelfare.jl}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\Ereal}{E^{r}}
+\newcommand{\Eprimitive}{E^{\theta}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\warningbox}[1]{%
+  \begin{center}\fcolorbox{guideorange!70}{guideorange!5}{%
+  \parbox{0.91\textwidth}{\raggedright
+  \textcolor{guideorange}{\textbf{Practical caution.}} #1\par}}\end{center}}
+\newcommand{\implementationbox}[1]{%
+  \begin{center}\fcolorbox{guideblue!45}{guideblue!4}{%
+  \parbox{0.91\textwidth}{\raggedright
+  \textcolor{guideblue}{\textbf{Implementation.}} #1\par}}\end{center}}
+
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{corollary}[proposition]{Corollary}
+\newtheorem{lemma}[proposition]{Lemma}
+\theoremstyle{definition}
+\newtheorem{definition}[proposition]{Definition}
+\numberwithin{equation}{section}
+
+\graphicspath{{docs/practitioner-guide/figures/}}
+
+
+\hypersetup{
+  pdftitle={Transport Network Welfare: Theory, Computation, and Practice},
+  pdfauthor={Treb Allen, Simon Fuchs, and Woan Foong Wong},
+  pdfsubject={Welfare evaluation of transportation improvements},
+  pdfkeywords={transportation, social savings, spatial equilibrium, Julia},
+  bookmarksdepth=3
+}

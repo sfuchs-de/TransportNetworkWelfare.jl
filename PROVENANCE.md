@@ -13,7 +13,11 @@ The kernels began from the frozen package and are tracked in `provenance.toml`. 
 | Package file | Relationship to frozen source |
 | --- | --- |
 | `src/kernels/AdjointRSUE.jl` | Validation-only divergence: finite-input assertions became explicit errors. |
-| `src/kernels/IFTDecomposition.jl` | Extended with the package's analytic closure-factor implementation. |
+| `src/kernels/IFTDecomposition.jl` | Extended with analytic closure factors, distinct-margin reconstruction, and explicit route curvature. |
+| `src/kernels/UrbanCommutingIFT.jl` | Frozen one-mode Allen--Arkolakis regression oracle. |
+| `src/UrbanEngine.jl` | Refactored from the one-mode builder to the shared multimodal closure engine. |
+| `src/SharedTransport.jl` | New spatial-model-neutral transport basis. |
+| `src/UrbanNonlinear.jl` | Independent nonlinear multimodal urban verification oracle with a direct-margin baseline Jacobian and damped congestion solve. |
 | `src/kernels/IFTCompleteDecomposition.jl` | Byte-for-byte frozen. |
 | `src/kernels/RSUEParameterSensitivity.jl` | Byte-for-byte frozen. |
 | `src/kernels/RSUETerminalCongestion.jl` | Byte-for-byte frozen. |
@@ -21,6 +25,51 @@ The kernels began from the frozen package and are tracked in `provenance.toml`. 
 Historical lineage is available in the private repositories `sfuchs-de/RSUE_AFW_2025_v2` and `sfuchs-de/Multimodal_FW_2023`. Those repositories are provenance only; neither is a runtime dependency.
 
 The RSUE manuscript remains in Overleaf. Restricted data remain outside Git and are located through `RSUE_DATA_ROOT`. No manuscript source or restricted input is vendored here.
+
+The practitioner guide and theory--code audit use the active manuscript at
+Overleaf commit `cef3a13b539555bd568cb13332b5835d074afe18` as the authority for
+the paper-facing model statement. The software repository remains authoritative
+for executable behavior. The audit records any difference between those two
+sources rather than silently reconciling it.
+
+## Seattle multimodal candidate
+
+The published Allen-Arkolakis Seattle inputs are retained outside Git. The
+candidate multimodal adapter relies on the 2017 LODES OD matrix and grid
+crosswalk in that archive, 2017 ACS five-year table B08301, and King County
+Metro GTFS feed version
+`ad172e653aa881557a5f3cb84f2ace6819308600`. Relied-on file hashes, dates,
+URLs, and the King County attribution are recorded in
+`examples/seattle_multimodal/sources.toml`.
+
+The default historical-feed source is Mobility Database dataset
+`mdb-267-20170614`, migrated from TransitFeeds. Its public archive has SHA-256
+`469d072cb091bb70240f9e71bfa49f74ac1b0fafadc1fa7f669e933f513da334`
+and the same SHA-1 as the independently catalogued Transitland feed version.
+The downloader retains a verified local-archive override and a Transitland
+archive fallback; it never substitutes a current feed.
+
+The official 2017 King County Metro System Evaluation is pinned as a
+route-level validation source. A deterministic `pdftotext -layout` parser
+extracts its Fall 2016 weekday route-ridership table and records the Poppler
+version and output hash. The table is not used to infer OD-to-route ridership.
+The Seattle map background uses hash-pinned 2017 Census TIGER place, King
+County area-water, and county files. The acquisition command verifies the full
+GTFS archive and every relied-on table, while the model builder records only
+hashes and generated diagnostics. Raw GTFS, ACS responses, geographic files,
+and the Allen-Arkolakis archive remain outside Git.
+
+Named route results are sparse bundles of edge-mode derivatives. Their
+incidence comes from the pinned GTFS trip and stop sequences. They represent a
+uniform improvement to the aggregate mode cost along a named route's mapped
+corridor, not route-exclusive passenger assignment on segments shared by
+multiple services.
+
+The Allen--Arkolakis-style observed-road panel is extracted directly from the
+hash-pinned replication archive's `obs_seattle` FileGDB layer with GDAL. The
+artifact manifest binds the resulting GeoJSON, full GTFS route-shape render,
+model outputs, and figures to their output hashes. The derived geometry and
+figures remain outside Git.
 
 ## Census port-trade extension
 

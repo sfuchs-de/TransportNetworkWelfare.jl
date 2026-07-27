@@ -1,0 +1,124 @@
+\section{Numerical verification}
+\label{app:verification}
+
+Subsection \ref{ch:diagnostics} explains how to interpret accounting, algebraic,
+and empirical checks. This appendix records the tests and numerical gates used
+to accept the first two classes. Passing them establishes fidelity to the
+specified model; it does not establish external validity.
+
+\subsection{Acceptance tolerances}
+
+\begin{table}[H]
+\centering
+\caption{Default verification gates}
+\begin{tabular}{lr}
+\toprule
+Check & Tolerance \\
+\midrule
+Efficient Hulten collapse & \(10^{-8}\) \\
+Algebraic closure and decomposition identities & \(10^{-10}\) \\
+Route margins and edge reconstruction & \(10^{-10}\) \\
+Choice-logsum nonlinear finite differences & \(10^{-6}\) absolute \\
+Nonlinear equilibrium residual & \(10^{-10}\) \\
+Maximum accepted condition number & \(10^{12}\) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Modal tests}
+
+Tests differentiate the nonlinear \code{ChoiceLogsum} independently and
+compare it with the analytical modal matrix. A cost reduction must shift
+traffic toward the improved mode. Mode permutation must leave aggregate
+results unchanged after labels are restored. \code{ComponentCES} is also kept
+under regression test, but only as a legacy specification.
+
+One-mode cases must satisfy \(\code{FM}=\code{F}\). A zero-flow mode is not an
+interior active pair and cannot be a policy target.
+
+\subsection{Route tests}
+
+Route tests check contraction, absorption, bilateral margins, and edge traffic.
+Flexible-route derivatives are compared with central differences of the
+resolvent. Fixed-route incidence is reconstructed independently.
+
+In a unique-route network, \(\code{FR}=\code{F}\). Parallel-route fixtures must
+produce a verified nonzero route wedge. Node permutations must preserve the
+economic result.
+
+\subsection{Congestion tests}
+
+Edge and terminal congestion are tested separately and jointly. Zero
+congestion implies:
+\[
+ \code{NC}=\code{NT}=\code{F},
+ \qquad
+ \Eprimitive=\Ereal.
+\]
+Zero terminal congestion implies \(\code{NT}=\code{F}\). Unknown congestion
+keys, positive values for inactive modes, and missing terminal identifiers
+must fail during validation.
+
+The grid example checks edge and endpoint-terminal congestion separately. Its
+zero-terminal version must satisfy \(\code{NT}=\code{F}\). Package examples
+with edge-specific BPR elasticities retain a separate formula and
+finite-difference regression test, but they are outside the guide's worked
+example.
+
+\subsection{Spatial and welfare tests}
+
+The Python oracle provides 55 checks of the corrected transformed
+economic-geography system. Julia fixtures compare Jacobian blocks, the welfare
+row, the Hulten limit, and the legacy result interfaces.
+
+The active choice-logsum path is checked independently using nonlinear
+equilibria. The freight verification chooses a deterministic traffic-stratified
+set of arcs, solves positive and negative primitive shocks, and binds the
+report to configuration, input, and source hashes.
+
+The guide example adds central finite differences for one road improvement and
+one transit improvement. It also checks its efficient Hulten limit, one-mode
+limit, zero-terminal limit, route contraction, and full decomposition
+identities. Unique-route equality is covered by a separate deterministic
+fixture because a grid intentionally has alternative routes.
+
+\subsection{Urban tests}
+
+The one-mode urban oracle checks the Allen--Arkolakis state response and
+welfare derivative. The shared multimodal engine is then compared with
+\code{UrbanNonlinear.jl}, which solves the nonlinear equilibrium independently.
+
+Tests cover \code{NC}, \code{NT}, \code{F}, \code{FM}, and \code{FR};
+distinct residence and workplace margins; road and transit; terminal
+congestion; and mode and node permutation.
+
+\subsection{Output tests}
+
+Output tests verify the behavior of directed, physical-link, and combined policy
+units, including reciprocal aggregation without dropped or duplicated
+directions. They also check strict JSON treatment of missing values and key
+collisions, shock-fraction scaling of generated TeX macros, deterministic
+output hashes, and full Census CBSA labels, including hyphenated names.
+
+\subsection{Clean-clone acceptance}
+
+A release candidate must pass:
+\begin{lstlisting}[language=bash]
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. -e 'using Pkg; Pkg.test()'
+julia --project=. bin/tnw.jl validate \
+  examples/grid_multimodal/config.toml
+julia --project=. bin/tnw.jl decompose \
+  examples/grid_multimodal/config.toml
+julia --project=docs -e \
+  'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+julia --project=docs docs/make.jl
+make practitioner-guide-assets
+make practitioner-guide-check
+python3 scripts/verify_provenance.py
+python3 scripts/scan_secrets.py
+git diff --check
+\end{lstlisting}
+The Julia calculations and PDF build require no restricted inputs, Overleaf,
+Dropbox, or credentials. Asset regeneration uses the pinned environment in
+\code{plots/requirements.txt}; ordinary analysis and PDF compilation do not.
