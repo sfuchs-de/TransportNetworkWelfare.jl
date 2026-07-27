@@ -30,8 +30,14 @@ for stem in grid-network grid-decomposition; do
         cp "${temporary}/${stem}/${stem}.pdf" "${figures}/${stem}.pdf"
         cp "${temporary}/${stem}/${stem}.png" "${figures}/${stem}.png"
     else
-        cmp "${temporary}/${stem}/${stem}.pdf" "${figures}/${stem}.pdf"
-        cmp "${temporary}/${stem}/${stem}.png" "${figures}/${stem}.png"
+        pdftocairo -png -singlefile -transp -r 180 \
+            "${figures}/${stem}.pdf" \
+            "${temporary}/${stem}/${stem}-committed-pdf" >/dev/null
+        python3 "${root}/scripts/compare_guide_images.py" \
+            "${temporary}/${stem}/${stem}.png" \
+            "${temporary}/${stem}/${stem}-committed-pdf.png"
+        python3 "${root}/scripts/compare_guide_images.py" \
+            "${temporary}/${stem}/${stem}.png" "${figures}/${stem}.png"
     fi
 done
 
