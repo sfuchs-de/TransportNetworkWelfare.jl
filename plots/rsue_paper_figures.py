@@ -151,36 +151,50 @@ def scatter_figure(rows, output, labels=None):
     pearson, spearman = correlations(x, y)
     axis.text(
         0.03, 0.97,
-        f"Pearson {pearson:.3f}\nRank {spearman:.3f}",
+        f"Pearson $r = {pearson:.3f}$\nRank correlation $= {spearman:.3f}$",
         transform=axis.transAxes, ha="left", va="top", fontsize=7.5,
     )
-    label_lookup = labels or {}
-    top = np.argsort(y)[-3:]
-    placements = (
-        ((7, 6), "left"),
-        ((-8, 27), "right"),
-        ((8, 9), "left"),
-    )
-    for rank, index in enumerate(top):
-        row = rows[index]
-        label = label_lookup.get(
-            row["physical_link_id"], row["physical_link_id"])
-        offset, alignment = placements[rank]
-        axis.annotate(
-            label, (x[index], y[index]),
-            xytext=offset, textcoords="offset points",
-            ha=alignment, va="bottom", fontsize=5.5, color=INK,
-            linespacing=1.05,
-            arrowprops={"arrowstyle": "-", "color": MUTED, "lw": 0.45},
-            bbox={"facecolor": "white", "edgecolor": "none",
-                  "alpha": 0.82, "pad": 0.7},
-        )
+    add_scatter_labels(axis, rows, x, y, labels or {})
     axis.set_xlim(*limits)
     axis.set_ylim(*limits)
     axis.set_xlabel(r"Traditional approach ($\times 10^{-4}$)")
     axis.set_ylabel(r"Extended approach ($\times 10^{-4}$)")
     style_axis(axis, grid_axis="both")
     save_figure(figure, output)
+
+
+SCATTER_LABEL_SPECS = {
+    "6_10": ("San Diego--Los Angeles", (-18, -22), "right", "top"),
+    "6_11": ("Riverside--Los Angeles", (-12, 14), "right", "bottom"),
+    "185_188": ("Durham--Raleigh", (10, 8), "left", "bottom"),
+    "184_200": ("Washington--Baltimore", (-10, -15), "right", "top"),
+}
+
+
+def add_scatter_labels(axis, rows, x, y, labels):
+    """Label the four manuscript links using fixed, tested placements."""
+    annotations = []
+    by_id = {
+        row["physical_link_id"]: (index, row)
+        for index, row in enumerate(rows)
+    }
+    for link_id, (short_label, offset, horizontal, vertical) in (
+            SCATTER_LABEL_SPECS.items()):
+        if link_id not in by_id:
+            continue
+        index, row = by_id[link_id]
+        fallback = labels.get(link_id, row["physical_link_id"])
+        label = short_label or fallback
+        annotations.append(axis.annotate(
+            label, (x[index], y[index]),
+            xytext=offset, textcoords="offset points",
+            ha=horizontal, va=vertical, fontsize=5.5, color=INK,
+            linespacing=1.05,
+            arrowprops={"arrowstyle": "-", "color": MUTED, "lw": 0.5},
+            bbox={"facecolor": "white", "edgecolor": "none",
+                  "alpha": 0.88, "pad": 0.8},
+        ))
+    return annotations
 
 
 def interval_plot(axis, rows, specifications, scale=1.0, zero_line=False):
@@ -202,56 +216,194 @@ def interval_plot(axis, rows, specifications, scale=1.0, zero_line=False):
     axis.spines["left"].set_visible(False)
 
 
-def decomposition_figure(rows, output):
-    figure, axes = plt.subplots(1, 3, figsize=(11.8, 4.3))
-    interval_plot(
-        axes[0], rows,
-        [
-            ("hulten", "Traditional approach", MUTED),
-            ("realized_NC", "No congestion", TEAL),
-            ("realized_NT", "Road congestion", TEAL),
-            ("realized_F", "Full realized-cost effect", TEAL),
-            ("primitive_F", "Extended approach", BLUE),
-        ],
-        scale=1.0e4,
-    )
-    add_panel_label(axes[0], "A", "From traditional to extended")
-    axes[0].set_xlabel(r"Welfare elasticity ($\times 10^{-4}$)", fontsize=8)
-
-    interval_plot(
-        axes[1], rows,
-        [
-            ("d_edge", "Road congestion", TEAL),
-            ("d_mode", "Flexible modes", PURPLE),
-            ("d_route", "Route adjustment", ORANGE),
-        ],
-        zero_line=True,
-    )
-    add_panel_label(axes[1], "B", "Alternative adjustments")
-    axes[1].set_xlabel("Normalized multiplier difference", fontsize=8)
-
-    component_rows = []
+def decomposition_summary(rows, tolerance=1.0e-12):
+    """Verify and summarize the exact Hulten-to-extended ladder."""
+    if not rows:
+        raise ValueError("Decomposition rows must be nonempty.")
+    numeric = []
     for row in rows:
-        enriched = dict(row)
-        enriched["primitive_net_gap"] = (
-            float(row["hulten"])-float(row["primitive_F"]))
-        component_rows.append(enriched)
-    interval_plot(
-        axes[2], component_rows,
-        [
-            ("primitive_externality", "Externalities", BLUE),
-            ("primitive_propagation", "Equilibrium propagation", ORANGE),
-            ("primitive_edge", "Road congestion", TEAL),
-            ("primitive_pass_through", "Primitive pass-through", RED),
-            ("primitive_net_gap", "Net traditional gap", MUTED),
-        ],
-        scale=1.0e4,
-        zero_line=True,
-    )
-    add_panel_label(axes[2], "C", "Traditional-to-extended gap")
-    axes[2].set_xlabel(r"Signed elasticity component ($\times 10^{-4}$)", fontsize=8)
+        values = {
+            field: float(row[field])
+            for field in (
+                "hulten", "realized_NC", "realized_F", "realized_FM",
+                "realized_FR", "primitive_F", "primitive_externality",
+                "primitive_propagation", "primitive_edge",
+                "primitive_terminal", "primitive_pass_through",
+            )
+        }
+        no_congestion = (
+            values["hulten"]
+            - values["primitive_externality"]
+            - values["primitive_propagation"]
+        )
+        realized = (
+            no_congestion
+            - values["primitive_edge"]
+            - values["primitive_terminal"]
+        )
+        extended = realized - values["primitive_pass_through"]
+        residuals = (
+            no_congestion-values["realized_NC"],
+            realized-values["realized_F"],
+            extended-values["primitive_F"],
+        )
+        if max(abs(value) for value in residuals) > tolerance:
+            raise ValueError(
+                "The Hulten-to-extended ladder does not reconstruct the "
+                "reported closure results."
+            )
+        numeric.append(values)
 
-    figure.subplots_adjust(wspace=0.48)
+    mean = lambda field: float(np.mean([row[field] for row in numeric]))
+    summary = {
+        "traditional": mean("hulten"),
+        "no_congestion": mean("realized_NC"),
+        "realized_full": mean("realized_F"),
+        "modes_fixed": mean("realized_FM"),
+        "routes_fixed": mean("realized_FR"),
+        "extended": mean("primitive_F"),
+        "externality": mean("primitive_externality"),
+        "propagation": mean("primitive_propagation"),
+        "road": mean("primitive_edge"),
+        "terminal": mean("primitive_terminal"),
+        "pass_through": mean("primitive_pass_through"),
+    }
+    summary["net_gap"] = summary["traditional"]-summary["extended"]
+    component_sum = sum(summary[field] for field in (
+        "externality", "propagation", "road", "terminal", "pass_through"))
+    if abs(component_sum-summary["net_gap"]) > tolerance:
+        raise ValueError("Mean signed components do not reconstruct the net gap.")
+    return summary
+
+
+def _format_effect(value):
+    return f"{1.0e4*value:.2f}"
+
+
+def decomposition_figure(rows, output):
+    summary = decomposition_summary(rows)
+    scale = 1.0e4
+    figure, axes = plt.subplots(
+        1, 2, figsize=(10.8, 4.6),
+        gridspec_kw={"width_ratios": (1.06, 1.0)},
+    )
+
+    ladder_axis = axes[0]
+    ladder_fields = (
+        ("traditional", "Traditional approach", MUTED),
+        ("no_congestion", "Spatial equilibrium,\nno congestion", TEAL),
+        ("realized_full", "Full realized-cost effect", TEAL),
+        ("extended", "Extended approach", BLUE),
+    )
+    ladder_x = [scale*summary[field] for field, _, _ in ladder_fields]
+    ladder_y = np.arange(len(ladder_fields)-1, -1, -1)
+    ladder_axis.plot(
+        ladder_x, ladder_y, color=MUTED, linewidth=0.9, zorder=1,
+    )
+    for x_value, y_value, (field, _, color) in zip(
+            ladder_x, ladder_y, ladder_fields):
+        ladder_axis.scatter(
+            [x_value], [y_value], s=48, color=color, edgecolor="white",
+            linewidth=0.7, zorder=3,
+        )
+        ladder_axis.annotate(
+            _format_effect(summary[field]), (x_value, y_value),
+            xytext=(6, 0), textcoords="offset points",
+            ha="left", va="center", fontsize=7, color=INK,
+        )
+
+    transition_labels = (
+        (2.5, "Externalities and\nmarket-access propagation"),
+        (1.5, "Road congestion"),
+        (0.5, "Primitive-cost pass-through"),
+    )
+    label_x = max(ladder_x)*1.16
+    for y_value, label in transition_labels:
+        ladder_axis.text(
+            label_x, y_value, label, ha="left", va="center",
+            fontsize=7.2, color=INK, linespacing=1.05,
+        )
+
+    full_x = scale*summary["realized_full"]
+    comparison_specs = (
+        ("modes_fixed", 1.18, "Mode substitution (modes fixed)", "s"),
+        ("routes_fixed", 0.82, "Route substitution (routes fixed)", "^"),
+    )
+    for field, y_value, label, marker in comparison_specs:
+        x_value = scale*summary[field]
+        ladder_axis.plot(
+            [full_x, x_value], [y_value, y_value], color=ORANGE,
+            linewidth=0.75, linestyle=(0, (2, 2)), zorder=1,
+        )
+        ladder_axis.scatter(
+            [x_value], [y_value], marker=marker, s=38, facecolor="white",
+            edgecolor=ORANGE, linewidth=1.1, zorder=4,
+        )
+        ladder_axis.annotate(
+            label, (x_value, y_value), xytext=(6, 0),
+            textcoords="offset points", ha="left", va="center",
+            fontsize=6.8, color=ORANGE,
+        )
+
+    ladder_axis.set_yticks(ladder_y)
+    ladder_axis.set_yticklabels([label for _, label, _ in ladder_fields])
+    ladder_axis.set_ylim(-0.35, 3.35)
+    ladder_axis.set_xlim(
+        min(ladder_x)*0.78,
+        max(label_x*1.30, max(ladder_x)*1.60),
+    )
+    ladder_axis.set_xlabel(r"Mean welfare elasticity ($\times 10^{-4}$)")
+    style_axis(ladder_axis, grid_axis="x")
+    ladder_axis.spines["left"].set_visible(False)
+    ladder_axis.tick_params(axis="y", length=0)
+    add_panel_label(axes[0], "A", "From traditional to extended")
+
+    component_axis = axes[1]
+    components = (
+        ("externality", "Externality scaling", PURPLE),
+        ("propagation", "Market-access propagation", ORANGE),
+        ("road", "Road congestion", TEAL),
+        ("pass_through", "Cost pass-through", RED),
+        ("net_gap", "Net difference", MUTED),
+    )
+    component_y = np.arange(len(components)-1, -1, -1)
+    component_values = [scale*summary[field] for field, _, _ in components]
+    component_axis.axvline(0.0, color=MUTED, linewidth=0.7, zorder=0)
+    for y_value, value, (_, _, color) in zip(
+            component_y, component_values, components):
+        component_axis.plot(
+            [0.0, value], [y_value, y_value], color=color,
+            linewidth=2.1, solid_capstyle="round",
+        )
+        component_axis.scatter(
+            [value], [y_value], s=38, color=color, edgecolor="white",
+            linewidth=0.6, zorder=3,
+        )
+        component_axis.annotate(
+            f"{value:+.2f}", (value, y_value),
+            xytext=(5, 0),
+            textcoords="offset points",
+            ha="left",
+            va="center", fontsize=7, color=color,
+        )
+    component_axis.set_yticks(component_y)
+    component_axis.set_yticklabels([label for _, label, _ in components])
+    component_axis.set_xlabel(
+        r"Traditional approach $-$ Extended approach ($\times 10^{-4}$)")
+    style_axis(component_axis, grid_axis="x")
+    component_axis.spines["left"].set_visible(False)
+    component_axis.tick_params(axis="y", length=0)
+    component_axis.text(
+        0.0, -0.23,
+        "Positive lowers the Extended result; negative raises it.",
+        transform=component_axis.transAxes, ha="left", va="top",
+        fontsize=7, color=MUTED,
+    )
+    add_panel_label(axes[1], "B", "Signed contribution to the gap")
+
+    figure.subplots_adjust(
+        left=0.18, right=0.99, bottom=0.22, top=0.91, wspace=0.43,
+    )
     save_figure(figure, output)
 
 

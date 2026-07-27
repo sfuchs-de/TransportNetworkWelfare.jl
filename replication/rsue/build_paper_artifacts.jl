@@ -158,14 +158,135 @@ function top_link_comparison(rows, count::Int=10)
     )
 end
 
-function sensitivity_rows(model, role::String, parameters)
-    output = NamedTuple[]
+function descending_ranks(values)
+    return TNW.average_ranks(-collect(values))
+end
+
+function baseline_parameter_value(model, parameter::Symbol)
+    project = model.project
+    parameter == :alpha && return project.parameters.alpha
+    parameter == :beta && return project.parameters.beta
+    parameter == :net_dispersion &&
+        return -(project.parameters.alpha+project.parameters.beta)
+    parameter == :eta && return project.modal.eta
+    parameter == :lambda_road &&
+        return TNW.edge_lambdas(project.congestion)[:road]
+    parameter == :common_congestion && return 1.0
+    if parameter == :lambda_terminal
+        terminal_values = collect(Base.values(
+            TNW.terminal_lambdas(project.congestion)))
+        isempty(terminal_values) &&
+            error("terminal-congestion baseline is unavailable")
+        all(isapprox(value, first(terminal_values);
+                     rtol=0.0, atol=10eps(Float64))
+            for value in terminal_values) ||
+            error("terminal-congestion channels do not share one baseline")
+        return first(terminal_values)
+    end
+    error("unsupported sensitivity parameter: $parameter")
+end
+
+function sensitivity_outputs(model, baseline_rows, role::String, parameters)
+    summaries = NamedTuple[]
+    link_rows = NamedTuple[]
+    baseline_ids = [row.physical_link_id for row in baseline_rows]
+    baseline_effects = [row.primitive_F for row in baseline_rows]
+    baseline_ranks = descending_ranks(baseline_effects)
     for parameter in parameters
         values = model.project.sensitivity[parameter]
-        rows = TNW.sensitivity_rank_path(model, parameter, values)
-        append!(output, [(; model_role=role, row...) for row in rows])
+        baseline_value = baseline_parameter_value(model, parameter)
+        for value in Float64.(values)
+            project = TNW.project_at(model.project, parameter, value)
+            candidate = TNW.welfare_model_at(model, project; enforce_branch=true)
+            result = TNW.welfare_effects(candidate)
+            result.diagnostics["verified"] || error(
+                "sensitivity point $(parameter)=$(value) failed verification")
+            physical = sorted_physical(result)
+            [row.physical_link_id for row in physical] == baseline_ids ||
+                error("sensitivity point changed the physical-link set")
+            effects = [row.primitive_F for row in physical]
+            ranks = descending_ranks(effects)
+            rank_correlation = TNW.spearman_correlation(
+                baseline_effects, effects)
+            push!(summaries, (;
+                model_role=role,
+                parameter=String(parameter),
+                value,
+                mean_physical_elasticity=mean(effects),
+                mean_physical_gain_pct=
+                    100*project.policy.shock_fraction*mean(effects),
+                spearman_vs_baseline=rank_correlation,
+                minimum_physical_elasticity=minimum(effects),
+                maximum_physical_elasticity=maximum(effects),
+                verified=true,
+            ))
+            for (index, row) in enumerate(physical)
+                push!(link_rows, (;
+                    model_role=role,
+                    parameter=String(parameter),
+                    value,
+                    row.physical_link_id,
+                    row.endpoint_a,
+                    row.endpoint_b,
+                    traditional_elasticity=row.hulten,
+                    extended_elasticity=row.primitive_F,
+                    gain_percent=
+                        100*project.policy.shock_fraction*row.primitive_F,
+                    baseline_extended_elasticity=baseline_effects[index],
+                    rank=ranks[index],
+                    baseline_rank=baseline_ranks[index],
+                    rank_change=baseline_ranks[index]-ranks[index],
+                    is_baseline=isapprox(
+                        value, baseline_value; rtol=0.0,
+                        atol=10eps(Float64)),
+                    verified=true,
+                ))
+            end
+        end
     end
-    return output
+    return summaries, link_rows
+end
+
+function validate_sensitivity_panel(summaries, link_rows;
+                                    expected_links::Int=352,
+                                    tolerance::Float64=1.0e-12)
+    groups = Dict{Tuple{String,String,Float64},Vector{NamedTuple}}()
+    for row in link_rows
+        key = (row.model_role, row.parameter, Float64(row.value))
+        push!(get!(groups, key, NamedTuple[]), row)
+    end
+    maximum_mean_error = 0.0
+    maximum_rank_error = 0.0
+    for summary in summaries
+        key = (
+            summary.model_role, summary.parameter, Float64(summary.value))
+        haskey(groups, key) || error("sensitivity link panel is missing $key")
+        rows = groups[key]
+        length(rows) == expected_links ||
+            error("sensitivity group $key has $(length(rows)) links")
+        effects = [row.extended_elasticity for row in rows]
+        baseline = [row.baseline_extended_elasticity for row in rows]
+        mean_error = abs(mean(effects)-summary.mean_physical_elasticity)
+        rank_error = abs(
+            TNW.spearman_correlation(baseline, effects)-
+            summary.spearman_vs_baseline)
+        maximum_mean_error = max(maximum_mean_error, mean_error)
+        maximum_rank_error = max(maximum_rank_error, rank_error)
+        mean_error <= tolerance ||
+            error("sensitivity mean does not match aggregate output for $key")
+        rank_error <= tolerance ||
+            error("sensitivity rank correlation does not match aggregate output for $key")
+    end
+    length(groups) == length(summaries) ||
+        error("sensitivity link panel contains unexpected groups")
+    return Dict{String,Any}(
+        "groups" => length(groups),
+        "rows" => length(link_rows),
+        "links_per_group" => expected_links,
+        "maximum_mean_error" => maximum_mean_error,
+        "maximum_rank_correlation_error" => maximum_rank_error,
+        "verified" => true,
+    )
 end
 
 function tex_number(value; digits=6)
@@ -191,6 +312,8 @@ function write_tex_macros(path, statistics, decomposition, ranking, robustness, 
         println(io, "\\providecommand{\\PaperTopDecileRatio}{", tex_number(statistics["top_decile_median_ratio"]; digits=2), "}")
         println(io, "\\providecommand{\\PaperTopTenOverlap}{", ranking["overlap_count"], "}")
         println(io, "\\providecommand{\\PaperTopTenJaccard}{", tex_number(ranking["jaccard_index"]; digits=2), "}")
+        println(io, "\\providecommand{\\PaperTopTenTableCount}{10}")
+        println(io, "\\providecommand{\\PaperTopLinkTableCount}{30}")
         println(io, "\\providecommand{\\PaperRoadCongestionChangePercent}{", tex_number(decomposition["road_congestion_change_percent"]; digits=2), "}")
         println(io, "\\providecommand{\\PaperFixedModesChangePercent}{", tex_number(decomposition["fixed_modes_change_percent"]; digits=3), "}")
         println(io, "\\providecommand{\\PaperFixedRoutesChangePercent}{", tex_number(decomposition["fixed_routes_change_percent"]; digits=2), "}")
@@ -228,17 +351,22 @@ function main()
         "physical_link_rank_correlation" => TNW.spearman_correlation(headline_values, control_values),
     )
 
-    main_sensitivity = sensitivity_rows(
-        main_model, "headline_edge_local",
+    main_sensitivity, main_sensitivity_links = sensitivity_outputs(
+        main_model, physical, "headline_edge_local",
         [:alpha, :beta, :net_dispersion, :eta, :lambda_road],
     )
     terminal_project = TNW.load_project(TERMINAL_CONFIG)
     terminal_model = TNW.build_model(terminal_project)
-    extension_sensitivity = sensitivity_rows(
-        terminal_model, "terminal_extension",
+    terminal_baseline = sorted_physical(TNW.welfare_effects(terminal_model))
+    extension_sensitivity, extension_sensitivity_links = sensitivity_outputs(
+        terminal_model, terminal_baseline, "terminal_extension",
         [:common_congestion, :lambda_terminal],
     )
     all_sensitivity = vcat(main_sensitivity, extension_sensitivity)
+    all_sensitivity_links = vcat(
+        main_sensitivity_links, extension_sensitivity_links)
+    sensitivity_link_diagnostics = validate_sensitivity_panel(
+        all_sensitivity, all_sensitivity_links)
 
     output_dir = main_project.output_dir
     mkpath(output_dir)
@@ -248,12 +376,18 @@ function main()
         joinpath(output_dir, "paper_link_geometry.csv"), link_geometry(main_model, physical))
     sensitivity_path = TNW.write_table(
         joinpath(output_dir, "paper_sensitivity.csv"), all_sensitivity)
-    top_links_csv_path = joinpath(output_dir, "paper_top_links.csv")
-    top_links_tex_path = joinpath(output_dir, "paper_top_links.tex")
+    sensitivity_links_path = TNW.write_table(
+        joinpath(output_dir, "paper_sensitivity_links.csv"),
+        all_sensitivity_links)
+    top_ten_csv_path = joinpath(output_dir, "paper_top_10_links.csv")
+    top_ten_tex_path = joinpath(output_dir, "paper_top_10_links.tex")
+    top_thirty_csv_path = joinpath(output_dir, "paper_top_30_links.csv")
+    top_thirty_tex_path = joinpath(output_dir, "paper_top_30_links.tex")
 
     statistics = result_statistics(physical, main_project.policy.shock_fraction)
     decomposition = decomposition_statistics(physical)
-    ranking = top_link_comparison(physical)
+    ranking = top_link_comparison(physical, 10)
+    appendix_ranking = top_link_comparison(physical, 30)
     census_diagnostics_source = joinpath(
         HERE, "census_ports", "derived", "2017", "census_port_region_diagnostics.json")
     census_diagnostics_path = joinpath(output_dir, "census_port_source_metadata.json")
@@ -289,13 +423,18 @@ function main()
         "port_data_robustness" => robustness,
         "top_links" => top_links(physical),
         "top_link_comparison" => ranking,
+        "appendix_top_link_comparison" => appendix_ranking,
+        "sensitivity_link_panel" => sensitivity_link_diagnostics,
         "source_files" => Dict(
             "directed" => basename(directed_path),
             "physical" => basename(physical_path),
             "geometry" => basename(geometry_path),
             "sensitivity" => basename(sensitivity_path),
-            "top_link_comparison_csv" => basename(top_links_csv_path),
-            "top_link_comparison_tex" => basename(top_links_tex_path),
+            "sensitivity_links" => basename(sensitivity_links_path),
+            "top_10_links_csv" => basename(top_ten_csv_path),
+            "top_10_links_tex" => basename(top_ten_tex_path),
+            "top_30_links_csv" => basename(top_thirty_csv_path),
+            "top_30_links_tex" => basename(top_thirty_tex_path),
             "choice_logsum_verification" => basename(verification_path),
         ),
         "choice_logsum_verification_sha256" => TNW.file_sha256(verification_path),
@@ -314,7 +453,7 @@ function main()
         robustness, main_result.diagnostics)
 
     labels_path = joinpath(output_dir, "paper_link_labels.csv")
-    run(`python3 $(joinpath(HERE, "build_cbsa_crosswalk.py")) $geometry_path $claims_path $labels_path --cache-dir $(joinpath(HERE, ".public_cache")) --top-links-csv $top_links_csv_path --top-links-tex $top_links_tex_path`)
+    run(`python3 $(joinpath(HERE, "build_cbsa_crosswalk.py")) $geometry_path $claims_path $labels_path --cache-dir $(joinpath(HERE, ".public_cache")) --sensitivity-links $sensitivity_links_path --top-10-links-csv $top_ten_csv_path --top-10-links-tex $top_ten_tex_path --top-30-links-csv $top_thirty_csv_path --top-30-links-tex $top_thirty_tex_path`)
 
     figure_dir = joinpath(output_dir, "figures")
     run(`python3 $(joinpath(ROOT, "plots", "rsue_paper_figures.py")) $output_dir $figure_dir`)
@@ -325,8 +464,10 @@ function main()
     ]))
     length(figure_outputs) == 10 || error("paper figure generation did not produce ten artifacts")
     extra_outputs = [
-        geometry_path, labels_path, top_links_csv_path, top_links_tex_path,
-        sensitivity_path, claims_path, tex_path, verification_path,
+        geometry_path, labels_path, sensitivity_path, sensitivity_links_path,
+        top_ten_csv_path, top_ten_tex_path,
+        top_thirty_csv_path, top_thirty_tex_path,
+        claims_path, tex_path, verification_path,
         census_diagnostics_path,
         figure_outputs...,
     ]
