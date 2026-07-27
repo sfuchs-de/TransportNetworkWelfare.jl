@@ -217,63 +217,54 @@ def interval_plot(axis, rows, specifications, scale=1.0, zero_line=False):
 
 
 def decomposition_summary(rows, tolerance=1.0e-12):
-    """Verify and summarize the exact Hulten-to-extended ladder."""
+    """Verify and summarize the nested welfare-mechanism path."""
     if not rows:
-        raise ValueError("Decomposition rows must be nonempty.")
+        raise ValueError("Mechanism-path rows must be nonempty.")
+    fields = (
+        "traditional", "fixed_route", "flexible_efficient",
+        "efficient_congestion", "spatial_equilibrium", "extended",
+        "fixed_route_change", "route_mode_change", "congestion_change",
+        "spatial_externality_change", "pass_through_change", "net_change",
+    )
     numeric = []
     for row in rows:
-        values = {
-            field: float(row[field])
-            for field in (
-                "hulten", "realized_NC", "realized_F", "realized_FM",
-                "realized_FR", "primitive_F", "primitive_externality",
-                "primitive_propagation", "primitive_edge",
-                "primitive_terminal", "primitive_pass_through",
-            )
-        }
-        no_congestion = (
-            values["hulten"]
-            - values["primitive_externality"]
-            - values["primitive_propagation"]
+        values = {field: float(row[field]) for field in fields}
+        reconstructed = (
+            values["traditional"]
+            + values["fixed_route_change"]
+            + values["route_mode_change"]
+            + values["congestion_change"]
+            + values["spatial_externality_change"]
+            + values["pass_through_change"]
         )
-        realized = (
-            no_congestion
-            - values["primitive_edge"]
-            - values["primitive_terminal"]
-        )
-        extended = realized - values["primitive_pass_through"]
         residuals = (
-            no_congestion-values["realized_NC"],
-            realized-values["realized_F"],
-            extended-values["primitive_F"],
+            values["fixed_route"]
+            - values["traditional"]
+            - values["fixed_route_change"],
+            values["flexible_efficient"]
+            - values["fixed_route"]
+            - values["route_mode_change"],
+            values["efficient_congestion"]
+            - values["flexible_efficient"]
+            - values["congestion_change"],
+            values["spatial_equilibrium"]
+            - values["efficient_congestion"]
+            - values["spatial_externality_change"],
+            values["extended"]
+            - values["spatial_equilibrium"]
+            - values["pass_through_change"],
+            values["extended"]-reconstructed,
+            values["net_change"]-(values["extended"]-values["traditional"]),
         )
         if max(abs(value) for value in residuals) > tolerance:
             raise ValueError(
-                "The Hulten-to-extended ladder does not reconstruct the "
-                "reported closure results."
+                "The nested mechanism path does not reconstruct the "
+                "reported welfare levels."
             )
         numeric.append(values)
 
     mean = lambda field: float(np.mean([row[field] for row in numeric]))
-    summary = {
-        "traditional": mean("hulten"),
-        "no_congestion": mean("realized_NC"),
-        "realized_full": mean("realized_F"),
-        "modes_fixed": mean("realized_FM"),
-        "routes_fixed": mean("realized_FR"),
-        "extended": mean("primitive_F"),
-        "externality": mean("primitive_externality"),
-        "propagation": mean("primitive_propagation"),
-        "road": mean("primitive_edge"),
-        "terminal": mean("primitive_terminal"),
-        "pass_through": mean("primitive_pass_through"),
-    }
-    summary["net_gap"] = summary["traditional"]-summary["extended"]
-    component_sum = sum(summary[field] for field in (
-        "externality", "propagation", "road", "terminal", "pass_through"))
-    if abs(component_sum-summary["net_gap"]) > tolerance:
-        raise ValueError("Mean signed components do not reconstruct the net gap.")
-    return summary
+    return {field: mean(field) for field in fields}
 
 
 def _format_effect(value):
@@ -284,22 +275,31 @@ def decomposition_figure(rows, output):
     summary = decomposition_summary(rows)
     scale = 1.0e4
     figure, axes = plt.subplots(
-        1, 2, figsize=(10.8, 4.6),
-        gridspec_kw={"width_ratios": (1.06, 1.0)},
+        1, 2, figsize=(10.8, 4.9),
+        gridspec_kw={"width_ratios": (1.0, 1.0)},
     )
 
     ladder_axis = axes[0]
     ladder_fields = (
         ("traditional", "Traditional approach", MUTED),
-        ("no_congestion", "Spatial equilibrium,\nno congestion", TEAL),
-        ("realized_full", "Full realized-cost effect", TEAL),
+        ("fixed_route", "Welfare effect, fixed routes", MUTED),
+        ("flexible_efficient", "+ Route and mode choice", MUTED),
+        ("efficient_congestion", "+ Road congestion", TEAL),
+        ("spatial_equilibrium", "+ Net spatial externalities", PURPLE),
         ("extended", "Extended approach", BLUE),
     )
     ladder_x = [scale*summary[field] for field, _, _ in ladder_fields]
     ladder_y = np.arange(len(ladder_fields)-1, -1, -1)
-    ladder_axis.plot(
-        ladder_x, ladder_y, color=MUTED, linewidth=0.9, zorder=1,
-    )
+    for index in range(len(ladder_fields)-1):
+        ladder_axis.annotate(
+            "", xy=(ladder_x[index+1], ladder_y[index+1]),
+            xytext=(ladder_x[index], ladder_y[index]),
+            arrowprops={
+                "arrowstyle": "-|>", "color": LIGHT, "lw": 1.0,
+                "mutation_scale": 8,
+            },
+            zorder=1,
+        )
     for x_value, y_value, (field, _, color) in zip(
             ladder_x, ladder_y, ladder_fields):
         ladder_axis.scatter(
@@ -312,97 +312,67 @@ def decomposition_figure(rows, output):
             ha="left", va="center", fontsize=7, color=INK,
         )
 
-    transition_labels = (
-        (2.5, "Externalities and\nmarket-access propagation"),
-        (1.5, "Road congestion"),
-        (0.5, "Primitive-cost pass-through"),
-    )
-    label_x = max(ladder_x)*1.16
-    for y_value, label in transition_labels:
-        ladder_axis.text(
-            label_x, y_value, label, ha="left", va="center",
-            fontsize=7.2, color=INK, linespacing=1.05,
-        )
-
-    full_x = scale*summary["realized_full"]
-    comparison_specs = (
-        ("modes_fixed", 1.18, "Mode substitution (modes fixed)", "s"),
-        ("routes_fixed", 0.82, "Route substitution (routes fixed)", "^"),
-    )
-    for field, y_value, label, marker in comparison_specs:
-        x_value = scale*summary[field]
-        ladder_axis.plot(
-            [full_x, x_value], [y_value, y_value], color=ORANGE,
-            linewidth=0.75, linestyle=(0, (2, 2)), zorder=1,
-        )
-        ladder_axis.scatter(
-            [x_value], [y_value], marker=marker, s=38, facecolor="white",
-            edgecolor=ORANGE, linewidth=1.1, zorder=4,
-        )
-        ladder_axis.annotate(
-            label, (x_value, y_value), xytext=(6, 0),
-            textcoords="offset points", ha="left", va="center",
-            fontsize=6.8, color=ORANGE,
-        )
-
     ladder_axis.set_yticks(ladder_y)
     ladder_axis.set_yticklabels([label for _, label, _ in ladder_fields])
-    ladder_axis.set_ylim(-0.35, 3.35)
-    ladder_axis.set_xlim(
-        min(ladder_x)*0.78,
-        max(label_x*1.30, max(ladder_x)*1.60),
-    )
+    ladder_axis.set_ylim(-0.75, 5.45)
+    ladder_axis.set_xlim(0.0, max(ladder_x)*1.18)
     ladder_axis.set_xlabel(r"Mean welfare elasticity ($\times 10^{-4}$)")
     style_axis(ladder_axis, grid_axis="x")
     ladder_axis.spines["left"].set_visible(False)
     ladder_axis.tick_params(axis="y", length=0)
-    add_panel_label(axes[0], "A", "From traditional to extended")
+    add_panel_label(axes[0], "A", "Successive welfare effects")
 
     component_axis = axes[1]
     components = (
-        ("externality", "Externality scaling", PURPLE),
-        ("propagation", "Market-access propagation", ORANGE),
-        ("road", "Road congestion", TEAL),
-        ("pass_through", "Cost pass-through", RED),
-        ("net_gap", "Net difference", MUTED),
+        ("fixed_route_change", "Fixed-route welfare effect", MUTED),
+        ("route_mode_change", "Route and mode choice", MUTED),
+        ("congestion_change", "Road congestion", TEAL),
+        ("spatial_externality_change", "Net spatial externalities", PURPLE),
+        ("pass_through_change", "Cost pass-through", RED),
     )
     component_y = np.arange(len(components)-1, -1, -1)
     component_values = [scale*summary[field] for field, _, _ in components]
     component_axis.axvline(0.0, color=MUTED, linewidth=0.7, zorder=0)
     for y_value, value, (_, _, color) in zip(
             component_y, component_values, components):
-        component_axis.plot(
-            [0.0, value], [y_value, y_value], color=color,
-            linewidth=2.1, solid_capstyle="round",
-        )
+        if abs(value) > 1.0e-12:
+            component_axis.plot(
+                [0.0, value], [y_value, y_value], color=color,
+                linewidth=2.1, solid_capstyle="round",
+            )
         component_axis.scatter(
-            [value], [y_value], s=38, color=color, edgecolor="white",
-            linewidth=0.6, zorder=3,
+            [value], [y_value], s=38,
+            color=color if abs(value) > 1.0e-12 else "white",
+            edgecolor=color, linewidth=0.9, zorder=3,
         )
         component_axis.annotate(
             f"{value:+.2f}", (value, y_value),
-            xytext=(5, 0),
+            xytext=(5 if value >= 0 else -5, 0),
             textcoords="offset points",
-            ha="left",
+            ha="left" if value >= 0 else "right",
             va="center", fontsize=7, color=color,
         )
     component_axis.set_yticks(component_y)
     component_axis.set_yticklabels([label for _, label, _ in components])
+    component_axis.set_ylim(-0.75, 5.45)
+    limit = 1.18*max(abs(value) for value in component_values)
+    component_axis.set_xlim(-limit, limit)
     component_axis.set_xlabel(
-        r"Traditional approach $-$ Extended approach ($\times 10^{-4}$)")
+        r"Change in mean welfare elasticity ($\times 10^{-4}$)")
     style_axis(component_axis, grid_axis="x")
     component_axis.spines["left"].set_visible(False)
     component_axis.tick_params(axis="y", length=0)
     component_axis.text(
-        0.0, -0.23,
-        "Positive lowers the Extended result; negative raises it.",
+        0.0, -0.16,
+        f"Net change from Traditional to Extended: "
+        f"{scale*summary['net_change']:+.2f}",
         transform=component_axis.transAxes, ha="left", va="top",
         fontsize=7, color=MUTED,
     )
-    add_panel_label(axes[1], "B", "Signed contribution to the gap")
+    add_panel_label(axes[1], "B", "Change added at each step")
 
     figure.subplots_adjust(
-        left=0.18, right=0.99, bottom=0.22, top=0.91, wspace=0.43,
+        left=0.18, right=0.99, bottom=0.20, top=0.91, wspace=0.44,
     )
     save_figure(figure, output)
 
@@ -470,6 +440,8 @@ def main():
     args = parser.parse_args()
     geometry = read_rows(args.input_dir / "paper_link_geometry.csv")
     physical = read_rows(args.input_dir / "decomposition_physical.csv")
+    mechanism_path = read_rows(
+        args.input_dir / "paper_mechanism_path_links.csv")
     sensitivity = read_rows(args.input_dir / "paper_sensitivity.csv")
     label_rows = read_rows(args.input_dir / "paper_link_labels.csv")
     labels = {
@@ -494,7 +466,8 @@ def main():
     )
     scatter_figure(
         physical, args.output_dir / "rsue_hulten_vs_ift", labels)
-    decomposition_figure(physical, args.output_dir / "rsue_decomposition")
+    decomposition_figure(
+        mechanism_path, args.output_dir / "rsue_decomposition")
     sensitivity_figure(sensitivity, args.output_dir / "rsue_sensitivity")
 
 

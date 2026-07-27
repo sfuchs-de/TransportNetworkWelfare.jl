@@ -77,35 +77,37 @@ class DecompositionFigureTests(unittest.TestCase):
     @staticmethod
     def rows():
         return [{
-            "hulten": "0.0010",
-            "realized_NC": "0.0009",
-            "realized_F": "0.00085",
-            "realized_FM": "0.00086",
-            "realized_FR": "0.00088",
-            "primitive_F": "0.0007",
-            "primitive_externality": "0.0002",
-            "primitive_propagation": "-0.0001",
-            "primitive_edge": "0.00005",
-            "primitive_terminal": "0.0",
-            "primitive_pass_through": "0.00015",
+            "traditional": "0.0010",
+            "fixed_route": "0.0010",
+            "flexible_efficient": "0.0010",
+            "efficient_congestion": "0.0008",
+            "spatial_equilibrium": "0.0011",
+            "extended": "0.0007",
+            "fixed_route_change": "0.0",
+            "route_mode_change": "0.0",
+            "congestion_change": "-0.0002",
+            "spatial_externality_change": "0.0003",
+            "pass_through_change": "-0.0004",
+            "net_change": "-0.0003",
         }]
 
-    def test_summary_reconstructs_closure_levels_and_gap(self):
+    def test_summary_reconstructs_nested_welfare_path(self):
         summary = FIGURES.decomposition_summary(self.rows())
-        self.assertAlmostEqual(summary["no_congestion"], 0.0009)
-        self.assertAlmostEqual(summary["realized_full"], 0.00085)
+        self.assertAlmostEqual(summary["fixed_route"], 0.001)
+        self.assertAlmostEqual(summary["efficient_congestion"], 0.0008)
+        self.assertAlmostEqual(summary["spatial_equilibrium"], 0.0011)
         self.assertAlmostEqual(summary["extended"], 0.0007)
-        self.assertAlmostEqual(summary["net_gap"], 0.0003)
         self.assertAlmostEqual(
-            summary["externality"]+summary["propagation"]+
-            summary["road"]+summary["terminal"]+
-            summary["pass_through"],
-            summary["net_gap"],
+            summary["fixed_route_change"]+summary["route_mode_change"]+
+            summary["congestion_change"]+
+            summary["spatial_externality_change"]+
+            summary["pass_through_change"],
+            summary["net_change"],
         )
 
     def test_summary_fails_on_identity_error(self):
         rows = self.rows()
-        rows[0]["primitive_F"] = "0.0008"
+        rows[0]["extended"] = "0.0008"
         with self.assertRaisesRegex(ValueError, "does not reconstruct"):
             FIGURES.decomposition_summary(rows)
 
