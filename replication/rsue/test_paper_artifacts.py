@@ -159,6 +159,8 @@ class PaperArtifactTests(unittest.TestCase):
             self.assertIn(r"\captionof{table}{\rev{Appendix links}}", tex)
             self.assertIn(r"\multicolumn{4}{c}{\textit{Traditional approach}}", tex)
             self.assertIn(r"\label{tab:test_appendix}", tex)
+            self.assertIn(r"\fontsize{6.7}{7.2}\selectfont", tex)
+            self.assertIn(r"\fontsize{6.0}{6.6}\selectfont \textbf{Notes:}", tex)
 
     def test_labels_sensitivity_panel(self):
         labels = [{

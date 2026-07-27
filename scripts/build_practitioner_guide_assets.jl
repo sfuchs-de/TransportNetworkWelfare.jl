@@ -42,6 +42,7 @@ file_sha256(path) = bytes2hex(open(SHA.sha256, path))
 tex_escape(value) = replace(string(value), "_" => "\\_", "&" => "\\&", "%" => "\\%")
 sfmt(format, values...) = Printf.format(Printf.Format(format), values...)
 fmt(value; digits=6) = sfmt("%.*f", digits, value)
+stable_rank_value(value) = round(Float64(value); sigdigits=12)
 
 function tex_scientific(value; digits=2)
     value == 0 && return "0"
@@ -52,7 +53,8 @@ function tex_scientific(value; digits=2)
 end
 
 function rank_map(rows, field)
-    ordered = sort(rows; by=row -> (-getproperty(row, field), row.physical_link_id))
+    ordered = sort(rows; by=row ->
+        (-stable_rank_value(getproperty(row, field)), row.physical_link_id))
     return Dict(row.physical_link_id => rank for (rank, row) in enumerate(ordered))
 end
 
@@ -545,11 +547,13 @@ function summarize_example(spec, model, result)
     top_count = min(5, max(1, ceil(Int, 0.2length(rows))))
     top_hulten = Set(
         row.physical_link_id
-        for row in sort(rows; by=row -> (-row.hulten, row.physical_link_id))[1:top_count]
+        for row in sort(rows; by=row ->
+            (-stable_rank_value(row.hulten), row.physical_link_id))[1:top_count]
     )
     top_extended = Set(
         row.physical_link_id
-        for row in sort(rows; by=row -> (-row.primitive_F, row.physical_link_id))[1:top_count]
+        for row in sort(rows; by=row ->
+            (-stable_rank_value(row.primitive_F), row.physical_link_id))[1:top_count]
     )
     return (
         label=spec.label,
