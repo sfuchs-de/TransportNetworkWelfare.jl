@@ -319,9 +319,9 @@ def write_top_link_outputs(
             r"\begin{center}",
             rf"\captionof{{table}}{{\rev{{{caption}}}}}",
             rf"\label{{{table_label}}}",
-            r"\fontsize{7.0}{7.6}\selectfont",
+            r"\fontsize{6.7}{7.2}\selectfont",
             r"\setlength{\tabcolsep}{2.0pt}",
-            r"\renewcommand{\arraystretch}{0.92}",
+            r"\renewcommand{\arraystretch}{0.88}",
             r"\begin{tabularx}{\linewidth}{@{}r>{\raggedright\arraybackslash}Xrr@{\hspace{8pt}}r>{\raggedright\arraybackslash}Xrr@{}}",
             r"\toprule",
             r"\multicolumn{4}{c}{\textit{Traditional approach}} & \multicolumn{4}{c}{\textit{Extended approach}} \\",
@@ -345,9 +345,11 @@ def write_top_link_outputs(
     else:
         raise ValueError(f"unknown top-link table layout: {layout}")
     lines.extend([
-        r"\smallskip",
+        r"\smallskip" if layout == "stacked" else r"\vspace{1pt}",
         r"\begin{minipage}{0.97\textwidth}",
-        r"\footnotesize \textbf{Notes:} The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. The Traditional approach ranks links by the sum of the two directed traffic shares; the Extended approach ranks them by the corresponding primitive-cost welfare elasticity. The cross-rank gives the link's rank under the other approach. Geographic labels use point-in-polygon assignments from public 2018 Census CBSA and Place polygons. When the endpoints do not identify two places, the table reports the metropolitan area and physical-link identifier. State suffixes are omitted; hyphenated Census place names are retained. Elasticities are multiplied by $10^4$.",
+        (r"\footnotesize " if layout == "stacked"
+         else r"\fontsize{6.0}{6.6}\selectfont ")
+        + r"\textbf{Notes:} The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. The Traditional approach ranks links by the sum of the two directed traffic shares; the Extended approach ranks them by the corresponding primitive-cost welfare elasticity. The cross-rank gives the link's rank under the other approach. Geographic labels use point-in-polygon assignments from public 2018 Census CBSA and Place polygons. When the endpoints do not identify two places, the table reports the metropolitan area and physical-link identifier. State suffixes are omitted; hyphenated Census place names are retained. Elasticities are multiplied by $10^4$.",
         r"\end{minipage}",
     ])
     lines.append(r"\end{table}" if layout == "stacked" else r"\end{center}")
