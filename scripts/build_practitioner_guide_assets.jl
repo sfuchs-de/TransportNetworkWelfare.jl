@@ -10,6 +10,7 @@ const TNW = TransportNetworkWelfare
 const ROOT = normpath(joinpath(@__DIR__, ".."))
 const GRID_CONFIG = joinpath(ROOT, "examples", "grid_multimodal", "config.toml")
 const DEFAULT_OUTPUT = joinpath(ROOT, "docs", "practitioner-guide", "generated")
+const EXTERNAL_ASSET_FILES = Set(["external-example-results.tex"])
 const RSUE_ROOT = joinpath(
     ROOT, "replication", "rsue", "output", "rsue_paper_choice_edge_census_2017")
 const RSUE_EXPECTED = joinpath(ROOT, "replication", "rsue", "expected_summary.toml")
@@ -158,11 +159,12 @@ function write_example_visual_data(root, spec, model, result)
     end
 end
 
-function generated_files(root)
+function generated_files(root; exclude=Set{String}())
     files = String[]
     for (directory, _, names) in walkdir(root)
         for name in names
-            push!(files, relpath(joinpath(directory, name), root))
+            relative = relpath(joinpath(directory, name), root)
+            relative in exclude || push!(files, relative)
         end
     end
     return sort!(files)
@@ -678,7 +680,7 @@ function check_generated()
     isdir(DEFAULT_OUTPUT) || error("committed guide assets are missing")
     mktempdir() do temporary
         files = generate(temporary)
-        committed = generated_files(DEFAULT_OUTPUT)
+        committed = generated_files(DEFAULT_OUTPUT; exclude=EXTERNAL_ASSET_FILES)
         files == committed || error(
             "generated guide asset inventory differs: generated=$files committed=$committed")
         for file in files
