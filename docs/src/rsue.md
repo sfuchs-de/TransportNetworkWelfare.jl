@@ -49,6 +49,15 @@ The link-level file is derived from restricted inputs and is not committed.
 The generated top-10 and top-30 comparison tables are drawn from the same
 ranked result object.
 
+The builder also writes `paper_mechanism_path_links.csv`. This file supports
+the main decomposition figure with a nested sequence of welfare calculations.
+It begins from the Traditional traffic statistic, verifies the efficient
+fixed-route and flexible route-modal collapses, then adds road congestion,
+net spatial externalities, and primitive-cost pass-through. The original
+`H`/`NC`/`NT`/`F`/`FM`/`FR` closure outputs remain unchanged and continue to
+support the more detailed appendix identities. Terminal congestion is absent
+from the headline path and remains an extension.
+
 The tracked replication manifest fixes the Julia package environment. The artifact manifest also records the Julia and BLAS configuration, Python version, GDAL version, lockfile hashes, input hashes, and source hashes.
 
 The builder requires an accepted report from the independent nonlinear choice-logsum finite-difference harness. The report is bound to the paper configuration, restricted inputs, and derivative source files. Regenerate it after any of those change:

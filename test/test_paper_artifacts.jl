@@ -23,6 +23,13 @@ include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.j
         "primitive_to_realized_percent" => 4.0,
         "primitive_to_hulten_percent" => 5.0,
     )
+    mechanism = Dict{String,Any}(
+        "mean_traditional" => 0.0004,
+        "mean_efficient_congestion" => 0.0002,
+        "mean_flexible_efficient" => 0.0004,
+        "mean_spatial_equilibrium" => 0.0005,
+        "mean_extended" => 0.0003,
+    )
     ranking = Dict{String,Any}("overlap_count" => 6, "jaccard_index" => 0.5)
     robustness = Dict{String,Any}(
         "mean_difference_percent" => 0.01,
@@ -31,13 +38,40 @@ include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.j
     diagnostics = Dict{String,Any}("nodes" => 3, "directed_policy_arcs" => 6)
     mktempdir() do directory
         path = write_tex_macros(joinpath(directory, "paper_results.tex"), statistics,
-            decomposition, ranking, robustness, diagnostics)
+            decomposition, mechanism, ranking, robustness, diagnostics)
         output = read(path, String)
         @test occursin("\\PaperPtenGainPercent}{0.01}", output)
         @test occursin("\\PaperPninetiethGainPercent}{0.02}", output)
         @test occursin("\\PaperTopTenTableCount}{10}", output)
         @test occursin("\\PaperTopLinkTableCount}{30}", output)
+        @test occursin("\\PaperCongestionStepPercent}{-50.0}", output)
+        @test occursin("\\PaperSpatialExternalityStepPercent}{150.0}", output)
     end
+end
+
+@testset "Nested mechanism statistics preserve the welfare hierarchy" begin
+    rows = [(
+        traditional=0.0010,
+        fixed_route=0.0010,
+        flexible_efficient=0.0010,
+        efficient_congestion=0.0008,
+        spatial_equilibrium=0.0011,
+        extended=0.0007,
+        fixed_route_change=0.0,
+        route_mode_change=0.0,
+        congestion_change=-0.0002,
+        spatial_externality_change=0.0003,
+        pass_through_change=-0.0004,
+        net_change=-0.0003,
+        identity_residual=0.0,
+    )]
+    summary = mechanism_path_statistics(rows)
+    @test summary["mean_traditional"] == 0.001
+    @test summary["mean_extended"] == 0.0007
+    @test summary["mean_congestion_change"] == -0.0002
+    @test summary["maximum_fixed_route_collapse_error"] == 0.0
+    @test summary["maximum_flexible_efficient_collapse_error"] == 0.0
+    @test summary["maximum_identity_residual"] == 0.0
 end
 
 @testset "Sensitivity link panel reconciles with aggregate output" begin

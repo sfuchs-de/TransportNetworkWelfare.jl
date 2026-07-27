@@ -1,5 +1,6 @@
 #!/usr/bin/env julia
 
+using LinearAlgebra
 using Statistics
 using TOML
 using TransportNetworkWelfare
@@ -94,6 +95,115 @@ function decomposition_statistics(rows)
         "mean_terminal_component" => mean_field(:primitive_terminal),
         "mean_pass_through_component" => mean_field(:primitive_pass_through),
         "mean_hulten_gap" => hulten-primitive_f,
+    )
+end
+
+function mechanism_path_rows(main_model, main_rows)
+    efficient_project = TNW.replace_project(
+        main_model.project; alpha=0.0, beta=0.0)
+    efficient_model = TNW.model_at(main_model, efficient_project)
+    efficient_result = TNW.decompose_welfare(efficient_model)
+    efficient_rows = sorted_physical(efficient_result)
+    [row.physical_link_id for row in efficient_rows] ==
+        [row.physical_link_id for row in main_rows] ||
+        error("efficient-reference and headline physical links differ")
+
+    data, basis, closures = (
+        efficient_model.data, efficient_model.basis, efficient_model.closures)
+    fixed_no_congestion = TNW.build_transport_closure(
+        efficient_project, data, basis, closures.B;
+        route=:fixed, include_edge=false, include_terminal=false)
+    fixed_jacobian = closures.J0+fixed_no_congestion.Jc
+    TNW.condition_within_limit(
+        cond(fixed_jacobian), efficient_project.condition_limit) ||
+        error("efficient fixed-route closure exceeds the condition-number gate")
+    q = TNW.AdjointRSUE.welfare_gradient(data.omega, closures.c)
+    realized_forcing = closures.B*basis.Sagg[:, basis.policy_pairs]
+    fixed_directed = TNW.operator_gain(
+        fixed_jacobian, q, realized_forcing)
+    fixed_by_link = Dict{String,Float64}()
+    for (index, physical_link_id) in enumerate(basis.policy_physical_ids)
+        fixed_by_link[physical_link_id] =
+            get(fixed_by_link, physical_link_id, 0.0)+fixed_directed[index]
+    end
+
+    output = NamedTuple[]
+    for (headline, efficient) in zip(main_rows, efficient_rows)
+        traditional = headline.hulten
+        fixed_route = fixed_by_link[headline.physical_link_id]
+        flexible_efficient = efficient.realized_NC
+        efficient_congestion = efficient.realized_F
+        spatial_equilibrium = headline.realized_F
+        extended = headline.primitive_F
+        fixed_route_change = fixed_route-traditional
+        route_mode_change = flexible_efficient-fixed_route
+        congestion_change = efficient_congestion-flexible_efficient
+        spatial_externality_change =
+            spatial_equilibrium-efficient_congestion
+        pass_through_change = extended-spatial_equilibrium
+        net_change = extended-traditional
+        identity_residual = net_change-sum((
+            fixed_route_change, route_mode_change, congestion_change,
+            spatial_externality_change, pass_through_change,
+        ))
+        push!(output, (;
+            headline.physical_link_id,
+            headline.endpoint_a,
+            headline.endpoint_b,
+            traditional,
+            fixed_route,
+            flexible_efficient,
+            efficient_congestion,
+            spatial_equilibrium,
+            extended,
+            fixed_route_change,
+            route_mode_change,
+            congestion_change,
+            spatial_externality_change,
+            pass_through_change,
+            net_change,
+            identity_residual,
+        ))
+    end
+
+    fixed_collapse_error = maximum(abs(
+        row.fixed_route-row.traditional) for row in output)
+    flexible_collapse_error = maximum(abs(
+        row.flexible_efficient-row.traditional) for row in output)
+    identity_error = maximum(abs(row.identity_residual) for row in output)
+    tolerance = main_model.project.tolerance
+    fixed_collapse_error <= tolerance ||
+        error("efficient fixed-route welfare does not reproduce Hulten")
+    flexible_collapse_error <= tolerance ||
+        error("efficient route-modal welfare does not reproduce Hulten")
+    identity_error <= tolerance ||
+        error("nested mechanism path does not reconstruct the extended result")
+    return output, efficient_result
+end
+
+function mechanism_path_statistics(rows)
+    mean_field(name) = mean(getproperty(row, name) for row in rows)
+    return Dict{String,Any}(
+        "mean_traditional" => mean_field(:traditional),
+        "mean_fixed_route" => mean_field(:fixed_route),
+        "mean_flexible_efficient" => mean_field(:flexible_efficient),
+        "mean_efficient_congestion" => mean_field(:efficient_congestion),
+        "mean_spatial_equilibrium" => mean_field(:spatial_equilibrium),
+        "mean_extended" => mean_field(:extended),
+        "mean_fixed_route_change" => mean_field(:fixed_route_change),
+        "mean_route_mode_change" => mean_field(:route_mode_change),
+        "mean_congestion_change" => mean_field(:congestion_change),
+        "mean_spatial_externality_change" =>
+            mean_field(:spatial_externality_change),
+        "mean_pass_through_change" => mean_field(:pass_through_change),
+        "mean_net_change" => mean_field(:net_change),
+        "maximum_identity_residual" =>
+            maximum(abs(row.identity_residual) for row in rows),
+        "maximum_fixed_route_collapse_error" =>
+            maximum(abs(row.fixed_route-row.traditional) for row in rows),
+        "maximum_flexible_efficient_collapse_error" =>
+            maximum(abs(row.flexible_efficient-row.traditional) for row in rows),
+        "verified" => true,
     )
 end
 
@@ -293,7 +403,8 @@ function tex_number(value; digits=6)
     return string(round(value; digits))
 end
 
-function write_tex_macros(path, statistics, decomposition, ranking, robustness, diagnostics)
+function write_tex_macros(path, statistics, decomposition, mechanism, ranking,
+                          robustness, diagnostics)
     open(path, "w") do io
         println(io, "% Generated by replication/rsue/build_paper_artifacts.jl; do not edit.")
         println(io, "\\providecommand{\\PaperNodeCount}{", diagnostics["nodes"], "}")
@@ -319,6 +430,14 @@ function write_tex_macros(path, statistics, decomposition, ranking, robustness, 
         println(io, "\\providecommand{\\PaperFixedRoutesChangePercent}{", tex_number(decomposition["fixed_routes_change_percent"]; digits=2), "}")
         println(io, "\\providecommand{\\PaperPrimitiveToRealizedPercent}{", tex_number(decomposition["primitive_to_realized_percent"]; digits=1), "}")
         println(io, "\\providecommand{\\PaperPrimitiveToHultenPercent}{", tex_number(decomposition["primitive_to_hulten_percent"]; digits=1), "}")
+        println(io, "\\providecommand{\\PaperEfficientCongestionMean}{", tex_number(mechanism["mean_efficient_congestion"]; digits=7), "}")
+        println(io, "\\providecommand{\\PaperSpatialEquilibriumMean}{", tex_number(mechanism["mean_spatial_equilibrium"]; digits=7), "}")
+        println(io, "\\providecommand{\\PaperTraditionalMeanScaled}{", tex_number(1.0e4*mechanism["mean_traditional"]; digits=2), "}")
+        println(io, "\\providecommand{\\PaperEfficientCongestionMeanScaled}{", tex_number(1.0e4*mechanism["mean_efficient_congestion"]; digits=2), "}")
+        println(io, "\\providecommand{\\PaperSpatialEquilibriumMeanScaled}{", tex_number(1.0e4*mechanism["mean_spatial_equilibrium"]; digits=2), "}")
+        println(io, "\\providecommand{\\PaperExtendedMeanScaled}{", tex_number(1.0e4*mechanism["mean_extended"]; digits=2), "}")
+        println(io, "\\providecommand{\\PaperCongestionStepPercent}{", tex_number(100*(mechanism["mean_efficient_congestion"]/mechanism["mean_flexible_efficient"]-1); digits=1), "}")
+        println(io, "\\providecommand{\\PaperSpatialExternalityStepPercent}{", tex_number(100*(mechanism["mean_spatial_equilibrium"]/mechanism["mean_efficient_congestion"]-1); digits=1), "}")
         println(io, "\\providecommand{\\PaperPortMeanDifferencePercent}{", tex_number(robustness["mean_difference_percent"]; digits=4), "}")
         println(io, "\\providecommand{\\PaperPortResultCorrelation}{", tex_number(robustness["physical_link_correlation"]; digits=6), "}")
     end
@@ -334,6 +453,10 @@ function main()
     physical = sorted_physical(main_result)
     length(main_result.directed) == 704 || error("expected 704 directed road arcs")
     length(physical) == 352 || error("expected 352 physical road links")
+    mechanism_rows, efficient_result = mechanism_path_rows(main_model, physical)
+    efficient_result.diagnostics["verified"] ||
+        error("efficient-reference mechanism result failed verification")
+    mechanism = mechanism_path_statistics(mechanism_rows)
 
     control_project = TNW.load_project(CONTROL_CONFIG)
     control_model = TNW.build_model(control_project)
@@ -372,6 +495,9 @@ function main()
     mkpath(output_dir)
     directed_path = TNW.write_table(joinpath(output_dir, "decomposition_directed.csv"), main_result.directed)
     physical_path = TNW.write_table(joinpath(output_dir, "decomposition_physical.csv"), physical)
+    mechanism_path = TNW.write_table(
+        joinpath(output_dir, "paper_mechanism_path_links.csv"),
+        mechanism_rows)
     geometry_path = TNW.write_table(
         joinpath(output_dir, "paper_link_geometry.csv"), link_geometry(main_model, physical))
     sensitivity_path = TNW.write_table(
@@ -420,6 +546,7 @@ function main()
         ),
         "results" => statistics,
         "decomposition" => decomposition,
+        "mechanism_path" => mechanism,
         "port_data_robustness" => robustness,
         "top_links" => top_links(physical),
         "top_link_comparison" => ranking,
@@ -428,6 +555,7 @@ function main()
         "source_files" => Dict(
             "directed" => basename(directed_path),
             "physical" => basename(physical_path),
+            "mechanism_path" => basename(mechanism_path),
             "geometry" => basename(geometry_path),
             "sensitivity" => basename(sensitivity_path),
             "sensitivity_links" => basename(sensitivity_links_path),
@@ -449,8 +577,8 @@ function main()
     )
     claims_path = write_json(joinpath(output_dir, "paper_claims.json"), claims)
     tex_path = write_tex_macros(
-        joinpath(output_dir, "paper_results.tex"), statistics, decomposition, ranking,
-        robustness, main_result.diagnostics)
+        joinpath(output_dir, "paper_results.tex"), statistics, decomposition,
+        mechanism, ranking, robustness, main_result.diagnostics)
 
     labels_path = joinpath(output_dir, "paper_link_labels.csv")
     run(`python3 $(joinpath(HERE, "build_cbsa_crosswalk.py")) $geometry_path $claims_path $labels_path --cache-dir $(joinpath(HERE, ".public_cache")) --sensitivity-links $sensitivity_links_path --top-10-links-csv $top_ten_csv_path --top-10-links-tex $top_ten_tex_path --top-30-links-csv $top_thirty_csv_path --top-30-links-tex $top_thirty_tex_path`)
@@ -464,7 +592,8 @@ function main()
     ]))
     length(figure_outputs) == 10 || error("paper figure generation did not produce ten artifacts")
     extra_outputs = [
-        geometry_path, labels_path, sensitivity_path, sensitivity_links_path,
+        geometry_path, labels_path, mechanism_path,
+        sensitivity_path, sensitivity_links_path,
         top_ten_csv_path, top_ten_tex_path,
         top_thirty_csv_path, top_thirty_tex_path,
         claims_path, tex_path, verification_path,
@@ -480,6 +609,7 @@ function main()
         "outputs" => paths,
         "statistics" => statistics,
         "decomposition" => decomposition,
+        "mechanism_path" => mechanism,
         "top_link_comparison" => ranking,
         "port_data_robustness" => robustness,
     )))
