@@ -1,12 +1,14 @@
 # Theory, Code, and Self-Containment Audit
 
-**Audit date:** 2026-07-26
+**Audit date:** 2026-07-28
 
-**Package branch:** `codex/practitioner-guide`
+**Release candidate:** `v0.2.0`
 
-**Package baseline:** `b6e08398a9e49e720f8594743a604197a50bbe33`
+**Package baseline:** `origin/main` at
+`ffe0d296339eae7bdf7c5b451a121b1af243fdc2`, plus release-metadata changes
+that do not alter the numerical implementation
 
-**Paper baseline:** Overleaf `cef3a13b539555bd568cb13332b5835d074afe18`
+**Paper baseline:** Overleaf `7fab4d5a91b1b06a2ebc4f94dcd6d451ebf9bf1d`
 
 **Theory-library baseline:** Mathdown
 `82a7cb3194a470d1fca001615d513d3d8822de36`
@@ -21,6 +23,7 @@
 | Synthetic guide results | **Accepted and self-contained** |
 | Accepted RSUE aggregate claims | **Accepted and hash-bound** |
 | Generic package reproducibility | **Accepted** |
+| Practitioner-guide release artifact | **Accepted and built from tracked source** |
 | Restricted RSUE microdata replication | **External data required** |
 | Seattle empirical replication | **External data required; candidate extension** |
 | Offline Julia and registry installation | **Not claimed** |
@@ -38,15 +41,12 @@ governs executable behavior and tested interfaces. The Mathdown project
 curates derivations and unresolved decisions. Restricted empirical adapters
 remain downstream of their source manifests.
 
-The private Overleaf `overleaf/live` cache was stale at the start of this
-audit. It was rebuilt from `git show` at `cef3a13` rather than copied from a
-working directory. All 11 cached files now match the corresponding Git objects
-byte for byte, and their SHA-256 values and commit timestamp are recorded in
-the private snapshot manifest. No Overleaf file, commit, or branch was
-modified.
-
-The guide reads paper-facing theory from that fixed snapshot. The snapshot is
-evidence for the audit and is absent from the guide build dependency graph.
+This release audit compares the implementation directly with the synchronized
+paper source at `7fab4d5`. The paper changes since the earlier guide audit
+clarify assumptions, foreign-region treatment, and the omission of explicit
+transshipment costs. They do not change the active modal index, route
+recursion, Proposition 1, or Proposition 2. No Overleaf source or private
+snapshot is part of the package or guide build.
 
 ## Model states
 
@@ -57,6 +57,7 @@ evidence for the audit and is absent from the guide build dependency graph.
 | Endpoint-terminal extension | `ChoiceLogsum` | Edge plus endpoint terminal | Verified extension |
 | Urban commuting extension | `ChoiceLogsum` | Shared transport block, urban welfare row | Verified synthetic extension |
 | Historical replication helper | `ComponentCES` | Legacy reduced system | Legacy-only |
+| Explicit mode-to-mode transshipment costs | Not implemented | Extension boundary |
 
 The active index is
 
@@ -94,6 +95,19 @@ choice-logsum paths.
 | Exact decomposition channels | `structured_gap`, `mixed_channels` | Jacobian and channel reconstruction | Accepted |
 | Bidirectional physical-link policy | `PolicySpecification`, `aggregate_physical` | reciprocal pairing and independent aggregation | Accepted |
 | Urban commuting extension | `UrbanEngine.jl`, `UrbanNonlinear.jl` | one-mode oracle and multimodal nonlinear checks | Verified extension |
+| RSUE foreign regions | `RSUEAdapter.jl` | adapter and paper-source cross-check | Accepted stylized integrated closure |
+
+The active paper model aggregates modes on each physical edge. It does not
+represent an explicit cost of switching from mode \(m\) to mode \(m'\) at a
+node. Such costs require a node-mode network and new flow inputs. The generic
+transport machinery can be extended in that direction, but the release does
+not claim that the paper estimates or tests that extension.
+
+The RSUE adapter assigns each of the six foreign regions the mean domestic
+labor and income before renormalizing all 234 locations. They therefore enter
+mobility, world income, and the common welfare derivative. This matches the
+paper's current disclosure. The reported quantity is not a U.S.-only welfare
+effect with exogenous foreign supply and demand.
 
 ### Proposition 1
 
@@ -239,31 +253,33 @@ specification, and primitive-cost pass-through \(0.0002903\).
 
 ## Verification performed
 
-- Full Julia suite: 621 passes and three documented expected failures for
-  external-data integration gates.
+- Full Julia suite on Julia 1.10 and 1.12: 656 passes and three documented
+  expected failures for external-data integration gates on each version.
 - Independent Proposition 2 oracle: 55 of 55 checks passed.
 - Grid example: analysis and decomposition passed all algebraic,
   contraction, conditioning, finite-difference, and limiting-case gates.
 - Generated source assets and standalone figures reproduced byte for byte.
 - HTML documentation built with doctests and cross-reference checks.
-- Practitioner guide: 44 pages, no undefined citations or references, no
+- Practitioner guide: 80 pages, no undefined citations or references, no
   duplicate bibliography keys, no LaTeX errors, and no overfull boxes.
 - Visual inspection covered the title page, complete worked example, RSUE
   summary, provenance appendix, and references.
-- A clean source clone, after `Pkg.instantiate()`, built and checked the guide
-  without Dropbox, Overleaf, credentials, Python, or restricted data. Its PDF
-  matched the workspace build byte for byte (SHA-256
-  `69b4c991bc01ec5743f042a80d4624ea3487d4d1a3d0b864ea15ef14bfd1d7b3`).
+- A fresh worktree from `origin/main`, after `Pkg.instantiate()`, built the
+  guide without Dropbox, Overleaf, credentials, or restricted data. Python is
+  used only by the release-time asset drift checks. The PDF has SHA-256
+  `15579449bc32a1101fe58b693f30683dbbf5eb58f330f56b170b0fee3a789a2f`.
 - Provenance validation checked nine kernel records.
 - Secret scan and `git diff --check` passed.
-- Strict prose lint passed for authored guide prose. The schema appendix
-  retains one technical repetition warning caused by repeated field
-  requirements in a reference table.
+- Release metadata checks confirm that `Project.toml`, `CITATION.cff`, the
+  guide, changelog, and locked RSUE environment all identify version `0.2.0`.
+- Intermediate writing, reasoning, figure-review, Claude, and Codex helper
+  logs are excluded from the release source.
 
 ## Remaining release gates
 
-1. The package remains version `0.1.0` on a feature branch. A public release
-   requires review, integration, a tag, and coauthor approval.
+1. Version `0.2.0` is a release candidate. Tag `v0.2.0` should be created only
+   after review and coauthor approval. The tag workflow will rerun the tests
+   and attach the compiled practitioner guide and checksum.
 2. The public-safe RSUE ledger permits aggregate verification, not
    reconstruction of restricted microdata or link-level empirical results.
 3. The Seattle module is an external-data extension. Historical GTFS records

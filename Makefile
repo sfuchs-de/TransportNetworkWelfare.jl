@@ -1,8 +1,10 @@
-.PHONY: practitioner-guide-assets practitioner-guide-example-assets practitioner-guide-external-assets practitioner-guide practitioner-guide-check clean-practitioner-guide plot-check
+.PHONY: practitioner-guide-assets practitioner-guide-example-assets practitioner-guide-external-assets practitioner-guide practitioner-guide-check clean-practitioner-guide plot-check release-metadata-check release-artifacts clean-release-artifacts
 
 GUIDE_DIR := docs/practitioner-guide
 GUIDE_BUILD := $(GUIDE_DIR)/build
 GUIDE_PDF := $(GUIDE_BUILD)/TransportNetworkWelfare-Practitioner-Guide.pdf
+DIST_DIR := dist
+RELEASE_GUIDE := $(DIST_DIR)/TransportNetworkWelfare-Practitioner-Guide.pdf
 
 practitioner-guide-assets:
 	julia examples/grid_multimodal/build_inputs.jl
@@ -49,3 +51,15 @@ clean-practitioner-guide:
 
 plot-check:
 	python3 -m unittest discover -s plots -p 'test_*.py'
+
+release-metadata-check:
+	python3 scripts/check_release_metadata.py
+
+release-artifacts: release-metadata-check practitioner-guide-check
+	mkdir -p "$(DIST_DIR)"
+	cp "$(GUIDE_PDF)" "$(RELEASE_GUIDE)"
+	cd "$(DIST_DIR)" && shasum -a 256 "$$(basename "$(RELEASE_GUIDE)")" > TransportNetworkWelfare-Practitioner-Guide.sha256
+	@echo "$(RELEASE_GUIDE)"
+
+clean-release-artifacts:
+	rm -rf "$(DIST_DIR)"

@@ -149,4 +149,5 @@ jobs:
           python-version: '3.12'
       - run: python scripts/scan_secrets.py
       - run: python scripts/verify_provenance.py
+      - run: python scripts/check_release_metadata.py
       - run: git diff --check

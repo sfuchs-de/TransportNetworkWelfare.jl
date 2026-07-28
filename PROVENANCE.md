@@ -27,7 +27,7 @@ Historical lineage is available in the private repositories `sfuchs-de/RSUE_AFW_
 The RSUE manuscript remains in Overleaf. Restricted data remain outside Git and are located through `RSUE_DATA_ROOT`. No manuscript source or restricted input is vendored here.
 
 The practitioner guide and theory--code audit use the active manuscript at
-Overleaf commit `cef3a13b539555bd568cb13332b5835d074afe18` as the authority for
+Overleaf commit `7fab4d5a91b1b06a2ebc4f94dcd6d451ebf9bf1d` as the authority for
 the paper-facing model statement. The software repository remains authoritative
 for executable behavior. The audit records any difference between those two
 sources rather than silently reconciling it.
@@ -71,9 +71,9 @@ artifact manifest binds the resulting GeoJSON, full GTFS route-shape render,
 model outputs, and figures to their output hashes. The derived geometry and
 figures remain outside Git.
 
-## Census port-trade extension
+## Census port-trade adapter
 
-The candidate port-trade adapter uses public monthly Census International Trade API aggregates. Its downloader and crosswalk design were adapted from an audited private discussion-simulation pipeline. The source is provenance only and is not a runtime dependency.
+The paper's port-trade adapter uses public monthly Census International Trade API aggregates. Its downloader and crosswalk design were adapted from an audited private discussion-simulation pipeline. The source is provenance only and is not a runtime dependency.
 
 The relied-on source files were not copied into this repository. Their frozen hashes are:
 
@@ -91,7 +91,7 @@ The package implementation adds stricter cache checks, sanitized metadata, deter
 
 The raw monthly API cache is not tracked. It can be reconstructed with `CENSUS_API_KEY`; the key is read only from the environment and is never written to URLs, metadata, or logs. The derived diagnostics record the API endpoints, query fields, monthly source hashes, coverage, balancing method, and output hashes.
 
-The Census candidate is intentionally separate from the legacy audited RSUE configuration. The legacy matrix appears to contain 2017 containerized import values and is symmetrized. The candidate preserves observed import and export direction before projecting both matrices onto common normalized port and region margins required by the balanced-flow model. This projection is a model adapter, not a claim that raw port-level imports equal exports.
+The Census adapter is intentionally separate from the legacy audited RSUE configuration. The legacy matrix appears to contain 2017 containerized import values and is symmetrized. The paper adapter preserves observed import and export direction before projecting both matrices onto common normalized port and region margins required by the balanced-flow model. This projection is a model adapter, not a claim that raw port-level imports equal exports.
 
 ## Canonical benchmark examples
 

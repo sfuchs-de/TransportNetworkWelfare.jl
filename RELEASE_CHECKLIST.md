@@ -11,17 +11,21 @@
 - [x] Documentation, citation, license, contribution, and provenance files.
 - [x] Local secret scan and no credentials in the repository.
 
-## v0.2.0: external RSUE replication
+## v0.2.0: audited practitioner release
 
 - [x] Hash-verified external-data adapter.
-- [x] Legacy audited and candidate choice configurations.
-- [x] Directional Census port-trade candidate with explicit crosswalks,
+- [x] Legacy audited and paper-facing choice configurations.
+- [x] Directional Census port-trade adapter with explicit crosswalks,
   deterministic public-data build, and balanced-flow validation.
 - [x] Aggregate expected metrics and non-sensitive source hashes.
 - [x] Local full-network reproduction against the frozen July 12 outputs.
 - [x] Paper-facing choice-logsum and edge-local congestion specification recorded.
 - [x] Independent nonlinear finite differences for traffic-stratified choice-consistent RSUE arcs.
-- [ ] Stable data-location and redistribution documentation.
+- [x] Self-contained practitioner guide, synthetic examples, and checked PDF build.
+- [x] Restricted-data locations and nonredistribution limits documented.
+- [x] `Project.toml`, `CITATION.cff`, guide, changelog, and locked RSUE environment agree on version `0.2.0`.
+- [x] Tag workflow builds and attaches the practitioner guide and checksum.
+- [ ] Create and verify tag `v0.2.0` after review and coauthor approval.
 
 ## v1.0.0: public release
 
