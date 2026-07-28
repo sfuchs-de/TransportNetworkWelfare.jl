@@ -47,10 +47,12 @@ All notable changes are documented here. The project follows semantic versioning
 - Record dynamic package/Git state without machine-specific configuration paths.
 - Verify frozen RSUE artifact hashes and all mapped directed-result fields.
 - Pin CI actions and broaden repository secret scanning.
-- Reserve the choice-consistent RSUE configuration for theory and coauthor review.
+- Adopt the choice-consistent RSUE configuration as the paper-facing
+  specification after theory-code and nonlinear finite-difference verification.
 - Add a credential-safe Census port-trade pipeline and a separate balanced,
-  directional 2017 imports/exports candidate adapter.
-- Add external-data replication once redistribution and specification gates pass.
+  directional 2017 imports/exports adapter.
+- Keep restricted empirical inputs outside Git while providing hash-verified
+  adapters, aggregate acceptance targets, and explicit replication gates.
 
 ## [0.1.0] - 2026-07-17
 

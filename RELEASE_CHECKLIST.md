@@ -14,8 +14,8 @@
 ## v0.2.0: audited practitioner release
 
 - [x] Hash-verified external-data adapter.
-- [x] Legacy audited and candidate choice configurations.
-- [x] Directional Census port-trade candidate with explicit crosswalks,
+- [x] Legacy audited and paper-facing choice configurations.
+- [x] Directional Census port-trade adapter with explicit crosswalks,
   deterministic public-data build, and balanced-flow validation.
 - [x] Aggregate expected metrics and non-sensitive source hashes.
 - [x] Local full-network reproduction against the frozen July 12 outputs.

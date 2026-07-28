@@ -1,115 +1,66 @@
 # TransportNetworkWelfare.jl
 
-`TransportNetworkWelfare.jl` computes local welfare effects of transport-cost changes in spatial equilibrium. It provides a typed Julia API, a TOML-driven command line interface, route and modal adjustment, modular congestion channels, and an exact closure decomposition.
+`TransportNetworkWelfare.jl` computes the local welfare effects of transport-cost
+changes in spatial equilibrium. It provides a typed Julia API, a TOML-driven
+command line interface, recursive routing, multimodal choice, modular congestion
+channels, and an exact closure decomposition. The default `ChoiceLogsum`
+specification is the model used by the accompanying paper.
 
-The current release candidate is `v0.2.0`. The repository remains private
-until the public-release gates in [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
-are approved. The default `ChoiceLogsum` specification uses a negative-power
-mode-choice index. `ComponentCES` preserves the positive-power convention in
-the audited July 2026 RSUE package. The current paper specification uses
-`ChoiceLogsum`; the legacy convention remains available for provenance and
-reconciliation.
+## Quick start
 
-## Five-minute example
-
-Install Julia 1.10 or later, clone the repository, and run:
-
-```bash
-julia --project=. -e 'using Pkg; Pkg.instantiate()'
-julia --project=. bin/tnw.jl validate examples/toy/config.toml
-julia --project=. bin/tnw.jl analyze examples/toy/config.toml
-julia --project=. bin/tnw.jl decompose examples/toy/config.toml
-julia --project=. bin/tnw.jl sensitivity examples/toy/config.toml
-```
-
-The example is self-contained. It does not require Dropbox, credentials, Python, or source edits. Generated files are written below `examples/toy/output/` and include a run manifest with input, configuration, code, parameter, diagnostic, and output hashes.
-
-## Canonical examples
-
-Eight additional applications exercise distinct parts of the package:
-
-- `examples/braess/`: a four-location routing example with a verified nonzero route wedge;
-- `examples/sioux_falls/`: an on-demand adaptation of the standard 24-node benchmark using heterogeneous local BPR elasticities;
-- `examples/cow/`: a 30-node mechanism example plus an optional sparse equilibrium with one location at each of 2,903 cow-mesh vertices;
-- `examples/urban_toy/`: a self-contained Allen-Arkolakis residence-workplace model with nonlinear exact-hat checks;
-- `examples/urban_multimodal/`: a self-contained road/transit urban model using the shared recursive transport block;
-- `examples/seattle_urban/`: a hash-verified diagnostic adapter for the published 217-location Seattle inputs;
-- `examples/seattle_multimodal/`: a candidate Seattle road/transit adapter using LODES, ACS commute-mode shares, and pinned historical GTFS service; and
-- `examples/westeros/`: an on-demand synthetic economic-geography application built from hash-pinned public ArcGIS geography.
-
-Braess, cow, and both urban toys are fully self-contained. Sioux Falls downloads
-pinned, hash-verified academic-use source files and records its balancing conversion.
-The Seattle adapters require external data and fail rather than silently reconcile
-incompatible traffic and commuter populations.
-See [Examples](docs/src/examples.md) for assumptions, commands, plotting, and
-the urban model's separate equilibrium closure.
-
-## Use your own data
-
-Keep application data outside the package checkout. Clone and initialize the
-package once:
+Install Git and Julia 1.10 or later, then run:
 
 ```bash
 git clone https://github.com/sfuchs-de/TransportNetworkWelfare.jl.git
 cd TransportNetworkWelfare.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. bin/tnw.jl validate examples/toy/config.toml
+julia --project=. bin/tnw.jl analyze examples/toy/config.toml
+julia --project=. bin/tnw.jl decompose examples/toy/config.toml
 ```
 
-Create a portable data project:
+The toy example is self-contained. It requires no private data, credentials,
+Python, or source edits. Results are written to `examples/toy/output/`, together
+with a manifest that records the code, configuration, inputs, parameters,
+diagnostics, and output hashes.
+
+## Use your own data
+
+Initialize a portable project outside the package checkout:
 
 ```bash
 julia --project=/path/to/TransportNetworkWelfare.jl \
   /path/to/TransportNetworkWelfare.jl/bin/tnw.jl init \
   /path/to/my-network economic_geography
-# Use urban_commuting as the final argument for a residence-workplace model.
+# Use urban_commuting for a residence-workplace model.
 julia --project=/path/to/TransportNetworkWelfare.jl \
-  /path/to/TransportNetworkWelfare.jl/bin/tnw.jl validate /path/to/my-network/config.toml
+  /path/to/TransportNetworkWelfare.jl/bin/tnw.jl validate \
+  /path/to/my-network/config.toml
 julia --project=/path/to/TransportNetworkWelfare.jl \
-  /path/to/TransportNetworkWelfare.jl/bin/tnw.jl decompose /path/to/my-network/config.toml
+  /path/to/TransportNetworkWelfare.jl/bin/tnw.jl decompose \
+  /path/to/my-network/config.toml
 ```
 
 The generated directory contains model-specific seed CSVs, a documented TOML
-configuration, `sources.toml`, a preprocessing entry point, and no package
-source. Replace the synthetic rows through a versioned preprocessing script and
-edit the configuration; no Julia changes or RSUE/private files are required.
-The generic adapter does not balance flows, symmetrize links, pad nodes, or
-rescale modes. See [Use your own data](docs/src/own-data.md) for the
-accounting, unit, policy, and GIS requirements. Run manifests include the
-SHA-256 of a project-root `sources.toml`.
+configuration, `sources.toml`, and a preprocessing entry point. Replace the
+synthetic rows through a versioned preprocessing script and edit the
+configuration; changing the Julia package is not part of the normal workflow.
+The adapter does not silently balance flows, symmetrize links, pad nodes, or
+rescale modes.
 
-The generic figure command accepts straight node-to-node links or GeoJSON line
-geometry keyed by `physical_link_id`, plus an optional polygon or line basemap:
+The [own-data guide](docs/src/own-data.md) describes the node and edge-mode
+schemas, accounting identities, units, policy definitions, validation checks,
+GIS inputs, and update workflow. Generic plotting accepts straight
+node-to-node links or GeoJSON geometry keyed by `physical_link_id`, with an
+optional polygon or line basemap.
 
-```bash
-python3 plots/network_example.py \
-  /path/to/my-network/data/nodes.csv \
-  /path/to/my-network/data/edge_modes.csv \
-  /path/to/my-network/output/welfare_physical.csv \
-  /path/to/my-network/figures/welfare-map.pdf \
-  --link-geometry /path/to/my-network/data/link_geometry.geojson \
-  --basemap /path/to/my-network/data/basemap.geojson
-python3 plots/hulten_vs_welfare.py \
-  /path/to/my-network/output/welfare_physical.csv \
-  /path/to/my-network/figures/traditional-versus-extended.pdf
-```
+For reproducible applications, record the package commit and run manifest.
+Prefer a tagged release for published results, and retain the prior commit and
+manifest when updating an existing application.
 
-Before updating the package, record the commit used for existing results.
-Fast-forward the checkout, reinstantiate, test, and validate the data project
-again:
+## Interfaces
 
-```bash
-git rev-parse HEAD
-git switch main
-git pull --ff-only
-julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.test()'
-julia --project=. bin/tnw.jl validate /path/to/my-network/config.toml
-```
-
-Each new run manifest binds the results to code, configuration, input, and
-output hashes. Preserve the prior commit and manifest when reproducing an
-earlier result vintage.
-
-## Julia API
+The main Julia API is:
 
 ```julia
 using TransportNetworkWelfare
@@ -126,58 +77,65 @@ bundles = load_policy_bundles("route_bundles.csv")
 route_effects = bundle_welfare_effects(model, bundles)
 ```
 
-## Command line interface
+The command line interface exposes the same workflow:
 
 ```bash
 julia --project=. bin/tnw.jl init /path/to/my-network
 julia --project=. bin/tnw.jl validate config.toml
 julia --project=. bin/tnw.jl analyze config.toml
-julia --project=. bin/tnw.jl analyze-edge-local config.toml
 julia --project=. bin/tnw.jl decompose config.toml
 julia --project=. bin/tnw.jl sensitivity config.toml
-julia --project=. bin/tnw.jl replicate-rsue replication/rsue/rsue_legacy_audited.toml
 ```
+
+The specialized `analyze-edge-local` and `replicate-rsue` commands remain
+available for paper replication and diagnostic work. Run
+`julia --project=. bin/tnw.jl --help` for the complete command list.
+
+## Examples
+
+The repository includes self-contained toy, Braess-style, cow-network,
+economic-geography grid, and road-transit urban examples. It also provides
+on-demand or external-data adapters for Sioux Falls, Seattle, and Westeros.
+These applications illustrate route adjustment, modal substitution,
+edge-specific congestion, urban commuting, policy bundles, and map generation.
+
+The [examples guide](docs/src/examples.md) gives the construction, assumptions,
+commands, runtime, source attribution, and data requirements for every example.
+External-data builders verify pinned source hashes and fail rather than silently
+reconcile incompatible flows or populations.
 
 ## RSUE replication
 
-Restricted inputs are not committed. Set `RSUE_DATA_ROOT` to the folder containing the six files listed in `replication/rsue/input_manifest.toml`, then run the legacy configuration. The adapter verifies the hash of each file and records the historical padding, symmetrization, filtering, and mode-weight transformations.
+The paper replication requires restricted inputs that are not committed. Set
+`RSUE_DATA_ROOT` to the directory containing the files in
+`replication/rsue/input_manifest.toml`, instantiate the locked replication
+environment, and build the artifacts:
 
 ```bash
 export RSUE_DATA_ROOT=/absolute/path/to/rsue/Input
-julia --project=. bin/tnw.jl replicate-rsue replication/rsue/rsue_legacy_audited.toml
-```
-
-The legacy configuration reproduces the frozen July 12 directed welfare elasticities to numerical precision. Run `replication/rsue/verify_legacy.jl` with both `RSUE_DATA_ROOT` and `RSUE_FROZEN_RESULTS_ROOT` to check the archived artifact hashes and the full directed table. Restricted-data tests are explicitly skipped in public CI when those paths are unavailable.
-
-The legacy foreign-water matrix appears to use 2017 container-import geography and then symmetrizes it. The paper configuration instead uses separate Census port-level imports and exports, projected onto common margins so that the current balanced-trade theory remains valid. The credential-safe downloader, explicit crosswalks, derived overlay, diagnostics, and limitations are documented in [`replication/rsue/census_ports/README.md`](replication/rsue/census_ports/README.md). Build the paper artifact set in the locked replication environment after setting `RSUE_DATA_ROOT`:
-
-```bash
 julia --project=replication/rsue/environment -e 'using Pkg; Pkg.instantiate()'
-julia --project=replication/rsue/environment replication/rsue/build_paper_artifacts.jl
+julia --project=replication/rsue/environment \
+  replication/rsue/build_paper_artifacts.jl
 ```
 
-The private artifact set includes all 352 link-level welfare effects and ranks
-for 35 sensitivity values, plus generated top-10 and top-30 ranking tables.
-The paper figure uses the five headline paths; common and terminal congestion
-remain package diagnostics. The same build writes the traffic, welfare,
-scatter, decomposition, and sensitivity figures, together with traffic-ranked
-top-50 and top-100 correlations. These derived restricted-data outputs remain
-untracked.
+The builder verifies input hashes and an independent nonlinear
+finite-difference report before writing results. Restricted link-level outputs
+remain untracked. The [RSUE documentation](docs/src/rsue.md) explains the
+accepted paper configuration, legacy reconciliation, directional Census port
+flows, sensitivity outputs, and verification commands.
 
-The builder requires an accepted, hash-bound nonlinear finite-difference report. Recreate that report with `replication/rsue/verify_choice_logsum_fd.jl` whenever the paper configuration, restricted inputs, or derivative sources change.
+## Documentation and practitioner guide
 
-## Documentation
-
-The task-oriented documentation is under `docs/src/`. Build it with:
+Build the task-oriented documentation with:
 
 ```bash
 julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
-The self-contained practitioner guide covers the paper's theory, the adjoint
-and decomposition algorithms, the data contract, a worked multimodal grid,
-and the urban extensions:
+The self-contained practitioner guide covers the theory, adjoint and
+decomposition algorithms, data contract, a worked multimodal grid, and urban
+extensions:
 
 ```bash
 make practitioner-guide-assets
@@ -186,27 +144,32 @@ make practitioner-guide
 make practitioner-guide-check
 ```
 
-The resulting PDF is
+The PDF is written to
 `docs/practitioner-guide/build/TransportNetworkWelfare-Practitioner-Guide.pdf`.
-Its source and figures are committed, so the PDF build itself does not require
-Overleaf, restricted data, credentials, or Python. Asset regeneration and the
-full drift check use the pinned plotting environment in
-`plots/requirements.txt`. Every guide example receives the same welfare map,
-Traditional-versus-Extended scatter, and ranked-link table.
+Its committed source and synthetic assets require neither Overleaf nor
+restricted data. Tagged [GitHub releases](https://github.com/sfuchs-de/TransportNetworkWelfare.jl/releases)
+attach the checked PDF and its SHA-256 checksum. Release maintainers can produce
+the same files with `make release-artifacts`.
 
-Release maintainers can build the checked PDF and its checksum with:
+## Model variants and release status
 
-```bash
-make release-artifacts
-```
+`ChoiceLogsum` uses the negative-power mode-choice index and is the supported
+paper-facing specification. `ComponentCES` retains the positive-power convention
+from the frozen July 2026 pipeline solely for legacy reproduction and
+provenance.
 
-The tag-release workflow reruns the package and guide checks and attaches the
-compiled guide and SHA-256 file to the GitHub release. LaTeX intermediates and
-local release directories remain untracked.
+The current release candidate is `v0.2.0`. The repository remains private until
+the coauthor, citation, and data-documentation gates in
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) are approved. See
+[PROVENANCE.md](PROVENANCE.md) for source lineage and the retained
+[theory-code audit](docs/audits/THEORY-CODE-SELF-CONTAINMENT-AUDIT.md) for the
+paper-to-package crosswalk.
 
-See [PROVENANCE.md](PROVENANCE.md) for the frozen source hashes and [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the private-to-public gates.
+## Contributing, citation, and license
 
-## License
+See [CONTRIBUTING.md](CONTRIBUTING.md) before changing numerical behavior or
+paper-facing specifications. Cite both the software release and the associated
+paper as described in [CITATION.cff](CITATION.cff).
 
-MIT. Public distribution remains subject to the coauthor and data-documentation
-gates in [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md). See [LICENSE](LICENSE).
+The package is licensed under the [MIT License](LICENSE). Public distribution
+remains subject to the approval gates above.
