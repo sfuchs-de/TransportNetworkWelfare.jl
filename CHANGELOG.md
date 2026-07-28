@@ -4,6 +4,8 @@ All notable changes are documented here. The project follows semantic versioning
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-28
+
 - Add a symmetric multimodal urban IFT with shared route, mode, edge
   congestion, terminal congestion, and pass-through operators.
 - Add urban `NC`, `NT`, `F`, `FM`, and `FR` closure results, an independent
@@ -59,3 +61,7 @@ All notable changes are documented here. The project follows semantic versioning
 - Port the audited adjoint and route-resolvent kernels from the frozen July 12 package.
 - Add the exact `H`, `NC`, `NT`, `F`, `FM`, and `FR` closure ladder.
 - Add sensitivity paths, manifests, documentation, CI, and the external RSUE adapter contract.
+
+[Unreleased]: https://github.com/sfuchs-de/TransportNetworkWelfare.jl/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/sfuchs-de/TransportNetworkWelfare.jl/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/sfuchs-de/TransportNetworkWelfare.jl/releases/tag/v0.1.0

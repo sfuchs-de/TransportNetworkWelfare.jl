@@ -2,7 +2,13 @@
 
 `TransportNetworkWelfare.jl` computes local welfare effects of transport-cost changes in spatial equilibrium. It provides a typed Julia API, a TOML-driven command line interface, route and modal adjustment, modular congestion channels, and an exact closure decomposition.
 
-The repository is private and pre-release. The default `ChoiceLogsum` specification uses a negative-power mode-choice index. `ComponentCES` preserves the positive-power convention in the audited July 2026 RSUE package. The current paper specification uses `ChoiceLogsum`; the legacy convention remains available for provenance and reconciliation.
+The current release candidate is `v0.2.0`. The repository remains private
+until the public-release gates in [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)
+are approved. The default `ChoiceLogsum` specification uses a negative-power
+mode-choice index. `ComponentCES` preserves the positive-power convention in
+the audited July 2026 RSUE package. The current paper specification uses
+`ChoiceLogsum`; the legacy convention remains available for provenance and
+reconciliation.
 
 ## Five-minute example
 
@@ -188,8 +194,19 @@ full drift check use the pinned plotting environment in
 `plots/requirements.txt`. Every guide example receives the same welfare map,
 Traditional-versus-Extended scatter, and ranked-link table.
 
+Release maintainers can build the checked PDF and its checksum with:
+
+```bash
+make release-artifacts
+```
+
+The tag-release workflow reruns the package and guide checks and attaches the
+compiled guide and SHA-256 file to the GitHub release. LaTeX intermediates and
+local release directories remain untracked.
+
 See [PROVENANCE.md](PROVENANCE.md) for the frozen source hashes and [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the private-to-public gates.
 
 ## License
 
-MIT, subject to coauthor approval before public release. See [LICENSE](LICENSE).
+MIT. Public distribution remains subject to the coauthor and data-documentation
+gates in [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md). See [LICENSE](LICENSE).

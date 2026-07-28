@@ -5,7 +5,11 @@ docs/build/
 docs/practitioner-guide/build/
 docs/audits/practitioner-guide-reasoning-*/slop-trace/
 docs/audits/practitioner-guide-reasoning-*/structural*/
+docs/audits/practitioner-guide-reasoning-*/
+docs/audits/FIGURE-DESIGN-AUDIT-*.md
+docs/audits/PRACTITIONER-GUIDE-WRITING-AUDIT-*.md
 output/
+dist/
 replication/rsue/staging/
 replication/rsue/census_ports/cache/
 replication/rsue/.public_cache/
@@ -30,3 +34,17 @@ examples/seattle_multimodal/generated/
 examples/westeros/generated/
 examples/urban_toy/output/
 examples/grid_multimodal/output/
+
+# Local agent instructions and helper logs are not release source.
+.claude/
+.codex/
+**/.claude/
+**/.codex/
+CLAUDE.md
+CODEX.md
+**/CLAUDE.md
+**/CODEX.md
+claude-helper-*.md
+codex-helper-*.md
+**/claude-helper-*.md
+**/codex-helper-*.md
