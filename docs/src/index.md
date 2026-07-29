@@ -1,12 +1,16 @@
 # TransportNetworkWelfare.jl
 
-This package evaluates local transport improvements in a spatial equilibrium model. A project consists of two CSV files and one TOML file. The computation returns directed-arc effects, physical-link effects, closure decompositions, parameter sensitivity paths, and diagnostics.
+This package evaluates local transport improvements in spatial equilibrium. A
+project consists of two CSV files and one TOML file. The computation returns
+directed-arc effects, physical-link effects, closure decompositions, parameter
+sensitivity paths, and diagnostics.
 
 For a paper-centered treatment of the theory and a complete computational
 walkthrough, build the
-[practitioner guide](https://github.com/sfuchs-de/TransportNetworkWelfare.jl/tree/main/docs/practitioner-guide) with
-`make practitioner-guide-assets`, `make practitioner-guide`, and
-`make practitioner-guide-check` from the repository root.
+[practitioner guide](https://github.com/sfuchs-de/TransportNetworkWelfare.jl/tree/main/docs/practitioner-guide)
+with `make practitioner-guide` from the repository root. Use
+`make practitioner-guide-check` to verify its numerical assets, citations,
+references, and PDF.
 
 ## Install and run the toy project
 
@@ -32,4 +36,8 @@ The [own-data guide](own-data.md) states the required accounting identities and 
 
 Each run writes CSV results, diagnostics, and `run_manifest.json`. The manifest records the package version and commit, Julia version, command, configuration hash, input hashes, transformations, model variant, parameters, condition numbers, verification status, and output hashes.
 
-The code repository owns source, tests, configurations, and small synthetic fixtures. Overleaf owns manuscript TeX. Restricted data remain outside Git and are resolved through an environment variable.
+The code repository owns source, tests, configurations, and small synthetic
+fixtures. The journal manuscript remains separate. Restricted data remain
+outside Git and are resolved through environment variables. External data and
+derived assets retain their source terms, as described in
+[`THIRD_PARTY_NOTICES.md`](https://github.com/sfuchs-de/TransportNetworkWelfare.jl/blob/main/THIRD_PARTY_NOTICES.md).

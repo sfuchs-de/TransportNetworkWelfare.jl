@@ -14,6 +14,17 @@ import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SEMVER = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
+REQUIRED_RELEASE_FILES = (
+    "LICENSE",
+    "README.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+    "CITATION.cff",
+    "PROVENANCE.md",
+    "RELEASE_CHECKLIST.md",
+    "THIRD_PARTY_NOTICES.md",
+    "docs/practitioner-guide/README.md",
+)
 
 
 def read(path: str) -> str:
@@ -61,6 +72,10 @@ def main() -> int:
     args = parser.parse_args()
 
     errors: list[str] = []
+    for path in REQUIRED_RELEASE_FILES:
+        if not (ROOT / path).is_file():
+            errors.append(f"required release file is missing: {path}")
+
     project = tomllib.loads(read("Project.toml"))
     version = str(project.get("version", ""))
     if not SEMVER.fullmatch(version):
@@ -108,9 +123,23 @@ def main() -> int:
     if args.tag and args.tag != f"v{version}":
         errors.append(f"tag {args.tag!r} != expected 'v{version}'")
 
-    forbidden = [path for path in tracked_files() if helper_artifact(path)]
+    tracked = set(tracked_files())
+    missing_tracked = [path for path in REQUIRED_RELEASE_FILES if path not in tracked]
+    if missing_tracked:
+        errors.append(
+            "required release files are not tracked:\n  "
+            + "\n  ".join(missing_tracked)
+        )
+
+    forbidden = [path for path in tracked if helper_artifact(path)]
     if forbidden:
         errors.append("tracked agent helper artifacts:\n  " + "\n  ".join(forbidden))
+
+    if "Manifest.toml" in tracked:
+        errors.append(
+            "the root Manifest.toml must remain untracked; "
+            "only replication/rsue/environment/Manifest.toml is release source"
+        )
 
     if errors:
         print("Release metadata check failed:", file=sys.stderr)
