@@ -38,27 +38,28 @@ example builders, and underlying data.}
 
 \vfill
 \begin{minipage}{0.93\textwidth}
-{\large\bfseries\color{guideblue}Purpose and scope\par}
+{\large\bfseries\color{guideblue}What this guide does\par}
 \vspace{0.65em}
-This guide evaluates which existing transport link would generate the largest
-model-implied economic benefit from a small improvement. Starting from
-model-consistent directed flows, location shares, and calibrated elasticities,
-the package reports the Traditional approach, full realized- and primitive-cost
-welfare effects, exact model comparisons, and numerical diagnostics.
-At an efficient interior baseline, the Traditional approach is exact even though
-routes, modes, prices, and locations adjust. Congestion and spatial
-externalities create the correction measured by the extended statistic.
+TransportNetworkWelfare.jl ranks small improvements to existing transport
+links by their effect on economic welfare. It takes directed flows, location
+shares, and calibrated elasticities as inputs and reports both the Traditional
+traffic-based statistic and the Extended statistic. At an efficient benchmark,
+the traffic share measures the first-order welfare effect even after routes,
+modes, prices, and economic activity adjust. When congestion or spatial
+externalities are present, the Extended approach also accounts for the
+equilibrium changes that affect welfare. The package reports the model
+comparisons and numerical checks needed to interpret the difference.
 
 \vspace{0.7em}
-A self-contained 25-location economic-geography grid with a central transit
-spine provides the worked application. The output is a marginal gross-benefit
-measure rather than a complete appraisal: construction and financing costs,
-safety, pollution, distributional effects, and transition dynamics require
-separate evidence. The grid and this guide can be rebuilt without external
-application data, private credentials, an Overleaf checkout, or Python
-plotting packages. The U.S. freight and Seattle modules require external data.
-The Sioux Falls and Westeros builders likewise download hash-pinned source
-files rather than redistributing them.
+The guide develops this comparison through a reproducible 25-location
+economic-geography grid with a transit spine. The reported effects are marginal
+gross benefits, not complete project appraisals. Construction and financing
+costs, safety, pollution, distributional effects, and transition dynamics must
+be assessed separately. The worked example runs from a fresh clone without
+external application data, private credentials, an Overleaf checkout, or
+Python plotting packages. The U.S. freight and Seattle applications require
+external data. The Sioux Falls and Westeros builders download and verify their
+source files rather than storing them in the repository.
 
 \vspace{0.7em}
 {\footnotesize\textbf{AI-use disclosure.} Generative AI tools assisted with
