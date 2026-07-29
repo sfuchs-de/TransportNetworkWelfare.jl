@@ -1,14 +1,15 @@
 # Theory, Code, and Self-Containment Audit
 
-**Audit date:** 2026-07-28
+**Audit date:** 2026-07-29
 
 **Release candidate:** `v0.2.0`
 
-**Package baseline:** `origin/main` at
-`ffe0d296339eae7bdf7c5b451a121b1af243fdc2`, plus release-metadata changes
-that do not alter the numerical implementation
+**Package baseline:** numerical source from `origin/main` at
+`fd63ab17374ce9040477e5851d5f0317d09d6eed`, plus public-release
+documentation and checks that do not alter the numerical implementation
 
-**Paper baseline:** Overleaf `7fab4d5a91b1b06a2ebc4f94dcd6d451ebf9bf1d`
+**Paper baseline:** Overleaf
+`041f0425623e6b0265cdfdc439d26277bb22c7dd`
 
 **Theory-library baseline:** Mathdown
 `82a7cb3194a470d1fca001615d513d3d8822de36`
@@ -42,11 +43,11 @@ curates derivations and unresolved decisions. Restricted empirical adapters
 remain downstream of their source manifests.
 
 This release audit compares the implementation directly with the synchronized
-paper source at `7fab4d5`. The paper changes since the earlier guide audit
-clarify assumptions, foreign-region treatment, and the omission of explicit
-transshipment costs. They do not change the active modal index, route
-recursion, Proposition 1, or Proposition 2. No Overleaf source or private
-snapshot is part of the package or guide build.
+paper source at `041f042`. Relative to the earlier audit baseline at
+`7fab4d5`, the paper clarifies labor mobility, transshipment costs, and
+interpretation. It does not change the active modal index, route recursion,
+Proposition 1, Proposition 2, or the appendix derivations. No Overleaf source
+or private snapshot is part of the package or guide build.
 
 ## Model states
 
@@ -272,8 +273,8 @@ specification, and primitive-cost pass-through \(0.0002903\).
 - Secret scan and `git diff --check` passed.
 - Release metadata checks confirm that `Project.toml`, `CITATION.cff`, the
   guide, changelog, and locked RSUE environment all identify version `0.2.0`.
-- Intermediate writing, reasoning, figure-review, Claude, and Codex helper
-  logs are excluded from the release source.
+- Intermediate working notes, review traces, and local helper artifacts are
+  excluded from the release source.
 
 ## Remaining release gates
 

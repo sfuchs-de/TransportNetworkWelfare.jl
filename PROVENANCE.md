@@ -1,33 +1,37 @@
 # Provenance
 
-`TransportNetworkWelfare.jl` was initialized from the isolated audit package:
+`TransportNetworkWelfare.jl` was initialized from the frozen July 12, 2026
+audit package:
 
 ```text
-working/IFT_Complete_Decomposition_2026-07-12/
-deliverables/IFT_Complete_Decomposition_2026-07-12.zip
+IFT_Complete_Decomposition_2026-07-12.zip
 SHA-256: 0ba8a28c75987529ab77c882d55da3559c494bbbfa6adc2908feef7defed2a0d
 ```
 
-The kernels began from the frozen package and are tracked in `provenance.toml`. That manifest records both the frozen source hash and the current package hash, together with the relationship between them. `scripts/verify_provenance.py` checks every current hash in CI.
+The kernels began from the frozen package and are tracked in `provenance.toml`.
+That manifest records the frozen and current package hashes together with their
+relationship. `scripts/verify_provenance.py` checks the recorded current hashes
+in CI.
 
 | Package file | Relationship to frozen source |
 | --- | --- |
 | `src/kernels/AdjointRSUE.jl` | Validation-only divergence: finite-input assertions became explicit errors. |
 | `src/kernels/IFTDecomposition.jl` | Extended with analytic closure factors, distinct-margin reconstruction, and explicit route curvature. |
 | `src/kernels/UrbanCommutingIFT.jl` | Frozen one-mode Allen--Arkolakis regression oracle. |
-| `src/UrbanEngine.jl` | Refactored from the one-mode builder to the shared multimodal closure engine. |
+| `src/UrbanEngine.jl` | Shared multimodal closure engine; replaces the one-mode builder. |
 | `src/SharedTransport.jl` | New spatial-model-neutral transport basis. |
 | `src/UrbanNonlinear.jl` | Independent nonlinear multimodal urban verification oracle with a direct-margin baseline Jacobian and damped congestion solve. |
 | `src/kernels/IFTCompleteDecomposition.jl` | Byte-for-byte frozen. |
 | `src/kernels/RSUEParameterSensitivity.jl` | Byte-for-byte frozen. |
 | `src/kernels/RSUETerminalCongestion.jl` | Byte-for-byte frozen. |
 
-Historical lineage is available in the private repositories `sfuchs-de/RSUE_AFW_2025_v2` and `sfuchs-de/Multimodal_FW_2023`. Those repositories are provenance only; neither is a runtime dependency.
+Earlier internal research repositories record the historical lineage. They are
+provenance only and are not runtime dependencies.
 
 The RSUE manuscript remains in Overleaf. Restricted data remain outside Git and are located through `RSUE_DATA_ROOT`. No manuscript source or restricted input is vendored here.
 
 The practitioner guide and theory--code audit use the active manuscript at
-Overleaf commit `7fab4d5a91b1b06a2ebc4f94dcd6d451ebf9bf1d` as the authority for
+Overleaf commit `041f0425623e6b0265cdfdc439d26277bb22c7dd` as the authority for
 the paper-facing model statement. The software repository remains authoritative
 for executable behavior. The audit records any difference between those two
 sources rather than silently reconciling it.
@@ -47,7 +51,7 @@ The default historical-feed source is Mobility Database dataset
 `469d072cb091bb70240f9e71bfa49f74ac1b0fafadc1fa7f669e933f513da334`
 and the same SHA-1 as the independently catalogued Transitland feed version.
 The downloader retains a verified local-archive override and a Transitland
-archive fallback; it never substitutes a current feed.
+archive fallback. Current-feed substitution is rejected.
 
 The official 2017 King County Metro System Evaluation is pinned as a
 route-level validation source. A deterministic `pdftotext -layout` parser
@@ -55,9 +59,9 @@ extracts its Fall 2016 weekday route-ridership table and records the Poppler
 version and output hash. The table is not used to infer OD-to-route ridership.
 The Seattle map background uses hash-pinned 2017 Census TIGER place, King
 County area-water, and county files. The acquisition command verifies the full
-GTFS archive and every relied-on table, while the model builder records only
-hashes and generated diagnostics. Raw GTFS, ACS responses, geographic files,
-and the Allen-Arkolakis archive remain outside Git.
+GTFS archive and the listed tables. The model builder records only hashes and
+generated diagnostics. Raw GTFS, ACS responses, geographic files, and the
+Allen-Arkolakis archive remain outside Git.
 
 Named route results are sparse bundles of edge-mode derivatives. Their
 incidence comes from the pinned GTFS trip and stop sequences. They represent a
@@ -73,7 +77,10 @@ figures remain outside Git.
 
 ## Census port-trade adapter
 
-The paper's port-trade adapter uses public monthly Census International Trade API aggregates. Its downloader and crosswalk design were adapted from an audited private discussion-simulation pipeline. The source is provenance only and is not a runtime dependency.
+The paper's port-trade adapter uses public monthly Census International Trade
+API aggregates. Its downloader and crosswalk design were adapted from an
+audited internal research pipeline. That pipeline is provenance only and is
+not a runtime dependency.
 
 The relied-on source files were not copied into this repository. Their frozen hashes are:
 
@@ -89,7 +96,10 @@ The package implementation adds stricter cache checks, sanitized metadata, deter
 49bd1c9dc1aa1531933a4171cd884fa6e76cc1044b0301027307b2c562918520
 ```
 
-The raw monthly API cache is not tracked. It can be reconstructed with `CENSUS_API_KEY`; the key is read only from the environment and is never written to URLs, metadata, or logs. The derived diagnostics record the API endpoints, query fields, monthly source hashes, coverage, balancing method, and output hashes.
+The raw monthly API cache is not tracked. `CENSUS_API_KEY` supplies the key at
+runtime; download URLs, metadata, and logs omit its value. The derived
+diagnostics record the API endpoints, query fields, monthly source hashes,
+coverage, balancing method, and output hashes.
 
 The Census adapter is intentionally separate from the legacy audited RSUE configuration. The legacy matrix appears to contain 2017 containerized import values and is symmetrized. The paper adapter preserves observed import and export direction before projecting both matrices onto common normalized port and region margins required by the balanced-flow model. This projection is a model adapter, not a claim that raw port-level imports equal exports.
 
@@ -102,3 +112,8 @@ this package. The Sioux Falls builder retrieves four files from
 recorded in `examples/sioux_falls/sources.toml` and verified before parsing.
 Neither the source files nor generated derivatives are tracked because the
 upstream terms call for academic research use and citation.
+
+Seattle, Westeros, and the practitioner guide's externally derived assets are
+covered in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Public visibility
+requires completing the redistribution review listed there and in
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md).

@@ -3,10 +3,15 @@ message: "If you use this software, please cite the software release and the ass
 title: "TransportNetworkWelfare.jl"
 type: software
 version: 0.2.0
-date-released: 2026-07-28
+date-released: 2026-07-29
 license: MIT
 repository-code: "https://github.com/sfuchs-de/TransportNetworkWelfare.jl"
 url: "https://github.com/sfuchs-de/TransportNetworkWelfare.jl"
+abstract: >-
+  Julia software for computing local welfare effects of marginal
+  transport-cost changes in economic-geography and urban-commuting models,
+  with recursive routing, multimodal choice, congestion, adjoint derivatives,
+  and exact closure decompositions.
 keywords:
   - transport networks
   - spatial equilibrium
