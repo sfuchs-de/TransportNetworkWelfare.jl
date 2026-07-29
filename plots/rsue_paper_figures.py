@@ -331,7 +331,11 @@ def decomposition_figure(rows, output):
     components = (
         (None, "Traditional baseline", MUTED),
         ("spatial_adjustment", "Net spatial adjustment", PURPLE),
-        ("road_congestion_policy_adjustment", "Road congestion", RED),
+        (
+            "road_congestion_policy_adjustment",
+            "Congestion and\npass-through",
+            RED,
+        ),
     )
     component_y = np.arange(len(components)-1, -1, -1)
     component_values = [
