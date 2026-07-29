@@ -180,10 +180,10 @@ data report a documented skip when those data are unavailable.
 
 Generative AI tools assisted with portions of code and test development,
 debugging, documentation and prose editing, mathematical checks, and
-visualization. AI output was not treated as source evidence. Citations and
-numerical claims were checked against the cited sources or reproducible
-artifacts, and the included computational paths are covered by automated tests.
-The authors are responsible for the final content and any remaining errors.
+visualization. Citations and numerical claims were checked against the cited
+sources or reproducible artifacts, and the included computational paths are
+covered by automated tests. The authors are responsible for the final content
+and any remaining errors.
 
 ## Contributing, citation, and license
 
