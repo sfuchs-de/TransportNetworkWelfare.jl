@@ -170,12 +170,125 @@ the constructed network.
 
 ## Westeros economic geography
 
-The Westeros example uses CreativeCarto's public ArcGIS locations, roads, and
-continent polygon. Those layers identify geography but do not provide labor,
-income, trade, or traffic. The example therefore constructs a fully disclosed
-synthetic baseline. Location types determine common labor and income weights,
-a symmetric doubly constrained gravity calculation balances bilateral trade,
-and shortest paths route nonlocal trade over a reduced road graph.
+The Westeros example uses the locations, roads, and continent polygon in
+CreativeCarto's public [Game of Thrones ArcGIS
+map](https://www.arcgis.com/home/item.html?id=43d03779288048bfb5d3c46e4bc4ccb0).
+The ArcGIS layers provide geography and location types, but not labor, income,
+trade, or traffic. All economic quantities in the example are therefore
+synthetic. The construction is intended to show how a user can turn a
+geographic network into model-ready inputs, not to estimate the economy of
+Westeros.
+
+### Geography and the model network
+
+The builder converts the source road polylines into an undirected graph whose
+edge lengths are geographic distances. It joins road components separated by
+at most 10 km and retains the largest resulting component. A mapped location
+enters the economic model if its type appears in the table below, it lies
+inside the Westeros polygon, and it is within 50 km of the retained road
+network.
+
+The model does not use all road-polyline vertices as economic locations.
+Instead, it calculates shortest-road distances between the selected
+settlements. Each settlement is joined to its three nearest neighbors by that
+distance, after which the shortest additional links needed for connectivity
+are added. With the pinned source files and default settings, this procedure
+produces 105 locations, 213 reciprocal physical links, and 426 directed road
+arcs. The plotted geometry follows the underlying source roads, even though
+the model is solved on this reduced settlement network.
+
+### Labor and income
+
+Let ``w_i`` denote the weight assigned to settlement ``i``'s ArcGIS location
+type. The default weights are:
+
+| Location type | Weight |
+| --- | ---: |
+| Great House | 12 |
+| City | 10 |
+| Town or Castle | 6 |
+| Village | 4 |
+| House | 3 |
+| Inn or Tower | 2 |
+| Stop | 1.5 |
+
+The builder normalizes these weights to obtain a common activity share,
+
+```math
+a_i=\frac{w_i}{\sum_h w_h}.
+```
+
+It then sets both model margins to that share:
+
+```math
+\frac{L_i}{\bar L}=a_i,
+\qquad
+\frac{Y_i}{Y^W}=a_i.
+```
+
+Thus `labor` and `income` are identical in `nodes.csv`, each sums to one, and
+settlements of the same type receive the same baseline share. The example
+imposes this equality; it does not estimate local productivity, amenities,
+wages, or population.
+
+### Bilateral value flows and edge traffic
+
+The same activity shares are used as the origin and destination margins of a
+doubly constrained gravity calculation. Let ``d_{ij}`` be the shortest-road
+distance between settlements and let ``\widetilde d`` be the median positive
+bilateral distance. The default gravity kernel is
+
+```math
+g_{ij}=
+\begin{cases}
+3, & i=j,\\
+\exp\left(-3d_{ij}/\widetilde d\right), & i\ne j.
+\end{cases}
+```
+
+Iterative proportional fitting selects row and column factors ``r_i`` and
+``c_j`` so that
+
+```math
+X_{ij}=r_i g_{ij}c_j,
+\qquad
+\sum_j X_{ij}=a_i,
+\qquad
+\sum_i X_{ij}=a_j.
+```
+
+The kernel is symmetric and the two margins are equal, so the balanced matrix
+is symmetric up to numerical precision. ``X_{ij}`` is a synthetic bilateral
+value-flow share. The diagonal ``X_{ii}`` is local absorption and does not use
+the road network.
+
+For each ``i\ne j``, the builder sends ``X_{ij}`` along a shortest path
+``p_{ij}`` on the reduced settlement graph. Directed edge traffic is therefore
+
+```math
+\Xi_{uv}
+=\sum_{i\ne j}X_{ij}\,
+\mathbf 1\{(u,v)\in p_{ij}\}.
+```
+
+Because bilateral flows and routes are symmetric, the two directions of every
+physical link carry the same baseline value flow. The `flow` column in
+`edge_modes.csv` records ``\Xi_{uv}`` as a share of world income; it is not a
+vehicle count. Its sum across links can exceed one because a shipment is
+counted on every edge it traverses. The builder verifies both trade margins
+and node-level flow conservation before writing the files.
+
+### Model and policy experiment
+
+The generated configuration uses the economic-geography model with
+``(\alpha,\beta,\sigma,\eta)=(0.10,-0.30,9,1.099)``, one active road mode, and
+an edge-local road-congestion elasticity of 0.092. With one mode, the modal
+logsum is present but has no substitution margin. The policy experiment lowers
+the primitive transport cost by one percent in both directions of each
+physical link, one link at a time. Distances determine the synthetic network
+and baseline flows; the sufficient-statistic calculation then uses the
+resulting income, labor, and traffic shares rather than treating distance as
+an additional model input.
 
 ```bash
 python3 examples/westeros/prepare.py
@@ -186,7 +299,7 @@ python3 examples/westeros/plot.py
 ```
 
 The source responses are hash-pinned but remain outside Git because the ArcGIS
-item does not list a reuse license. The generated summary records every network,
-gravity, and economic-activity assumption. Results illustrate the
-economic-geography model and are not empirical claims about the fictional
-economy.
+item does not list a reuse license. The exact source URLs and hashes are in
+`examples/westeros/sources.toml`; the generated
+`network_summary.json` records the selected thresholds, gravity parameters,
+network counts, and accounting errors.
