@@ -1,4 +1,4 @@
-\section{Policy experiment and scope}
+\section{Policy experiment and welfare measures}
 \label{ch:question}
 
 Any welfare comparison is meaningful only relative to a stated policy and
@@ -12,11 +12,11 @@ Suppose an analyst can lower the underlying transport cost on one network
 link. Which link produces the largest economic benefit? A traditional answer
 multiplies the cost reduction by the traffic using that link. This is the
 social-savings calculation associated with \citet{fogel1962quantitative} and
-\citet{Fogel1964Railroads}. It is simple, data-light, and often informative. It also
-allows routes, modes, prices, and locations to adjust only implicitly.
-Adjustment by itself does not invalidate social savings. The relevant question
-is whether those responses change exposure to congestion or spatial
-externalities that give reallocation a first-order welfare value.
+\citet{Fogel1964Railroads}. It is simple, data-light, and often informative.
+It does not require the analyst to model changes in routes, modes, prices, or
+locations. Such adjustment does not by itself invalidate social savings. The
+relevant question is whether those responses change exposure to congestion or
+spatial externalities that give reallocation a first-order welfare value.
 
 The package evaluates a local version of that question. A policy is a small
 change in the primitive cost of a declared edge--mode. For a directed edge
@@ -134,7 +134,7 @@ leave the neighborhood in which the derivative is accurate. Section
 \ref{ch:diagnostics} explains how to compare the first-order prediction with
 finite changes.
 
-\subsection{Scope of the measured benefits}
+\subsection{Benefits included in the welfare measure}
 
 The welfare measure covers only effects represented in the selected model:
 resource or generalized costs of movement, route and mode substitution,
@@ -195,7 +195,7 @@ Transfers such as toll revenue require separate treatment from resource costs.
 Large projects also require a nonlinear counterfactual or other evidence that
 the local approximation remains accurate at the proposed scale.
 
-The quick start in Section \ref{ch:quickstart} implements this scope as a
+The quick start in Section \ref{ch:quickstart} implements these requirements as a
 data-to-results workflow. The detailed argument now turns to the two spatial
 models and the transport block they share. Section \ref{ch:welfare} then
 establishes when traffic alone is exact and derives the correction when
