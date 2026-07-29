@@ -42,13 +42,15 @@ example builders, and underlying data.}
 \vspace{0.65em}
 TransportNetworkWelfare.jl ranks small improvements to existing transport
 links by their effect on economic welfare. It takes directed flows, location
-shares, and calibrated elasticities as inputs and reports both the Traditional
-traffic-based statistic and the Extended statistic. At an efficient benchmark,
-the traffic share measures the first-order welfare effect even after routes,
-modes, prices, and economic activity adjust. When congestion or spatial
-externalities are present, the Extended approach also accounts for the
-equilibrium changes that affect welfare. The package reports the model
-comparisons and numerical checks needed to interpret the difference.
+shares, and calibrated elasticities as inputs and reports three welfare
+measures: the Traditional traffic-based statistic, the full realized-cost
+effect, and the Extended primitive-cost effect. At an efficient benchmark, the
+traffic share measures the first-order welfare effect even after routes, modes,
+prices, and economic activity adjust. With congestion or spatial externalities,
+the full-model effects also account for the welfare consequences of those
+adjustments. Comparing the realized- and primitive-cost effects measures
+pass-through. The package reports the model comparisons and numerical checks
+needed to interpret these differences.
 
 \vspace{0.7em}
 The guide develops this comparison through a reproducible 25-location
