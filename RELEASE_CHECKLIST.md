@@ -21,14 +21,14 @@
   elected to distribute the derived scholarly figures with source attribution.
   This decision does not relicense any source data. See
   [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-- [ ] The manuscript identifies the accepted configuration and tagged
+- [x] The manuscript identifies the accepted configuration and tagged
   software release.
 
 ## Final publication steps
 
 - [x] Run `make public-release-check` from a clean clone.
-- [ ] Create and verify tag `v0.2.0`.
-- [ ] Confirm the GitHub release contains the checked practitioner-guide PDF
+- [x] Create and verify tag `v0.2.0`.
+- [x] Confirm the GitHub release contains the checked practitioner-guide PDF
   and checksum.
-- [ ] Change repository visibility only after the automated and external gates
+- [x] Change repository visibility only after the automated and external gates
   above are complete.
