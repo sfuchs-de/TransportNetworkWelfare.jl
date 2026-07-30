@@ -15,17 +15,18 @@
 
 ## External approval gates
 
-- [ ] Coauthors approve the code, MIT license, citation, and public
+- [x] Coauthors approve the code, MIT license, citation, and public
   description.
-- [ ] Redistribution terms for tracked externally derived guide assets are
-  confirmed, or those assets are removed before public visibility. See
+- [x] The authors reviewed the tracked externally derived guide assets and
+  elected to distribute the derived scholarly figures with source attribution.
+  This decision does not relicense any source data. See
   [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - [ ] The manuscript identifies the accepted configuration and tagged
   software release.
 
 ## Final publication steps
 
-- [ ] Run `make public-release-check` from a clean clone.
+- [x] Run `make public-release-check` from a clean clone.
 - [ ] Create and verify tag `v0.2.0`.
 - [ ] Confirm the GitHub release contains the checked practitioner-guide PDF
   and checksum.

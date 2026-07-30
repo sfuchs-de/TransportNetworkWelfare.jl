@@ -3,6 +3,7 @@
 [![CI](https://github.com/sfuchs-de/TransportNetworkWelfare.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/sfuchs-de/TransportNetworkWelfare.jl/actions/workflows/ci.yml)
 [![Julia 1.10+](https://img.shields.io/badge/Julia-1.10%2B-9558B2.svg)](https://julialang.org/)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://sfuchs-de.github.io/TransportNetworkWelfare.jl/)
 
 `TransportNetworkWelfare.jl` computes the local welfare effects of marginal
 transport-cost changes in spatial equilibrium. It supports recursive routing,
@@ -194,3 +195,4 @@ described in [CITATION.cff](CITATION.cff).
 Original package code, documentation, and synthetic inputs are licensed under
 the [MIT License](LICENSE). External datasets and derived example assets remain
 subject to their source terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Security reports should follow [SECURITY.md](SECURITY.md).

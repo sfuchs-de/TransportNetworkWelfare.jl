@@ -2,8 +2,8 @@
 	practitioner-guide-assets practitioner-guide-example-assets \
 	practitioner-guide-external-assets practitioner-guide \
 	practitioner-guide-check clean-practitioner-guide plot-check \
-	release-metadata-check provenance-check secret-scan release-artifacts \
-	clean-release-artifacts clean
+	census-check release-metadata-check provenance-check secret-scan \
+	release-artifacts clean-release-artifacts clean
 
 JULIA ?= julia
 PYTHON ?= python3
@@ -21,6 +21,7 @@ help:
 		'  test                 Run the Julia test suite' \
 		'  smoke                Run the toy CLI workflow' \
 		'  docs                 Build HTML documentation' \
+		'  census-check         Test the public Census adapter' \
 		'  check                Run package and repository checks' \
 		'  practitioner-guide   Build the guide PDF' \
 		'  practitioner-guide-check  Verify guide assets and PDF' \
@@ -43,6 +44,9 @@ docs:
 	$(JULIA) --project=docs -e \
 		'using Pkg; Pkg.develop(path="."); Pkg.instantiate(); include("docs/make.jl")'
 
+census-check:
+	$(PYTHON) -m unittest discover -s replication/rsue/census_ports -p 'test_*.py'
+
 release-metadata-check:
 	$(PYTHON) scripts/check_release_metadata.py
 
@@ -52,7 +56,7 @@ provenance-check:
 secret-scan:
 	$(PYTHON) scripts/scan_secrets.py
 
-check: test smoke docs release-metadata-check provenance-check secret-scan
+check: test smoke docs census-check release-metadata-check provenance-check secret-scan
 	git diff --check
 
 practitioner-guide-assets:

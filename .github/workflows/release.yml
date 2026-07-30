@@ -32,13 +32,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y file latexmk lmodern poppler-utils qpdf texlive-fonts-recommended texlive-latex-extra texlive-pictures
       - name: Check tag and release metadata
-        run: python scripts/check_release_metadata.py --tag "$GITHUB_REF_NAME"
-      - name: Test package and independent oracle
         run: |
-          julia --project=. -e 'using Pkg; Pkg.test()'
-          python test/verify_prop2.py
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ||
+            { echo "Release tag must point to the current main commit"; exit 1; }
+          python scripts/check_release_metadata.py --tag "$GITHUB_REF_NAME"
+      - name: Run complete public-release gate
+        run: make public-release-check
       - name: Build release artifacts
         run: make release-artifacts
+      - name: Verify release checksum
+        run: |
+          cd dist
+          shasum -a 256 -c TransportNetworkWelfare-Practitioner-Guide.sha256
       - name: Check provenance and repository contents
         run: |
           python scripts/verify_provenance.py
