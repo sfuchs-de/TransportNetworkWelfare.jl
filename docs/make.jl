@@ -6,6 +6,7 @@ makedocs(
     modules=[TransportNetworkWelfare],
     format=Documenter.HTML(
         prettyurls=get(ENV, "CI", "false") == "true",
+        canonical="https://sfuchs-de.github.io/TransportNetworkWelfare.jl/",
         edit_link=nothing,
         repolink="https://github.com/sfuchs-de/TransportNetworkWelfare.jl",
     ),

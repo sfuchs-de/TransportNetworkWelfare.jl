@@ -18,6 +18,7 @@ REQUIRED_RELEASE_FILES = (
     "LICENSE",
     "README.md",
     "CONTRIBUTING.md",
+    "SECURITY.md",
     "CHANGELOG.md",
     "CITATION.cff",
     "PROVENANCE.md",

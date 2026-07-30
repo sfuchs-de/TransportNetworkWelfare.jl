@@ -1,8 +1,8 @@
 # Theory, Code, and Self-Containment Audit
 
-**Audit date:** 2026-07-29
+**Audit date:** 2026-07-30
 
-**Release candidate:** `v0.2.0`
+**Release:** `v0.2.0`
 
 **Package baseline:** numerical source from `origin/main` at
 `fd63ab17374ce9040477e5851d5f0317d09d6eed`, plus public-release
@@ -276,15 +276,12 @@ specification, and primitive-cost pass-through \(0.0002903\).
 - Intermediate working notes, review traces, and local helper artifacts are
   excluded from the release source.
 
-## Remaining release gates
+## Release boundaries
 
-1. Version `0.2.0` is a release candidate. Tag `v0.2.0` should be created only
-   after review and coauthor approval. The tag workflow will rerun the tests
-   and attach the compiled practitioner guide and checksum.
-2. The public-safe RSUE ledger permits aggregate verification, not
+1. The public-safe RSUE ledger permits aggregate verification, not
    reconstruction of restricted microdata or link-level empirical results.
-3. The Seattle module is an external-data extension. Historical GTFS records
+2. The Seattle module is an external-data extension. Historical GTFS records
    routes and schedules, not passenger counts; route-level ridership requires
    additional data or assumptions.
-4. The package resolves Julia dependencies from the standard registry. It
+3. The package resolves Julia dependencies from the standard registry. It
    does not vendor Julia or an offline registry.

@@ -30,9 +30,10 @@ The on-demand Sioux Falls adapter uses files from
 files as available for academic research. Source and generated model data are
 not distributed by this package.
 
-The practitioner guide currently contains derived Sioux Falls figures and
-tables. Confirm that their public redistribution is consistent with the
-upstream terms before changing this repository to public visibility.
+The practitioner guide contains derived Sioux Falls figures and tables. The
+authors elected to distribute these scholarly illustrations with the source
+citation while leaving the source and generated model data outside the
+repository. This distribution does not relicense the upstream files.
 
 ## Seattle
 
@@ -43,8 +44,10 @@ attribution, and known terms are recorded under `examples/seattle_urban/` and
 `examples/seattle_multimodal/`.
 
 The repository does not distribute the replication archive, GTFS feed, Census
-responses, geographic archives, or Metro report. Derived guide figures and
-tables remain subject to the applicable source terms and attribution.
+responses, geographic archives, or Metro report. The authors elected to
+distribute the derived guide figures and tables with the recorded source
+attribution. Those illustrations remain subject to the applicable source
+terms.
 
 ## Westeros
 
@@ -53,9 +56,10 @@ reuse license was listed in the item metadata when the source manifest was
 created. Downloaded features and generated model inputs are therefore not
 committed.
 
-The practitioner guide currently contains derived Westeros figures and tables.
-Obtain permission or remove those assets before public release if their
-redistribution cannot be confirmed.
+The practitioner guide contains derived Westeros figures and tables. The
+authors elected to distribute these scholarly illustrations with attribution
+to the ArcGIS item owner. No license is asserted for the source map or
+downloaded features, and neither is distributed by this repository.
 
 ## Software dependencies
 
