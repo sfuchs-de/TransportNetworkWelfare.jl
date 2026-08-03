@@ -121,9 +121,12 @@ function welfare_model_at(model::TransportModel, project::Project; enforce_branc
         Qz_soft=route_state_matrix(data, basis, c; route=:soft),
         Qz_fixed=nothing,
     ))
-    J0 = AdjointRSUE.assemble_J(data.sx, data.sy, data.mu, data.lam, data.omega, c)
+    J0 = AdjointRSUE.assemble_J(
+        data.sx, data.sy, data.mu, data.lam, data.omega, c;
+        endogenous=data.endogenous, normalization_node=data.normalization_node)
     B = IFTDecomposition.cost_loading_matrix(
-        data.N, basis.active_network_edges, data.mu, data.lam, c.σ)
+        data.N, basis.active_network_edges, data.mu, data.lam, c.σ;
+        endogenous=data.endogenous, normalization_node=data.normalization_node)
     closure = build_transport_closure(project, data, point_basis, B)
     JF = J0+closure.Jc
     condition = cond(JF)
@@ -158,9 +161,12 @@ function evaluate_sensitivity_point(model::TransportModel, project::Project)
         Qz_soft=route_state_matrix(data, basis, c; route=:soft),
         Qz_fixed=basis.Qz_fixed,
     ))
-    J0 = AdjointRSUE.assemble_J(data.sx, data.sy, data.mu, data.lam, data.omega, c)
+    J0 = AdjointRSUE.assemble_J(
+        data.sx, data.sy, data.mu, data.lam, data.omega, c;
+        endogenous=data.endogenous, normalization_node=data.normalization_node)
     B = IFTDecomposition.cost_loading_matrix(
-        data.N, basis.active_network_edges, data.mu, data.lam, c.σ)
+        data.N, basis.active_network_edges, data.mu, data.lam, c.σ;
+        endogenous=data.endogenous, normalization_node=data.normalization_node)
     closure = build_transport_closure(project, data, point_basis, B)
     J = J0+closure.Jc
     condition_J = cond(J)
@@ -168,7 +174,7 @@ function evaluate_sensitivity_point(model::TransportModel, project::Project)
         error("sensitivity equilibrium exceeds the condition-number gate")
     condition_within_limit(closure.condition, project.condition_limit) ||
         error("sensitivity transport system exceeds the condition-number gate")
-    q = AdjointRSUE.welfare_gradient(data.omega, c)
+    q = economic_welfare_gradient(data, c)
     adjoint = permutedims(J) \ q
 
     count = length(basis.policy_pairs)

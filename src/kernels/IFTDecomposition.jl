@@ -22,16 +22,22 @@ export decompose_road_edges, aggregate_physical_links
 """Split `assemble_J` into its sparse and fixed-labor aggregate blocks."""
 function jacobian_parts(sx::AbstractVector, sy::AbstractVector,
                         mu::AbstractMatrix, lam::AbstractMatrix,
-                        omega::AbstractVector, c::Coef)
+                        omega::AbstractVector, c::Coef;
+                        endogenous::AbstractVector{Bool}=trues(length(sx)),
+                        normalization_node::Int=findlast(endogenous))
     N = length(sx)
     sigma = c.σ
-    J_global = zeros(2N, 2N)
-    stacked = vcat(sx, sy[1:N-1])
-    outer = stacked * permutedims(omega)
-    J_global[1:2N-1, 1:N] .= ((sigma - 1) / c.e) .* outer
-    J_global[1:2N-1, N+1:2N] .= (sigma / c.e) .* outer
+    layout = state_layout(endogenous, normalization_node)
+    D = length(layout.locations)
+    J_global = zeros(2D, 2D)
+    stacked = vcat(sx[layout.locations], sy[layout.other])
+    weights = omega[layout.locations]
+    outer = stacked * permutedims(weights)
+    J_global[1:2D-1, 1:D] .= ((sigma - 1) / c.e) .* outer
+    J_global[1:2D-1, D+1:2D] .= (sigma / c.e) .* outer
 
-    J_total = assemble_J(sx, sy, mu, lam, omega, c)
+    J_total = assemble_J(sx, sy, mu, lam, omega, c;
+        endogenous, normalization_node)
     J_sparse = J_total .- J_global
     return (; sparse=J_sparse, global_feedback=J_global, total=J_total)
 end
@@ -39,13 +45,18 @@ end
 """Analytic sparse-plus-rank-one factorization of the no-congestion Jacobian."""
 function jacobian_factors(sx::AbstractVector, sy::AbstractVector,
                           mu::AbstractMatrix, lam::AbstractMatrix,
-                          omega::AbstractVector, c::Coef)
-    parts = jacobian_parts(sx, sy, mu, lam, omega, c)
-    N = length(sx)
-    stacked = vcat(sx, sy[1:N-1])
-    u = zeros(2N)
-    u[1:2N-1] .= ((c.σ-1)/c.e) .* stacked
-    v = vcat(omega, (c.σ/(c.σ-1)) .* omega)
+                          omega::AbstractVector, c::Coef;
+                          endogenous::AbstractVector{Bool}=trues(length(sx)),
+                          normalization_node::Int=findlast(endogenous))
+    parts = jacobian_parts(sx, sy, mu, lam, omega, c;
+        endogenous, normalization_node)
+    layout = state_layout(endogenous, normalization_node)
+    D = length(layout.locations)
+    stacked = vcat(sx[layout.locations], sy[layout.other])
+    u = zeros(2D)
+    u[1:2D-1] .= ((c.σ-1)/c.e) .* stacked
+    weights = omega[layout.locations]
+    v = vcat(weights, (c.σ/(c.σ-1)) .* weights)
     residual = maximum(abs.(parts.total .- (parts.sparse + u*permutedims(v))))
     return (; D=parts.sparse, u, v, total=parts.total, residual)
 end
@@ -77,12 +88,20 @@ end
 """Derivative of the residual system with respect to aggregate edge costs."""
 function cost_loading_matrix(N::Int, edges::Vector{Tuple{Int,Int}},
                              mu::AbstractMatrix, lam::AbstractMatrix,
-                             sigma::Real)
-    B = zeros(2N, length(edges))
+                             sigma::Real;
+                             endogenous::AbstractVector{Bool}=trues(N),
+                             normalization_node::Int=findlast(endogenous))
+    layout = state_layout(endogenous, normalization_node)
+    D = length(layout.locations)
+    local_index = Dict(node => index for (index, node) in enumerate(layout.locations))
+    B = zeros(2D, length(edges))
     for (t, (i, j)) in enumerate(edges)
-        B[i, t] = (1 - sigma) * mu[i, j]
-        if j <= N - 1
-            B[N+j, t] = (1 - sigma) * lam[i, j]
+        if haskey(local_index, i)
+            B[local_index[i], t] = (1 - sigma) * mu[i, j]
+        end
+        if haskey(local_index, j) && j != normalization_node
+            destination_row = findfirst(==(j), layout.other)
+            B[D+destination_row, t] = (1 - sigma) * lam[i, j]
         end
     end
     return B

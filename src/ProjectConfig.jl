@@ -55,7 +55,14 @@ end
 
 function parse_spatial(model::AbstractDict)
     name = lowercase(String(get(model, "spatial_specification", "economic_geography")))
-    name == "economic_geography" && return EconomicGeography()
+    if name == "economic_geography"
+        external = get(model, "external_nodes", String[])
+        external isa AbstractVector ||
+            throw(ArgumentError("model.external_nodes must be an array of node IDs"))
+        return EconomicGeography(external)
+    end
+    haskey(model, "external_nodes") && throw(ArgumentError(
+        "model.external_nodes is available only for economic_geography"))
     name == "urban_commuting" && return UrbanCommuting(get(model, "lambda", 0.0))
     throw(ArgumentError("unknown spatial specification: $name"))
 end

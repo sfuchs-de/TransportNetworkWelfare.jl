@@ -5,6 +5,13 @@ function enrich_diagnostics!(result, model::TransportModel)
         edge_congestion_metadata(model.project, model.data)
     result.diagnostics["shock_fraction"] = model.project.policy.shock_fraction
     result.diagnostics["spatial_specification"] = spatial_name(model.project.spatial)
+    result.diagnostics["equilibrium_closure"] = all(model.data.endogenous) ?
+        "integrated_locations" : "fixed_external_supply_demand"
+    result.diagnostics["welfare_constituency"] = all(model.data.endogenous) ?
+        "all_locations" : "endogenous_residents"
+    result.diagnostics["hulten_collapse_applicable"] = all(model.data.endogenous)
+    result.diagnostics["endogenous_nodes"] = count(model.data.endogenous)
+    result.diagnostics["external_nodes"] = count(.!model.data.endogenous)
     result.diagnostics["one_percent_gain_scale"] = 100*model.project.policy.shock_fraction
     return result
 end
@@ -219,7 +226,7 @@ end
 
 function welfare_rows(model::TransportModel)
     data, basis, closures = model.data, model.basis, model.closures
-    q = AdjointRSUE.welfare_gradient(data.omega, closures.c)
+    q = economic_welfare_gradient(data, closures.c)
     realized_forcing = closures.B * basis.Sagg[:, basis.policy_pairs]
     realized = operator_gain(closures.F, q, realized_forcing)
     primitive = primitive_forcing(model)
