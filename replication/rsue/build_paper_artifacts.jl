@@ -120,14 +120,22 @@ function decomposition_statistics(rows)
     )
 end
 
-function welfare_path_rows(main_rows; tolerance=1.0e-10)
+function welfare_path_rows(main_rows, efficient_external_rows; tolerance=1.0e-10)
+    length(main_rows) == length(efficient_external_rows) ||
+        error("headline and efficient external-node results have different lengths")
     output = NamedTuple[]
-    for headline in main_rows
+    for (headline, efficient_external) in zip(main_rows, efficient_external_rows)
+        headline.physical_link_id == efficient_external.physical_link_id ||
+            error("headline and efficient external-node links are misaligned")
         traditional = headline.hulten
+        domestic_efficient = efficient_external.primitive_F
         spatial_no_congestion = headline.realized_NC
         extended = headline.primitive_F
+        boundary_adjustment = domestic_efficient-traditional
         direct_externality_adjustment = -headline.primitive_externality
-        market_access_propagation_adjustment = -headline.primitive_propagation
+        spatial_externality_adjustment = spatial_no_congestion-domestic_efficient
+        market_access_propagation_adjustment =
+            spatial_externality_adjustment-direct_externality_adjustment
         road_congestion_adjustment = -headline.primitive_edge
         terminal_congestion_adjustment = -headline.primitive_terminal
         pass_through_adjustment = -headline.primitive_pass_through
@@ -137,7 +145,7 @@ function welfare_path_rows(main_rows; tolerance=1.0e-10)
         # together make up the primitive-cost congestion comparison.
         congestion_pass_through_change = road_congestion_policy_adjustment
         net_change = extended-traditional
-        spatial_component_residual = spatial_adjustment-sum((
+        spatial_component_residual = spatial_externality_adjustment-sum((
             direct_externality_adjustment,
             market_access_propagation_adjustment,
         ))
@@ -148,16 +156,20 @@ function welfare_path_rows(main_rows; tolerance=1.0e-10)
                 pass_through_adjustment,
             ))
         identity_residual =
-            net_change-spatial_adjustment-congestion_pass_through_change
+            net_change-boundary_adjustment-spatial_externality_adjustment-
+                congestion_pass_through_change
         push!(output, (;
             headline.physical_link_id,
             headline.endpoint_a,
             headline.endpoint_b,
             traditional,
+            domestic_efficient,
             spatial_no_congestion,
             extended,
+            boundary_adjustment,
             direct_externality_adjustment,
             market_access_propagation_adjustment,
+            spatial_externality_adjustment,
             road_congestion_adjustment,
             terminal_congestion_adjustment,
             pass_through_adjustment,
@@ -185,12 +197,16 @@ function welfare_path_statistics(rows)
     mean_field(name) = mean(getproperty(row, name) for row in rows)
     return Dict{String,Any}(
         "mean_traditional" => mean_field(:traditional),
+        "mean_domestic_efficient" => mean_field(:domestic_efficient),
         "mean_spatial_no_congestion" => mean_field(:spatial_no_congestion),
         "mean_extended" => mean_field(:extended),
+        "mean_boundary_adjustment" => mean_field(:boundary_adjustment),
         "mean_direct_externality_adjustment" =>
             mean_field(:direct_externality_adjustment),
         "mean_market_access_propagation_adjustment" =>
             mean_field(:market_access_propagation_adjustment),
+        "mean_spatial_externality_adjustment" =>
+            mean_field(:spatial_externality_adjustment),
         "mean_road_congestion_adjustment" =>
             mean_field(:road_congestion_adjustment),
         "mean_terminal_congestion_adjustment" =>
@@ -478,8 +494,11 @@ function write_tex_macros(path, statistics, decomposition, welfare_path, ranking
         println(io, "\\providecommand{\\PaperPrimitiveToHultenPercent}{", tex_number(decomposition["primitive_to_hulten_percent"]; digits=1), "}")
         gain_basis_point_scale = 1.0e4*statistics["shock_fraction"]
         println(io, "\\providecommand{\\PaperTraditionalMeanScaled}{", tex_number(gain_basis_point_scale*welfare_path["mean_traditional"]; digits=4), "}")
+        println(io, "\\providecommand{\\PaperDomesticEfficientMeanScaled}{", tex_number(gain_basis_point_scale*welfare_path["mean_domestic_efficient"]; digits=4), "}")
         println(io, "\\providecommand{\\PaperSpatialNoCongestionMeanScaled}{", tex_number(gain_basis_point_scale*welfare_path["mean_spatial_no_congestion"]; digits=4), "}")
         println(io, "\\providecommand{\\PaperExtendedMeanScaled}{", tex_number(gain_basis_point_scale*welfare_path["mean_extended"]; digits=4), "}")
+        println(io, "\\providecommand{\\PaperBoundaryAdjustmentScaled}{", tex_number(gain_basis_point_scale*welfare_path["mean_boundary_adjustment"]; digits=4), "}")
+        println(io, "\\providecommand{\\PaperSpatialExternalityAdjustmentScaled}{", tex_number(gain_basis_point_scale*welfare_path["mean_spatial_externality_adjustment"]; digits=4), "}")
         println(io, "\\providecommand{\\PaperDirectExternalityAdjustmentScaled}{", tex_number(gain_basis_point_scale*welfare_path["mean_direct_externality_adjustment"]; digits=4), "}")
         println(io, "\\providecommand{\\PaperMarketAccessPropagationAdjustmentScaled}{", tex_number(gain_basis_point_scale*welfare_path["mean_market_access_propagation_adjustment"]; digits=4), "}")
         println(io, "\\providecommand{\\PaperNetSpatialAdjustmentScaled}{", tex_number(gain_basis_point_scale*welfare_path["mean_spatial_adjustment"]; digits=4), "}")
@@ -511,10 +530,14 @@ function main()
     main_result.diagnostics["verified"] || error("headline result failed verification")
     verification_path, verification_report = accepted_verification(main_project, main_model)
     physical = sorted_physical(main_result)
+    efficient_project = TNW.replace_project(
+        main_project; alpha=0.0, beta=0.0, congestion=TNW.NoCongestion())
+    efficient_model = TNW.model_at(main_model, efficient_project)
+    efficient_external = sorted_physical(TNW.decompose_welfare(efficient_model))
     length(main_result.directed) == 704 || error("expected 704 directed road arcs")
     length(physical) == 352 || error("expected 352 physical road links")
     welfare_path_rows_output = welfare_path_rows(
-        physical; tolerance=main_model.project.tolerance)
+        physical, efficient_external; tolerance=main_model.project.tolerance)
     welfare_path = welfare_path_statistics(welfare_path_rows_output)
 
     control_project = TNW.load_project(CONTROL_CONFIG)

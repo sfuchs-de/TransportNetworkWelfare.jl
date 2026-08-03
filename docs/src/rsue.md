@@ -20,9 +20,9 @@ julia --project=. bin/tnw.jl replicate-rsue \
 
 Use `rsue_legacy_ports_all_modes_control.toml` for a like-for-like comparison. It activates the same four modes under the same component-CES and congestion specifications but retains the legacy symmetrized port layer.
 
-The July 2026 paper specification is `rsue_paper_choice_edge_census_2017.toml`. It combines `ChoiceLogsum(1.099)`, all four transport modes, road edge congestion of `0.092`, and the directional Census port layer. The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. `rsue_paper_terminal_extension_census_2017.toml` adds endpoint rail-terminal congestion for package diagnostics; those paths do not enter the paper's five-parameter sensitivity figure. `rsue_paper_choice_edge_legacy_ports_control.toml` holds the paper model fixed and restores the legacy port layer as a data robustness check.
+The paper specification is `rsue_paper_choice_edge_census_2017.toml`. It combines `ChoiceLogsum(1.099)`, all four transport modes, road edge congestion of `0.092`, and the directional Census port layer. The 228 domestic nodes enter worker mobility and U.S. welfare. The six foreign nodes remain in the route network but have fixed import-supply and export-demand schedules derived from the directional port layer. The policy unit is a simultaneous one-percent primitive-cost reduction in both directions of a physical road link. `rsue_paper_terminal_extension_census_2017.toml` adds endpoint rail-terminal congestion for package diagnostics; those paths do not enter the paper's five-parameter sensitivity figure. `rsue_paper_choice_edge_legacy_ports_control.toml` holds the paper model fixed and restores the legacy port layer as a data robustness check.
 
-The legacy adapter records six historical operations: domestic-node count, foreign-node padding, modal symmetrization, within-mode normalization, RSUE modal weights, and terminal-based rail filtering. Generic projects do none of these operations.
+The legacy adapter records six historical operations: domestic-node count, foreign transport-node construction, modal symmetrization, within-mode normalization, RSUE modal weights, and terminal-based rail filtering. Generic projects do none of these operations unless they declare an external-node closure explicitly.
 
 The Census candidate preserves those operations for the domestic layers but does not symmetrize foreign water. Raw directional Census trade is not model-ready because imports and exports do not satisfy the current location-level balanced-flow identity. The builder RAS-projects both directions onto common port and foreign-region margins, records the adjustment, and fails if balancing requires support absent from the raw matrices. See `replication/rsue/census_ports/README.md` for refresh and build commands.
 
@@ -60,11 +60,14 @@ and the rank movement along the \(\eta\) path.
 
 The builder also writes `paper_welfare_path_links.csv`. This file supports the
 main decomposition figure with an exact identity evaluated at the accepted
-baseline. It starts from the Traditional traffic statistic, adds the net
-spatial-equilibrium adjustment in the no-congestion closure, and then combines
-the effects of road congestion to reach the Extended result. The file also
-retains the direct externality, market-access propagation, road, terminal, and
-cost-attenuation components needed to verify both grouped changes. The
+baseline. It starts from the Traditional traffic statistic, adds the boundary
+adjustment implied by fixed foreign schedules and U.S.-resident welfare, then
+adds domestic spatial externalities and road congestion to reach the Extended
+result. Proposition 1 applies to the integrated-economy benchmark, so the
+Traditional statistic is a comparator rather than the exact efficient
+derivative under this external-node closure. The file also retains the direct
+externality, market-access propagation, road, terminal, and cost-attenuation
+components needed to verify the grouped changes. The
 paper-facing road-congestion adjustment compares the primitive-cost derivative
 in the full model with the no-congestion derivative. For technical diagnosis,
 the output separately reports how congestion changes the derivative with

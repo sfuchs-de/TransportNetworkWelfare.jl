@@ -4,11 +4,11 @@ verification_status = "accepted"
 release_status = "restricted_data_pending"
 
 [source_hashes]
-configuration = "5e3967148aa585f0adc32a64c65a3140f8d574bbe401002f32924f3012c1206a"
+configuration = "701b3768a52a3cf154ad958c5378b62441fd0d32ae91f4a9df05b8e4714c3ad9"
 census_overlay = "49bd1c9dc1aa1531933a4171cd884fa6e76cc1044b0301027307b2c562918520"
-directed_output = "f1d713a44776adccbafaca3237c77b627033d3f431acbee3fbd9bf4ee9efcca5"
-physical_output = "71146988ddcbe96ef559405ae231ed7b5d3b282b69ee81d760ce1df0615aa270"
-claim_ledger = "d05445233b009378a8109347b0be7c835cea14eb82cc2bf7fccc43d29e94c080"
+directed_output = "f915f07f2aa8b480110c671f0106bb42a0c448e62c36a0747f87be372c802f30"
+physical_output = "6adf4ab4513ef740c381c51ca11c00ff4ed2576c71ff5d73b8ab974fc038d352"
+claim_ledger = "d0c39a48df1a1db39c7540c9802246e2daf4ca6395149828d76eb7e59b43704b"
 
 [network]
 nodes = 234
@@ -17,17 +17,26 @@ physical_policy_links = 352
 
 [results]
 mean_traditional_elasticity = 0.0003872368807309085
-mean_realized_elasticity = 0.0005133741112112903
-mean_primitive_elasticity = 0.00022309500106786957
-median_primitive_elasticity = 0.00018070218508596492
-maximum_primitive_elasticity = 0.0008718749697784064
-pearson_hulten = 0.9474377146863426
-spearman_hulten = 0.9591921172385324
+mean_realized_elasticity = 0.0005162437100091318
+mean_primitive_elasticity = 0.00022541416433537957
+median_primitive_elasticity = 0.00018277339936180882
+maximum_primitive_elasticity = 0.0008612196978247786
+pearson_hulten = 0.9453059295358930
+spearman_hulten = 0.9573867734180728
 top_ten_overlap = 4
 
 [decomposition]
 mean_externality_component = 0.0010068158899003612
-mean_propagation_component = -0.0011016996929110268
-mean_road_component = -0.00003125342746971854
+mean_propagation_component = -0.001104459370353173
+mean_road_component = -0.00003136334882541316
 mean_terminal_component = 0.0
-mean_pass_through_component = 0.0002902791101434213
+mean_pass_through_component = 0.00029082954567375194
+mean_boundary_adjustment = 0.00001285533496941551
+mean_spatial_externality_adjustment = 0.0000847881454833947
+
+[closure]
+endogenous_us_nodes = 228
+fixed_foreign_nodes = 6
+welfare_constituency = "us_residents"
+foreign_supply = "directional Census import schedules"
+foreign_demand = "directional Census export schedules"

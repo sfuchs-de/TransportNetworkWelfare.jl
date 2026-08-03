@@ -62,6 +62,14 @@ positive labor, and positive income. For `urban_commuting`, replace those
 columns with positive `residents` and `employment`. Coordinates are optional
 metadata.
 
+If some nodes represent foreign markets rather than mobile-worker locations,
+list them under `model.external_nodes`. Supply positive `external_supply` and
+`external_demand` values for those rows and zeros or missing values elsewhere.
+The package then fixes those foreign schedules, removes the foreign nodes from
+the labor-allocation equations, and evaluates welfare over endogenous
+residents. It does not infer external schedules from placeholder labor or
+income values.
+
 ## Define edge-mode flows
 
 Each `edge_modes.csv` row is one active mode on one directed physical edge. `edge_id` identifies the direction and is repeated across modes. `physical_link_id` groups the two opposite policy directions. Missing mode rows mean that the mode is unavailable. Listed flows must be strictly positive.
