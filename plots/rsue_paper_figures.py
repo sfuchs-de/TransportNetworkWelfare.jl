@@ -483,7 +483,7 @@ def main():
     map_norm, map_cmap = welfare_norm(
         map_values, robust=True, include_zero=True)
     map_figure(
-        geometry, "hulten", "Traffic share",
+        geometry, "hulten", "Traffic share (basis points)",
         args.output_dir / "rsue_traffic_map",
         value_scale=1.0e4,
     )
