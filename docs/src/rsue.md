@@ -62,12 +62,14 @@ The builder also writes `paper_welfare_path_links.csv`. This file supports the
 main decomposition figure with an exact identity evaluated at the accepted
 baseline. It starts from the Traditional traffic statistic, adds the net
 spatial-equilibrium adjustment in the no-congestion closure, and then combines
-road congestion with primitive-cost pass-through to reach the Extended result.
-The file also retains the direct externality, market-access propagation, road,
-terminal, and pass-through components needed to verify both grouped changes.
-The paper-facing road-congestion adjustment compares the primitive-cost
-derivative in the full model with the no-congestion derivative. The separate
-realized-cost and pass-through terms are retained only for technical diagnosis.
+the effects of road congestion to reach the Extended result. The file also
+retains the direct externality, market-access propagation, road, terminal, and
+cost-attenuation components needed to verify both grouped changes. The
+paper-facing road-congestion adjustment compares the primitive-cost derivative
+in the full model with the no-congestion derivative. For technical diagnosis,
+the output separately reports how congestion changes the derivative with
+respect to users' realized cost and how induced traffic attenuates the
+underlying cost reduction.
 The original `H`/`NC`/`NT`/`F`/`FM`/`FR` closure outputs remain unchanged and
 continue to support the more detailed appendix identities. Terminal congestion
 is absent from the headline specification and remains an extension.

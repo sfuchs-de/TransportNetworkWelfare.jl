@@ -333,7 +333,7 @@ def decomposition_figure(rows, output):
         ("spatial_adjustment", "Net spatial adjustment", PURPLE),
         (
             "road_congestion_policy_adjustment",
-            "Congestion and\npass-through",
+            "Road-congestion\nadjustment",
             RED,
         ),
     )
