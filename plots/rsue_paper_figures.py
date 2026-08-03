@@ -30,6 +30,7 @@ PAPER_SENSITIVITY_PARAMETERS = (
     "net_dispersion",
     "lambda_road",
 )
+ONE_PERCENT_GAIN_PPM_SCALE = 1.0e4
 
 
 def read_rows(path: Path):
@@ -274,12 +275,14 @@ def decomposition_summary(rows, tolerance=1.0e-12):
 
 
 def _format_effect(value):
-    return f"{1.0e4*value:.2f}"
+    return f"{ONE_PERCENT_GAIN_PPM_SCALE*value:.2f}"
 
 
 def decomposition_figure(rows, output):
     summary = decomposition_summary(rows)
-    scale = 1.0e4
+    # An elasticity times a one-percent shock, expressed per million,
+    # has the same numerical scaling: 0.01 * 1e6 = 1e4.
+    scale = ONE_PERCENT_GAIN_PPM_SCALE
     figure, axes = plt.subplots(
         1, 2, figsize=(10.8, 3.8),
         gridspec_kw={"width_ratios": (1.0, 1.0)},
@@ -321,11 +324,12 @@ def decomposition_figure(rows, output):
     ladder_axis.set_yticklabels([label for _, label, _ in ladder_fields])
     ladder_axis.set_ylim(-0.55, 2.45)
     ladder_axis.set_xlim(0.0, max(ladder_x)*1.18)
-    ladder_axis.set_xlabel(r"Mean welfare elasticity ($\times 10^{-4}$)")
+    ladder_axis.set_xlabel(
+        "Mean welfare gain from a 1% improvement\n(parts per million)")
     style_axis(ladder_axis, grid_axis="x")
     ladder_axis.spines["left"].set_visible(False)
     ladder_axis.tick_params(axis="y", length=0)
-    add_panel_label(axes[0], "A", "Mean welfare elasticity")
+    add_panel_label(axes[0], "A", "Mean welfare gain")
 
     component_axis = axes[1]
     components = (
@@ -376,7 +380,7 @@ def decomposition_figure(rows, output):
         abs(value) for value in component_values if np.isfinite(value))
     component_axis.set_xlim(-limit, limit)
     component_axis.set_xlabel(
-        r"Change in mean welfare elasticity ($\times 10^{-4}$)")
+        "Change in mean welfare gain\n(parts per million)")
     style_axis(component_axis, grid_axis="x")
     component_axis.spines["left"].set_visible(False)
     component_axis.tick_params(axis="y", length=0)
@@ -386,7 +390,7 @@ def decomposition_figure(rows, output):
         transform=component_axis.transAxes, ha="right", va="bottom",
         fontsize=7, color=MUTED,
     )
-    add_panel_label(axes[1], "B", "Change in mean welfare elasticity")
+    add_panel_label(axes[1], "B", "Change in mean welfare gain")
 
     figure.subplots_adjust(
         left=0.18, right=0.99, bottom=0.24, top=0.87, wspace=0.68,
