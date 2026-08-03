@@ -1,7 +1,20 @@
 abstract type AbstractSpatialSpecification end
 
 "Economic-geography model with mobile labor and trade in differentiated goods."
-struct EconomicGeography <: AbstractSpatialSpecification end
+struct EconomicGeography <: AbstractSpatialSpecification
+    external_node_ids::Vector{String}
+    function EconomicGeography(external_node_ids=String[])
+        ids = String.(external_node_ids)
+        all(id -> !isempty(strip(id)), ids) ||
+            throw(ArgumentError("external node IDs must be nonempty"))
+        length(unique(ids)) == length(ids) ||
+            throw(ArgumentError("external node IDs must be unique"))
+        new(ids)
+    end
+end
+
+has_external_nodes(spec::EconomicGeography) = !isempty(spec.external_node_ids)
+has_external_nodes(::AbstractSpatialSpecification) = false
 
 "Allen-Arkolakis urban model with separate residence and workplace choices."
 struct UrbanCommuting <: AbstractSpatialSpecification

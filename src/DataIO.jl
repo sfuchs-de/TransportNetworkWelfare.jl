@@ -19,6 +19,10 @@ struct NetworkData
     modes::Vector{Symbol}
     omega::Vector{Float64}
     nu::Vector{Float64}
+    source_margin::Vector{Float64}
+    destination_margin::Vector{Float64}
+    endogenous::BitVector
+    normalization_node::Int
     mode_flows::Vector{SparseMatrixCSC{Float64,Int}}
     Xi::SparseMatrixCSC{Float64,Int}
     out_neighbors::Vector{Vector{Int}}
@@ -45,6 +49,26 @@ struct NetworkData
     stock_disagreement::Float64
     residence::Union{Nothing,Vector{Float64}}
     workplace::Union{Nothing,Vector{Float64}}
+end
+
+function economic_node_closure(project::Project, node_ids::Vector{String},
+                               labor::AbstractVector, income::AbstractVector)
+    project.spatial isa EconomicGeography ||
+        throw(ArgumentError("economic node closure requires EconomicGeography"))
+    external_ids = Set(project.spatial.external_node_ids)
+    unknown = setdiff(external_ids, Set(node_ids))
+    isempty(unknown) || throw(ArgumentError(
+        "model.external_nodes contains unknown node IDs: $(join(sort!(collect(unknown)), ", "))"))
+    endogenous = BitVector([!(id in external_ids) for id in node_ids])
+    any(endogenous) || throw(ArgumentError("at least one endogenous location is required"))
+    domestic_labor = Float64.(labor) .* endogenous
+    domestic_income = Float64.(income) .* endogenous
+    sum(domestic_labor) > 0 || throw(ArgumentError("endogenous labor must be positive"))
+    sum(domestic_income) > 0 || throw(ArgumentError("endogenous income must be positive"))
+    omega = domestic_labor ./ sum(domestic_labor)
+    nu = domestic_income ./ sum(domestic_income)
+    normalization_node = findlast(endogenous)
+    return (; omega, nu, endogenous, normalization_node)
 end
 
 file_sha256(path::AbstractString) = bytes2hex(open(SHA.sha256, path))
@@ -82,8 +106,14 @@ function read_nodes(path::AbstractString)
     income = Float64[]
     longitude = Union{Missing,Float64}[]
     latitude = Union{Missing,Float64}[]
+    external_supply = Union{Missing,Float64}[]
+    external_demand = Union{Missing,Float64}[]
     has_lon = :longitude in propertynames(table)
     has_lat = :latitude in propertynames(table)
+    has_external_supply = :external_supply in propertynames(table)
+    has_external_demand = :external_demand in propertynames(table)
+    has_external_supply == has_external_demand || throw(ArgumentError(
+        "$path must provide both external_supply and external_demand, or neither"))
     for (row_number, row) in enumerate(table)
         id = cell_string(getproperty(row, :node_id))
         isempty(id) && throw(ArgumentError("$path row $row_number has an empty node_id"))
@@ -94,12 +124,21 @@ function read_nodes(path::AbstractString)
               cell_float(getproperty(row, :longitude), path, "longitude", row_number) : missing)
         push!(latitude, has_lat && getproperty(row, :latitude) !== missing ?
               cell_float(getproperty(row, :latitude), path, "latitude", row_number) : missing)
+        push!(external_supply,
+              has_external_supply && getproperty(row, :external_supply) !== missing ?
+              cell_float(getproperty(row, :external_supply), path,
+                         "external_supply", row_number) : missing)
+        push!(external_demand,
+              has_external_demand && getproperty(row, :external_demand) !== missing ?
+              cell_float(getproperty(row, :external_demand), path,
+                         "external_demand", row_number) : missing)
     end
     isempty(ids) && throw(ArgumentError("nodes file is empty: $path"))
     length(unique(ids)) == length(ids) || throw(ArgumentError("node_id values must be unique"))
     all(>(0), labor) || throw(ArgumentError("labor must be strictly positive"))
     all(>(0), income) || throw(ArgumentError("income must be strictly positive"))
-    return (; ids, labor, income, longitude, latitude)
+    return (; ids, labor, income, longitude, latitude, external_supply, external_demand,
+            has_external_schedules=has_external_supply)
 end
 
 function read_urban_nodes(path::AbstractString)
@@ -305,9 +344,32 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
     mode_index = Dict(mode => m for (m, mode) in enumerate(modes))
     project.policy.mode in modes || throw(ArgumentError("policy mode $(project.policy.mode) is absent"))
 
-    omega = nodes.labor ./ sum(nodes.labor)
-    nu = nodes.income ./ sum(nodes.income)
+    closure = economic_node_closure(project, nodes.ids, nodes.labor, nodes.income)
+    omega, nu = closure.omega, closure.nu
+    source_margin = copy(nu)
+    destination_margin = copy(nu)
     scale = transforms.flow_conversion == "divide_by_world_income" ? sum(nodes.income) : 1.0
+    if has_external_nodes(project.spatial)
+        nodes.has_external_schedules || throw(ArgumentError(
+            "generic external-node projects require external_supply and external_demand columns in nodes.csv"))
+        for i in eachindex(nodes.ids)
+            if closure.endogenous[i]
+                for (name, values) in (("external_supply", nodes.external_supply),
+                                       ("external_demand", nodes.external_demand))
+                    value = values[i]
+                    (value === missing || value == 0) || throw(ArgumentError(
+                        "$name must be zero or missing at endogenous node $(nodes.ids[i])"))
+                end
+            else
+                supply, demand = nodes.external_supply[i], nodes.external_demand[i]
+                supply !== missing && demand !== missing && supply > 0 && demand > 0 ||
+                    throw(ArgumentError(
+                        "external node $(nodes.ids[i]) requires positive fixed supply and demand"))
+                source_margin[i] = supply / scale
+                destination_margin[i] = demand / scale
+            end
+        end
+    end
     normalized_rows = [EdgeModeRow(
         row.edge_id, row.physical_link_id, row.origin, row.destination, row.mode,
         row.flow / scale, row.origin_terminal_id, row.destination_terminal_id,
@@ -345,14 +407,14 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
     end
     foreach(sort!, out_neighbors)
     foreach(sort!, in_neighbors)
-    T_origin = nu .+ vec(sum(Xi; dims=2))
-    T_destination = nu .+ vec(sum(Xi; dims=1))
+    T_origin = source_margin .+ vec(sum(Xi; dims=2))
+    T_destination = destination_margin .+ vec(sum(Xi; dims=1))
     stock_disagreement = maximum(abs.(T_origin .- T_destination))
     stock_disagreement <= project.tolerance ||
         throw(ArgumentError("outgoing and incoming exposure stocks differ by $stock_disagreement; flows must satisfy the accounting identities"))
     Tnode = T_origin
-    sx = nu ./ T_origin
-    sy = nu ./ T_destination
+    sx = source_margin ./ T_origin
+    sy = destination_margin ./ T_destination
     all((0 .< sx) .& (sx .< 1)) ||
         throw(ArgumentError("origin absorption shares must be interior"))
     all((0 .< sy) .& (sy .< 1)) ||
@@ -397,7 +459,8 @@ function build_network(project::Project, nodes, rows::Vector{EdgeModeRow}; input
 
     return NetworkData(
         N, nodes.ids, node_index, nodes.longitude, nodes.latitude, modes,
-        omega, nu, mode_flows, Xi, out_neighbors, in_neighbors, Tnode, sx, sy,
+        omega, nu, source_margin, destination_margin, closure.endogenous,
+        closure.normalization_node, mode_flows, Xi, out_neighbors, in_neighbors, Tnode, sx, sy,
         mu, lam, edges, edge_ids, physical_ids, edge_index, s_edges, shares,
         policy_edges, policy_edge_ids, policy_physical_ids,
         terminal_origin, terminal_destination, pair_edge_congestion, transforms.ledger,
@@ -532,7 +595,8 @@ function build_urban_network(project::Project, nodes, rows::Vector{EdgeModeRow};
 
     return NetworkData(
         N, nodes.ids, node_index, nodes.longitude, nodes.latitude, modes,
-        residence, workplace, mode_flows, Xi, out_neighbors, in_neighbors,
+        residence, workplace, workplace, residence, trues(N), N,
+        mode_flows, Xi, out_neighbors, in_neighbors,
         Tnode, sx, sy, mu, lam, edges, edge_ids, physical_ids,
         edge_index, s_edges, shares, policy_edges, policy_edge_ids,
         policy_physical_ids, terminal_origin, terminal_destination,
@@ -642,6 +706,12 @@ function validate(project::Project)
         valid=true,
         spatial_specification=spatial_name(project.spatial),
         nodes=data.N,
+        equilibrium_closure=all(data.endogenous) ?
+            "integrated_locations" : "fixed_external_supply_demand",
+        welfare_constituency=all(data.endogenous) ?
+            "all_locations" : "endogenous_residents",
+        endogenous_nodes=count(data.endogenous),
+        external_nodes=count(.!data.endogenous),
         directed_edges=length(data.edges),
         active_edge_modes=sum(nnz, data.mode_flows),
         policy_arcs=length(data.policy_edges),

@@ -231,7 +231,8 @@ def decomposition_summary(rows, tolerance=1.0e-12):
     if not rows:
         raise ValueError("Welfare-path rows must be nonempty.")
     fields = (
-        "traditional", "spatial_no_congestion", "extended",
+        "traditional", "domestic_efficient", "spatial_no_congestion", "extended",
+        "boundary_adjustment", "spatial_externality_adjustment",
         "direct_externality_adjustment",
         "market_access_propagation_adjustment",
         "road_congestion_adjustment", "terminal_congestion_adjustment",
@@ -244,12 +245,15 @@ def decomposition_summary(rows, tolerance=1.0e-12):
         values = {field: float(row[field]) for field in fields}
         residuals = (
             values["spatial_no_congestion"]
+            - values["domestic_efficient"]
+            - values["spatial_externality_adjustment"],
+            values["domestic_efficient"]
             - values["traditional"]
-            - values["spatial_adjustment"],
+            - values["boundary_adjustment"],
             values["extended"]
             - values["spatial_no_congestion"]
             - values["road_congestion_policy_adjustment"],
-            values["spatial_adjustment"]
+            values["spatial_externality_adjustment"]
             - values["direct_externality_adjustment"]
             - values["market_access_propagation_adjustment"],
             values["congestion_pass_through_change"]
@@ -259,7 +263,8 @@ def decomposition_summary(rows, tolerance=1.0e-12):
             values["road_congestion_policy_adjustment"]
             - values["congestion_pass_through_change"],
             values["net_change"]
-            - values["spatial_adjustment"]
+            - values["boundary_adjustment"]
+            - values["spatial_externality_adjustment"]
             - values["road_congestion_policy_adjustment"],
             values["net_change"]
             - values["extended"]
@@ -291,7 +296,8 @@ def decomposition_figure(rows, output):
     ladder_axis = axes[0]
     ladder_fields = (
         ("traditional", "Traditional approach", MUTED),
-        ("spatial_no_congestion", "Spatial equilibrium\n(no congestion)", PURPLE),
+        ("domestic_efficient", "U.S. welfare\n(fixed foreign markets)", TEAL),
+        ("spatial_no_congestion", "Spatial externalities\n(no congestion)", PURPLE),
         ("extended", "Extended approach", BLUE),
     )
     ladder_x = [scale*summary[field] for field, _, _ in ladder_fields]
@@ -322,7 +328,7 @@ def decomposition_figure(rows, output):
 
     ladder_axis.set_yticks(ladder_y)
     ladder_axis.set_yticklabels([label for _, label, _ in ladder_fields])
-    ladder_axis.set_ylim(-0.55, 2.45)
+    ladder_axis.set_ylim(-0.55, len(ladder_fields)-0.55)
     ladder_axis.set_xlim(0.0, max(ladder_x)*1.18)
     ladder_axis.set_xlabel(
         "Welfare gain from a 1% improvement\n(basis points)")
@@ -334,7 +340,8 @@ def decomposition_figure(rows, output):
     component_axis = axes[1]
     components = (
         (None, "Traditional baseline", MUTED),
-        ("spatial_adjustment", "Net spatial adjustment", PURPLE),
+        ("boundary_adjustment", "Fixed foreign markets", TEAL),
+        ("spatial_externality_adjustment", "Net spatial externalities", PURPLE),
         (
             "road_congestion_policy_adjustment",
             "Road-congestion\nadjustment",
@@ -375,7 +382,7 @@ def decomposition_figure(rows, output):
         )
     component_axis.set_yticks(component_y)
     component_axis.set_yticklabels([label for _, label, _ in components])
-    component_axis.set_ylim(-0.55, 2.45)
+    component_axis.set_ylim(-0.55, len(components)-0.55)
     limit = 1.18*max(
         abs(value) for value in component_values if np.isfinite(value))
     component_axis.set_xlim(-limit, limit)

@@ -20,6 +20,7 @@ foreign_port_symmetrize = false
 foreign_port_balance = "ras_common_normalized_port_and_region_margins"
 foreign_port_measure = "CNT_VAL_MO"
 foreign_port_period = "2017-01:2017-12"
+foreign_node_closure = "fixed_supply_demand_us_welfare"
 
 [model]
 alpha = 0.10
@@ -29,6 +30,7 @@ eta = 1.099
 modal_specification = "choice_logsum"
 route_curvature = "theorem"
 active_transport_modes = ["road", "rail", "water_dom", "water_for"]
+external_nodes = ["229", "230", "231", "232", "233", "234"]
 
 [congestion]
 specification = "edge"

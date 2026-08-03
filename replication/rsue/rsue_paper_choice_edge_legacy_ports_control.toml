@@ -14,6 +14,7 @@ symmetrize_modes = true
 normalize_mode_matrices = true
 apply_rsue_modal_weights = true
 filter_rail_by_terminal_count = true
+foreign_node_closure = "fixed_supply_demand_us_welfare"
 
 [model]
 alpha = 0.10
@@ -23,6 +24,7 @@ eta = 1.099
 modal_specification = "choice_logsum"
 route_curvature = "theorem"
 active_transport_modes = ["road", "rail", "water_dom", "water_for"]
+external_nodes = ["229", "230", "231", "232", "233", "234"]
 
 [congestion]
 specification = "edge"

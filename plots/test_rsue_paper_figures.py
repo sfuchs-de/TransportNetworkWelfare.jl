@@ -78,10 +78,13 @@ class DecompositionFigureTests(unittest.TestCase):
     def rows():
         return [{
             "traditional": "0.0010",
+            "domestic_efficient": "0.00102",
             "spatial_no_congestion": "0.0011",
             "extended": "0.0007",
+            "boundary_adjustment": "0.00002",
+            "spatial_externality_adjustment": "0.00008",
             "direct_externality_adjustment": "-0.0002",
-            "market_access_propagation_adjustment": "0.0003",
+            "market_access_propagation_adjustment": "0.00028",
             "road_congestion_adjustment": "-0.0001",
             "terminal_congestion_adjustment": "0.0",
             "pass_through_adjustment": "-0.0003",
@@ -96,14 +99,15 @@ class DecompositionFigureTests(unittest.TestCase):
         self.assertAlmostEqual(summary["spatial_no_congestion"], 0.0011)
         self.assertAlmostEqual(summary["extended"], 0.0007)
         self.assertAlmostEqual(
-            summary["spatial_adjustment"]+
+            summary["boundary_adjustment"]+
+            summary["spatial_externality_adjustment"]+
             summary["road_congestion_policy_adjustment"],
             summary["net_change"],
         )
         self.assertAlmostEqual(
             summary["direct_externality_adjustment"]+
             summary["market_access_propagation_adjustment"],
-            summary["spatial_adjustment"],
+            summary["spatial_externality_adjustment"],
         )
 
     def test_summary_fails_on_identity_error(self):

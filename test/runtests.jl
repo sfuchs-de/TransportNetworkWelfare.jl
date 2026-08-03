@@ -7,6 +7,7 @@ using TransportNetworkWelfare
     include("test_schema.jl")
     include("test_edge_congestion.jl")
     include("test_edge_local.jl")
+    include("test_external_nodes.jl")
     include("test_examples.jl")
     include("test_urban.jl")
     include("test_policy_bundles.jl")

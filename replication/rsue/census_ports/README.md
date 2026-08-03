@@ -74,6 +74,11 @@ model then assigns one half of the fixed foreign-water mode mass to each
 direction. Raw values, coverage, projection distance, source hashes, and the
 node-balance residual remain in `census_port_region_diagnostics.json`.
 
+In the paper specification, these directional flows also define the fixed
+foreign schedules: foreign-to-U.S. traffic pins import supply and
+U.S.-to-foreign traffic pins export demand. The six foreign nodes remain in
+routing but are excluded from worker mobility and the U.S. welfare criterion.
+
 This is a transparent balanced-trade projection, not a claim that measured
 imports equal measured exports. A model with trade deficits would require a
 different equilibrium closure and a new theory audit.

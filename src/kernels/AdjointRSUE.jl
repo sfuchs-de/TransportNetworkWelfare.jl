@@ -26,7 +26,7 @@ module AdjointRSUE
 
 using LinearAlgebra
 
-export Coef, coefs, psi_row, welfare_gradient
+export Coef, coefs, psi_row, welfare_gradient, state_layout, reduced_welfare_gradient
 export assemble_J, adjoint_multipliers, prop2_edge_elasticity
 export node_visit_stock, shares_from_traffic, anchored_objects, chi_wedge, congestion_J
 
@@ -56,20 +56,48 @@ psi_row(ω::AbstractVector, σ::Real) = vcat((1-σ) .* ω, (-σ) .* ω)
 welfare_gradient(ω::AbstractVector, c::Coef) =
     vcat(-c.ρ .* ω, (-c.ρ*c.σ/(c.σ-1)) .* ω)
 
+function state_layout(endogenous::AbstractVector{Bool}, normalization_node::Int)
+    N = length(endogenous)
+    1 <= normalization_node <= N ||
+        throw(ArgumentError("normalization node is outside the network"))
+    endogenous[normalization_node] ||
+        throw(ArgumentError("normalization node must be endogenous"))
+    locations = findall(endogenous)
+    other = filter(!=(normalization_node), locations)
+    columns = vcat(locations, N .+ locations)
+    rows = vcat(locations, N .+ other, N + normalization_node)
+    return (; locations, other, columns, rows, normalization_node)
+end
+
+function reduced_welfare_gradient(ω::AbstractVector, c::Coef,
+                                  endogenous::AbstractVector{Bool})
+    length(ω) == length(endogenous) || throw(DimensionMismatch(
+        "welfare weights and endogenous mask have different lengths"))
+    locations = findall(endogenous)
+    return welfare_gradient(ω, c)[vcat(locations, length(ω) .+ locations)]
+end
+
 # ── the verified Jacobian J = J0 + JA  (verify_prop2.py: analytic_J, γ=0 path) ──
 # sx,sy :: length-N local (domestic-absorption) shares; μ,λ :: N×N substochastic
 # shares (λ indexed [origin i, dest j], as in verify_prop2 `lam`); ω :: labor shares.
 """
-    assemble_J(sx, sy, μ, λ, ω, c) -> J (2N×2N)
+    assemble_J(sx, sy, μ, λ, ω, c; endogenous, normalization_node) -> J
 
 Four-block network Jacobian J0 + rank-1 fixed-labor feedback JA + the G2_N normalization
-row. Mirrors `analytic_J` with γ=0 (no congestion block); for congestion, add Jc
-separately (see `chi_wedge` for the per-edge wedge).
+row. With all locations endogenous, this is the original 2N-by-2N system.
+Otherwise, it retains the equilibrium rows and state variables of the endogenous
+locations only. Mirrors `analytic_J` with γ=0 (no congestion block); for
+congestion, add Jc separately (see `chi_wedge` for the per-edge wedge).
 """
 function assemble_J(sx::AbstractVector, sy::AbstractVector,
                     μ::AbstractMatrix, λ::AbstractMatrix,
-                    ω::AbstractVector, c::Coef)
+                    ω::AbstractVector, c::Coef;
+                    endogenous::AbstractVector{Bool}=trues(length(sx)),
+                    normalization_node::Int=findlast(endogenous))
     N = length(sx); σ = c.σ
+    all(length(vector) == N for vector in (sy, ω, endogenous)) ||
+        throw(DimensionMismatch("Jacobian inputs must have length N"))
+    layout = state_layout(endogenous, normalization_node)
     Iₙ = Matrix{Float64}(I, N, N)
     J = zeros(2N, 2N)
     # --- J0: four blocks (analytic_J lines 143-146) ---
@@ -78,17 +106,21 @@ function assemble_J(sx::AbstractVector, sy::AbstractVector,
     λT = permutedims(λ)                                   # lam.T
     bx = c.cC .* (Iₙ .- λT)
     by = Diagonal(sy) .- c.cE .* (Iₙ .- λT)
-    J[N+1:2N-1, 1:N]    .= bx[1:N-1, :]
-    J[N+1:2N-1, N+1:2N] .= by[1:N-1, :]
-    # --- normalization row G2_N (analytic_J lines 147-148) ---
-    J[2N, N]  = c.α / c.e
-    J[2N, 2N] = -(1 + c.β*(σ-1)) / ((σ-1)*c.e)
-    # --- JA: rank-1 labor feedback, rows 1..2N-1 only (lines 150-153) ---
-    svec = vcat(sx, sy[1:N-1])                            # stacked, length 2N-1
-    outer = svec * permutedims(ω)                         # (2N-1)×N
-    J[1:2N-1, 1:N]    .+= ((σ-1)/c.e) .* outer
-    J[1:2N-1, N+1:2N] .+= (σ/c.e)     .* outer
-    return J
+    J[N+1:2N, 1:N]    .= bx
+    J[N+1:2N, N+1:2N] .= by
+    # Replace one endogenous G2 equation with the wage normalization.
+    normalization_row = N + normalization_node
+    J[normalization_row, :] .= 0
+    J[normalization_row, normalization_node] = c.α / c.e
+    J[normalization_row, N+normalization_node] =
+        -(1 + c.β*(σ-1)) / ((σ-1)*c.e)
+    # Fixed-labor feedback enters only endogenous equilibrium equations.
+    active_rows = vcat(layout.locations, N .+ layout.other)
+    svec = vcat(sx[layout.locations], sy[layout.other])
+    outer = svec * permutedims(ω)
+    J[active_rows, 1:N] .+= ((σ-1)/c.e) .* outer
+    J[active_rows, N+1:2N] .+= (σ/c.e) .* outer
+    return J[layout.rows, layout.columns]
 end
 
 # ── adjoint multipliers via J' ℓ = ψ  (𝓛 = −ψᵀJ⁻¹; normalize by 𝒯) ──────────────

@@ -42,6 +42,13 @@ function require_rsue_transformations(project::Project)
         get(raw, key, nothing) == value ||
             throw(ArgumentError("RSUE adapter requires input.transformations.$key=$(repr(value))"))
     end
+    if project.spatial isa EconomicGeography && has_external_nodes(project.spatial)
+        get(raw, "foreign_node_closure", nothing) == "fixed_supply_demand_us_welfare" ||
+            throw(ArgumentError(
+                "the RSUE external-node specification requires " *
+                "input.transformations.foreign_node_closure=\"fixed_supply_demand_us_welfare\""))
+        expected["foreign_node_closure"] = "fixed_supply_demand_us_welfare"
+    end
     return ["$key=$(expected[key])" for key in sort!(collect(keys(expected)))]
 end
 
@@ -172,12 +179,22 @@ function load_rsue_network(project::Project)
 
     labor_domestic = nodes[:, 2] ./ sum(nodes[:, 2])
     income_domestic = nodes[:, 3] ./ sum(nodes[:, 3])
+    external_closure = project.spatial isa EconomicGeography &&
+        has_external_nodes(project.spatial)
+    if external_closure
+        expected_external = Set(string.(N_dom+1:N))
+        Set(project.spatial.external_node_ids) == expected_external ||
+            throw(ArgumentError(
+                "the RSUE external-node closure requires model.external_nodes=$(sort!(collect(expected_external)))"))
+    end
     labor = zeros(N)
     income = zeros(N)
     labor[1:N_dom] .= labor_domestic
     income[1:N_dom] .= income_domestic
-    labor[N_dom+1:N] .= mean(labor_domestic)
-    income[N_dom+1:N] .= mean(income_domestic)
+    if !external_closure
+        labor[N_dom+1:N] .= mean(labor_domestic)
+        income[N_dom+1:N] .= mean(income_domestic)
+    end
     omega = labor ./ sum(labor)
     nu = income ./ sum(income)
 
@@ -234,12 +251,26 @@ function load_rsue_network(project::Project)
     end
     foreach(sort!, out_neighbors)
     foreach(sort!, in_neighbors)
-    T_origin = nu .+ vec(sum(Xi; dims=2))
-    T_destination = nu .+ vec(sum(Xi; dims=1))
+    source_margin = copy(nu)
+    destination_margin = copy(nu)
+    endogenous = trues(N)
+    normalization_node = N
+    if external_closure
+        endogenous[N_dom+1:N] .= false
+        normalization_node = N_dom
+        source_margin[N_dom+1:N] .= vec(sum(port[N_dom+1:N, :]; dims=2))
+        destination_margin[N_dom+1:N] .= vec(sum(port[:, N_dom+1:N]; dims=1))
+        all(source_margin[N_dom+1:N] .> 0) ||
+            error("every foreign node must have a positive fixed import-supply schedule")
+        all(destination_margin[N_dom+1:N] .> 0) ||
+            error("every foreign node must have a positive fixed export-demand schedule")
+    end
+    T_origin = source_margin .+ vec(sum(Xi; dims=2))
+    T_destination = destination_margin .+ vec(sum(Xi; dims=1))
     stock_disagreement = maximum(abs.(T_origin .- T_destination))
     stock_disagreement <= project.tolerance || error("RSUE exposure-stock identity failed")
-    sx = nu ./ T_origin
-    sy = nu ./ T_destination
+    sx = source_margin ./ T_origin
+    sy = destination_margin ./ T_destination
     mu = zeros(N, N)
     lam = zeros(N, N)
     for (i, j) in edges
@@ -285,9 +316,19 @@ function load_rsue_network(project::Project)
             "census_port_balance_residual=$(@sprintf("%.17g", census_balance_residual))",
         ])
     end
+    if external_closure
+        append!(transformations, [
+            "welfare_constituency=us_residents",
+            "worker_mobility_nodes=$N_dom",
+            "external_transport_nodes=$(N-N_dom)",
+            "foreign_supply_schedule=foreign_water_outgoing_flow",
+            "foreign_demand_schedule=foreign_water_incoming_flow",
+        ])
+    end
     return NetworkData(
         N, node_ids, Dict(id => i for (i, id) in enumerate(node_ids)),
-        longitude, latitude, modes, omega, nu, mode_flows, Xi,
+        longitude, latitude, modes, omega, nu, source_margin, destination_margin,
+        endogenous, normalization_node, mode_flows, Xi,
         out_neighbors, in_neighbors, T_origin, sx, sy, mu, lam, edges,
         edge_ids, physical_ids, edge_index, s_edges, shares, road_edges,
         policy_edge_ids, policy_physical_ids, terminal_origin, terminal_destination,

@@ -96,7 +96,7 @@ choice-logsum paths.
 | Exact decomposition channels | `structured_gap`, `mixed_channels` | Jacobian and channel reconstruction | Accepted |
 | Bidirectional physical-link policy | `PolicySpecification`, `aggregate_physical` | reciprocal pairing and independent aggregation | Accepted |
 | Urban commuting extension | `UrbanEngine.jl`, `UrbanNonlinear.jl` | one-mode oracle and multimodal nonlinear checks | Verified extension |
-| RSUE foreign regions | `RSUEAdapter.jl` | adapter and paper-source cross-check | Accepted stylized integrated closure |
+| RSUE foreign regions | `RSUEAdapter.jl`, reduced equilibrium rows | accounting, finite differences, and restricted-data acceptance | Accepted external-node closure |
 
 The active paper model aggregates modes on each physical edge. It does not
 represent an explicit cost of switching from mode \(m\) to mode \(m'\) at a
@@ -104,11 +104,14 @@ node. Such costs require a node-mode network and new flow inputs. The generic
 transport machinery can be extended in that direction, but the release does
 not claim that the paper estimates or tests that extension.
 
-The RSUE adapter assigns each of the six foreign regions the mean domestic
-labor and income before renormalizing all 234 locations. They therefore enter
-mobility, world income, and the common welfare derivative. This matches the
-paper's current disclosure. The reported quantity is not a U.S.-only welfare
-effect with exogenous foreign supply and demand.
+The RSUE paper adapter treats the six foreign regions as external transport
+nodes. Directional Census imports determine their fixed supply schedules, and
+directional exports determine their fixed demand schedules. These nodes remain
+in recursive routing, but their state responses are fixed at zero. The
+equilibrium Jacobian contains only the 228 domestic locations, and the welfare
+row weights U.S. residents. Synthetic and restricted-data finite-difference
+tests verify this reduced closure separately from the older integrated-location
+specification.
 
 ### Proposition 1
 
@@ -123,6 +126,14 @@ criterion. The derivative therefore reduces to observed edge-mode traffic:
 The implementation tests this collapse directly. The statement depends on the
 efficient allocation and welfare aggregation; it is not automatically valid
 under omitted distortions or alternative incidence rules.
+
+The paper's external-node application changes that welfare aggregation. With
+foreign schedules fixed and welfare evaluated over U.S. residents, the
+Traditional traffic statistic is a comparator rather than the exact
+Proposition 1 derivative. The generated decomposition therefore reports the
+foreign-market boundary adjustment before adding domestic spatial
+externalities and congestion. Treating that adjustment as an externality would
+be incorrect.
 
 ### Proposition 2
 

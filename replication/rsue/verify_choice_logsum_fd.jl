@@ -60,7 +60,7 @@ function main(args=ARGS)
     model = TNW.build_model(project)
     results = TNW.decompose_welfare(model)
     isempty(results.directed) && error("verification requires directed results")
-    welfare_row = TNW.AdjointRSUE.welfare_gradient(model.data.omega, model.closures.c)
+    welfare_row = TNW.economic_welfare_gradient(model.data, model.closures.c)
     step = 1e-5
     samples = Dict{String,Any}[]
     max_absolute_error = 0.0

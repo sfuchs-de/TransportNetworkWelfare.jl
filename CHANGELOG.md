@@ -5,6 +5,13 @@ recorded here.
 
 ## [Unreleased]
 
+### Models and welfare calculations
+
+- Add an external-node economic-geography closure with fixed foreign supply
+  and demand schedules and welfare over endogenous residents.
+- Use that closure in the paper RSUE configurations and report the associated
+  foreign-market boundary adjustment separately from domestic externalities.
+
 ## [0.2.0] - 2026-07-30
 
 ### Models and welfare calculations

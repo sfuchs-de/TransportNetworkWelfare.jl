@@ -132,6 +132,12 @@ function run_manifest(project::Project, diagnostics::AbstractDict, outputs; comm
         "transformations" => diagnostics["transformations"],
         "model_variant" => Dict(
             "spatial_closure" => spatial_name(project.spatial),
+            "equilibrium_boundary" => get(
+                diagnostics, "equilibrium_closure", "not_applicable"),
+            "welfare_constituency" => get(
+                diagnostics, "welfare_constituency", "not_applicable"),
+            "external_node_ids" => project.spatial isa EconomicGeography ?
+                project.spatial.external_node_ids : String[],
             "modal" => modal_name(project.modal),
             "congestion" => string(nameof(typeof(project.congestion))),
             "route_curvature" => "theorem",

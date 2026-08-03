@@ -18,6 +18,15 @@ Optional plotting columns are `longitude`, `latitude`, and `elevation`. They do
 not enter the economic model. The loader normalizes labor and income only when
 the TOML file declares those transformations.
 
+An economic-geography project may instead treat selected nodes as fixed
+external markets. List their IDs in `model.external_nodes` and add
+`external_supply` and `external_demand` to `nodes.csv`. These schedules must be
+positive at external nodes and zero or missing at endogenous nodes. External
+nodes remain in the transport network, but their labor and income are excluded
+from worker mobility and welfare. The two schedules use the same units as
+edge-mode flows and are divided by domestic income when
+`flow_conversion="divide_by_world_income"`.
+
 ## `edge_modes.csv`
 
 Required columns:
@@ -86,6 +95,8 @@ sigma = 9.0
 eta = 1.099
 modal_specification = "choice_logsum"
 route_curvature = "theorem"
+# Optional boundary closure:
+# external_nodes = ["foreign_europe", "foreign_asia"]
 
 [congestion]
 specification = "composite"

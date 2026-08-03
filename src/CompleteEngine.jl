@@ -17,11 +17,12 @@ struct DecompositionResults
     diagnostics::Dict{String,Any}
 end
 
-function inverse_state_map(N::Int, omega::AbstractVector, c::AdjointRSUE.Coef)
+function inverse_state_map(N::Int, omega::AbstractVector, c::AdjointRSUE.Coef;
+                           endogenous::AbstractVector{Bool}=trues(N))
     V = zeros(2N + 1, 2N)
     qW = AdjointRSUE.welfare_gradient(omega, c)
     wage_y = -(1 + c.β * (c.σ - 1)) / ((c.σ - 1) * c.e)
-    for i in 1:N
+    for i in findall(endogenous)
         V[i, i] = c.α / c.e
         V[i, N+i] = wage_y
         V[N+i, :] .= qW ./ (1 + c.α + c.β)
@@ -29,14 +30,16 @@ function inverse_state_map(N::Int, omega::AbstractVector, c::AdjointRSUE.Coef)
         V[N+i, N+i] += c.σ / ((c.σ - 1) * c.e)
     end
     V[end, :] .= qW
-    return V
+    locations = findall(endogenous)
+    return V[:, vcat(locations, N .+ locations)]
 end
 
-function bilateral_state_rows(N::Int, c::AdjointRSUE.Coef)
+function bilateral_state_rows(N::Int, c::AdjointRSUE.Coef;
+                              endogenous::AbstractVector{Bool}=trues(N))
     nv = 2N + 1
     S = zeros(N, nv)
     D = zeros(N, nv)
-    for i in 1:N
+    for i in findall(endogenous)
         S[i, i] = 1 - c.σ
         S[i, N+i] = (c.σ - 1) * c.α
         D[i, i] = c.σ
@@ -45,6 +48,9 @@ function bilateral_state_rows(N::Int, c::AdjointRSUE.Coef)
     end
     return S, D, zeros(nv)
 end
+
+economic_welfare_gradient(data::NetworkData, c::AdjointRSUE.Coef) =
+    AdjointRSUE.reduced_welfare_gradient(data.omega, c, data.endogenous)
 
 function active_transport_modes(project::Project, data::NetworkData)
     return sort!(collect(configured_active_modes(project, data.modes)); by=String)
@@ -115,17 +121,17 @@ end
 function build_route_basis(project::Project, data::NetworkData; include_fixed::Bool=true)
     c = AdjointRSUE.coefs(
         project.parameters.alpha, project.parameters.beta, project.parameters.sigma)
-    S, D, dlogY = bilateral_state_rows(data.N, c)
+    S, D, dlogY = bilateral_state_rows(data.N, c; endogenous=data.endogenous)
     dlogY[1:data.N] .= data.nu
     dlogY[data.N+1:2*data.N] .= data.nu
-    Vz = inverse_state_map(data.N, data.omega, c)
-    accepted = IFTDecomposition.response_rows(
+    Vz = inverse_state_map(data.N, data.omega, c; endogenous=data.endogenous)
+    accepted = all(data.endogenous) ? IFTDecomposition.response_rows(
         data.N, build_pair_basis(project, data).active_network_edges,
-        data.omega, data.nu, c)
+        data.omega, data.nu, c) : nothing
     basis = build_spatial_transport_basis(
         project, data;
-        source=data.nu,
-        destination=data.nu,
+        source=data.source_margin,
+        destination=data.destination_margin,
         source_state=S,
         destination_state=D,
         aggregate_state=dlogY,
@@ -139,7 +145,7 @@ end
 
 function route_state_matrix(data::NetworkData, basis, c::AdjointRSUE.Coef;
                             route::Symbol=:soft)
-    S, D, dlogY = bilateral_state_rows(data.N, c)
+    S, D, dlogY = bilateral_state_rows(data.N, c; endogenous=data.endogenous)
     dlogY[1:data.N] .= data.nu
     dlogY[data.N+1:2*data.N] .= data.nu
     dense = if route == :fixed
@@ -147,12 +153,12 @@ function route_state_matrix(data::NetworkData, basis, c::AdjointRSUE.Coef;
             permutedims(dlogY)
     elseif route == :soft
         T = basis.route.T
-        Pstock = vec(permutedims(data.nu) * T)
+        Pstock = vec(permutedims(data.source_margin) * T)
         Qstock = T * data.sx
         Pz = zeros(data.N, 2*data.N+1)
         Qz = zeros(data.N, 2*data.N+1)
         for k in 1:data.N
-            Pz[k, :] .= vec(permutedims(data.nu .* T[:, k] ./ Pstock[k]) * S)
+            Pz[k, :] .= vec(permutedims(data.source_margin .* T[:, k] ./ Pstock[k]) * S)
             Qz[k, :] .= vec(permutedims(T[k, :] .* data.sx ./ Qstock[k]) * D)
         end
         Pz[first.(basis.active_network_edges), :] +
@@ -160,7 +166,8 @@ function route_state_matrix(data::NetworkData, basis, c::AdjointRSUE.Coef;
     else
         throw(ArgumentError("route closure must be soft or fixed"))
     end
-    return dense * inverse_state_map(data.N, data.omega, c)
+    return dense * inverse_state_map(
+        data.N, data.omega, c; endogenous=data.endogenous)
 end
 
 function edge_congestion_value(project::Project, data::NetworkData,
@@ -328,9 +335,12 @@ function build_closures(project::Project, data::NetworkData, basis)
         Qz_soft=route_state_matrix(data, basis, c; route=:soft),
         Qz_fixed=route_state_matrix(data, basis, c; route=:fixed),
     ))
-    J0 = AdjointRSUE.assemble_J(data.sx, data.sy, data.mu, data.lam, data.omega, c)
+    J0 = AdjointRSUE.assemble_J(
+        data.sx, data.sy, data.mu, data.lam, data.omega, c;
+        endogenous=data.endogenous, normalization_node=data.normalization_node)
     B = IFTDecomposition.cost_loading_matrix(
-        data.N, point_basis.active_network_edges, data.mu, data.lam, c.σ)
+        data.N, point_basis.active_network_edges, data.mu, data.lam, c.σ;
+        endogenous=data.endogenous, normalization_node=data.normalization_node)
     NCt = build_transport_closure(project, data, point_basis, B;
         include_edge=false, include_terminal=false)
     NTt = build_transport_closure(project, data, point_basis, B;
@@ -353,7 +363,8 @@ function build_closures(project::Project, data::NetworkData, basis)
          FMNTt.condition, FRNTt.condition)) ||
         error("a transport closure exceeds the condition-number gate")
     factors = IFTDecomposition.jacobian_factors(
-        data.sx, data.sy, data.mu, data.lam, data.omega, c)
+        data.sx, data.sy, data.mu, data.lam, data.omega, c;
+        endogenous=data.endogenous, normalization_node=data.normalization_node)
     factors.residual <= project.tolerance ||
         error("no-congestion Jacobian factorization exceeded tolerance")
     zero = zero_factor(size(J0, 1))
@@ -405,9 +416,12 @@ function build_welfare_model(project::Project)
     point_basis = merge(basis, (;
         Qz_soft=route_state_matrix(data, basis, c; route=:soft),
     ))
-    J0 = AdjointRSUE.assemble_J(data.sx, data.sy, data.mu, data.lam, data.omega, c)
+    J0 = AdjointRSUE.assemble_J(
+        data.sx, data.sy, data.mu, data.lam, data.omega, c;
+        endogenous=data.endogenous, normalization_node=data.normalization_node)
     B = IFTDecomposition.cost_loading_matrix(
-        data.N, point_basis.active_network_edges, data.mu, data.lam, c.σ)
+        data.N, point_basis.active_network_edges, data.mu, data.lam, c.σ;
+        endogenous=data.endogenous, normalization_node=data.normalization_node)
     Ft = build_transport_closure(project, data, point_basis, B)
     JF = J0+Ft.Jc
     condition = cond(JF)
@@ -494,7 +508,7 @@ end
 
 function decomposition_rows(model::TransportModel)
     data, basis, closures = model.data, model.basis, model.closures
-    q = AdjointRSUE.welfare_gradient(data.omega, closures.c)
+    q = economic_welfare_gradient(data, closures.c)
     realized_forcing = closures.B * basis.Sagg[:, basis.policy_pairs]
     primitive = primitive_forcing(model)
     names = (:NC, :NT, :F, :FM, :FR)

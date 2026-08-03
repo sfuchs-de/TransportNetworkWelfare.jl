@@ -29,8 +29,11 @@ include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.j
     )
     welfare_path = Dict{String,Any}(
         "mean_traditional" => 0.0004,
+        "mean_domestic_efficient" => 0.00042,
         "mean_spatial_no_congestion" => 0.0005,
         "mean_extended" => 0.0003,
+        "mean_boundary_adjustment" => 0.00002,
+        "mean_spatial_externality_adjustment" => 0.00008,
         "mean_direct_externality_adjustment" => -0.0002,
         "mean_market_access_propagation_adjustment" => 0.0003,
         "mean_spatial_adjustment" => 0.0001,
@@ -63,6 +66,8 @@ include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.j
         @test occursin("\\PaperTopTenTableCount}{10}", output)
         @test occursin("\\PaperTopLinkTableCount}{30}", output)
         @test occursin("\\PaperSpatialNoCongestionMeanScaled}{0.125}", output)
+        @test occursin("\\PaperDomesticEfficientMeanScaled}{0.105}", output)
+        @test occursin("\\PaperBoundaryAdjustmentScaled}{0.005}", output)
         @test occursin("\\PaperNetSpatialAdjustmentScaled}{0.025}", output)
         @test occursin("\\PaperRoadCongestionPolicyAdjustmentScaled}{-0.05}", output)
         @test occursin("\\PaperCongestionPassThroughAdjustmentScaled}{-0.05}", output)
@@ -91,8 +96,11 @@ end
 @testset "Policy-relevant path preserves the welfare identity" begin
     rows = [(
         traditional=0.0010,
+        domestic_efficient=0.00102,
         spatial_no_congestion=0.0011,
         extended=0.0007,
+        boundary_adjustment=0.00002,
+        spatial_externality_adjustment=0.00008,
         direct_externality_adjustment=-0.0002,
         market_access_propagation_adjustment=0.0003,
         road_congestion_adjustment=-0.0001,
@@ -108,6 +116,7 @@ end
     )]
     summary = welfare_path_statistics(rows)
     @test summary["mean_traditional"] == 0.001
+    @test summary["mean_domestic_efficient"] == 0.00102
     @test summary["mean_extended"] == 0.0007
     @test summary["mean_spatial_adjustment"] == 0.0001
     @test summary["mean_road_congestion_policy_adjustment"] == -0.0004
