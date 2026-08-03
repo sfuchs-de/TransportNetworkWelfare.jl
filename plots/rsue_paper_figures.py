@@ -30,7 +30,9 @@ PAPER_SENSITIVITY_PARAMETERS = (
     "net_dispersion",
     "lambda_road",
 )
-ONE_PERCENT_GAIN_PPM_SCALE = 1.0e4
+# Convert an elasticity into basis points of welfare for a one-percent shock:
+# elasticity * 0.01 * 10,000 = elasticity * 100.
+ONE_PERCENT_GAIN_BASIS_POINT_SCALE = 100.0
 
 
 def read_rows(path: Path):
@@ -275,14 +277,12 @@ def decomposition_summary(rows, tolerance=1.0e-12):
 
 
 def _format_effect(value):
-    return f"{ONE_PERCENT_GAIN_PPM_SCALE*value:.2f}"
+    return f"{ONE_PERCENT_GAIN_BASIS_POINT_SCALE*value:.4f}"
 
 
 def decomposition_figure(rows, output):
     summary = decomposition_summary(rows)
-    # An elasticity times a one-percent shock, expressed per million,
-    # has the same numerical scaling: 0.01 * 1e6 = 1e4.
-    scale = ONE_PERCENT_GAIN_PPM_SCALE
+    scale = ONE_PERCENT_GAIN_BASIS_POINT_SCALE
     figure, axes = plt.subplots(
         1, 2, figsize=(10.8, 3.8),
         gridspec_kw={"width_ratios": (1.0, 1.0)},
@@ -325,7 +325,7 @@ def decomposition_figure(rows, output):
     ladder_axis.set_ylim(-0.55, 2.45)
     ladder_axis.set_xlim(0.0, max(ladder_x)*1.18)
     ladder_axis.set_xlabel(
-        "Mean welfare gain from a 1% improvement\n(parts per million)")
+        "Welfare gain from a 1% improvement\n(basis points)")
     style_axis(ladder_axis, grid_axis="x")
     ladder_axis.spines["left"].set_visible(False)
     ladder_axis.tick_params(axis="y", length=0)
@@ -367,7 +367,7 @@ def decomposition_figure(rows, output):
             edgecolor=color, linewidth=0.9, zorder=3,
         )
         component_axis.annotate(
-            f"{value:+.2f}", (value, y_value),
+            f"{value:+.4f}", (value, y_value),
             xytext=(0, 7),
             textcoords="offset points",
             ha="center",
@@ -380,13 +380,13 @@ def decomposition_figure(rows, output):
         abs(value) for value in component_values if np.isfinite(value))
     component_axis.set_xlim(-limit, limit)
     component_axis.set_xlabel(
-        "Change in mean welfare gain\n(parts per million)")
+        "Change in welfare gain\n(basis points)")
     style_axis(component_axis, grid_axis="x")
     component_axis.spines["left"].set_visible(False)
     component_axis.tick_params(axis="y", length=0)
     component_axis.text(
         0.98, 0.03,
-        f"Net change: {scale*summary['net_change']:+.2f}",
+        f"Net change: {scale*summary['net_change']:+.4f}",
         transform=component_axis.transAxes, ha="right", va="bottom",
         fontsize=7, color=MUTED,
     )
