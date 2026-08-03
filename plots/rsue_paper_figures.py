@@ -422,7 +422,8 @@ def sensitivity_figure(rows, output):
             raise ValueError(
                 f"Sensitivity path {parameter} must identify one baseline.")
         x = np.asarray([float(row["value"]) for row in data])
-        mean_gain = 1.0e4*np.asarray(
+        # Convert the percentage welfare gain to basis points: 1 bp = 0.01%.
+        mean_gain = 100.0*np.asarray(
             [float(row["mean_physical_gain_pct"]) for row in data])
         rank = np.asarray([float(row["spearman_vs_baseline"]) for row in data])
         mean_axis, rank_axis = axes[row_index]
@@ -445,7 +446,7 @@ def sensitivity_figure(rows, output):
     axes[-1, 0].set_xlabel("Parameter value")
     axes[-1, 1].set_xlabel("Parameter value")
     add_panel_label(
-        axes[0, 0], "A", r"Mean welfare gain ($\%\times 10^{4}$)")
+        axes[0, 0], "A", "Mean welfare gain (basis points)")
     add_panel_label(
         axes[0, 1], "B", "Rank correlation with baseline")
     figure.subplots_adjust(
