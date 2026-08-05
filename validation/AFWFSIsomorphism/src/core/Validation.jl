@@ -3,17 +3,19 @@
 
 Run the numerical commutative-diagram test:
 1. Markov route-flow primal versus soft-Bellman dual;
-2. entropy-regularized spatial planner versus full AFW equilibrium;
-3. full versus recursive AFW equilibrium at `theta=sigma-1`;
-4. recursive adjoint versus traffic and finite differences;
-5. failure of recursive condensation away from equal curvature;
-6. convergence to hard routing.
+2. the expanded entropy planner versus the full AFW equilibrium;
+3. the route-dualized spatial planner versus the same equilibrium;
+4. full versus recursive AFW equilibrium at `theta=sigma-1`;
+5. recursive adjoint versus traffic and finite differences;
+6. failure of recursive condensation away from equal curvature;
+7. convergence to hard routing.
 """
 function run_validation(; output=nothing)
     e = synthetic_economy()
     route = route_dual(e)
     full = solve_full_afw(e; route)
     route_primal = solve_route_primal(e, 1, 4; route)
+    expanded = solve_expanded_planner(e; route, start=full)
     planner = solve_spatial_planner(e; route, start=full)
     recursive = solve_recursive_afw(e; start=full)
     adjoint = adjoint_diagnostics(e, recursive)
@@ -40,7 +42,17 @@ function run_validation(; output=nothing)
             "flow_error" => route_primal.flow_error,
             "conservation_error" => norm(route_primal.conservation, Inf),
         ),
-        "planner_equilibrium" => Dict(
+        "expanded_planner_equilibrium" => Dict(
+            "welfare_error" => abs(expanded.W - full.W),
+            "labor_error" => norm(expanded.L - full.L, Inf),
+            "consumption_error" => norm(expanded.c - full.c, Inf),
+            "route_cost_error" => expanded.route_cost_error,
+            "route_flow_error" => expanded.flow_error,
+            "flow_conservation_error" => expanded.conservation_error,
+            "resource_binding_error" => norm(expanded.resource_slack, Inf),
+            "utility_binding_error" => norm(expanded.utility_slack, Inf),
+        ),
+        "reduced_planner_equilibrium" => Dict(
             "welfare_error" => abs(planner.W - full.W),
             "labor_error" => norm(planner.L - full.L, Inf),
             "consumption_error" => norm(planner.c - full.c, Inf),
