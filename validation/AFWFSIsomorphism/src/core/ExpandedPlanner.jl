@@ -21,6 +21,10 @@ function solve_expanded_planner(e::IsomorphismEconomy{Float64};
     # column-major layout, while destination is constant within each block.
     od_origin = repeat(collect(1:N), outer=N)
     od_destination = repeat(collect(1:N), inner=N)
+    source = zeros(Float64, OD, N)
+    for od in 1:OD
+        source[od, od_origin[od]] = 1.0
+    end
 
     model = Model(Ipopt.Optimizer)
     set_optimizer_attribute(model, "tol", 2e-10)
@@ -35,7 +39,7 @@ function solve_expanded_planner(e::IsomorphismEconomy{Float64};
     @variable(model, c[1:N, 1:N] >= positivity)
     @variable(model, log_flow_lower <= g[1:OD, 1:E] <= log_flow_upper)
     @NLexpression(model, occupancy[od=1:OD, k=1:N],
-        (k == od_origin[od] ? 1.0 : 0.0) +
+        source[od, k] +
         sum(exp(g[od, index]) for index in network.incoming[k]))
 
     set_start_value(W, benchmark.W)
