@@ -16,9 +16,17 @@ function hard_route_costs(e::IsomorphismEconomy)
     return exp.(distance)
 end
 
-"""Convergence of entropy-regularized route costs and spatial allocations to hard routing."""
+"""
+    hard_limit_diagnostics(economy; theta_grid=(2,4,...,256))
+
+Hold the goods elasticity fixed and raise only route curvature. The returned
+sequence therefore isolates the zero-entropy limit rather than changing route
+and goods substitution together. The extended grid is intentional: convergence
+can be slow when the first- and second-best route costs are close.
+"""
 function hard_limit_diagnostics(e::IsomorphismEconomy;
-                                theta_grid=(2.0, 4.0, 8.0, 16.0, 32.0, 64.0))
+                                theta_grid=(2.0, 4.0, 8.0, 16.0, 32.0,
+                                            64.0, 128.0, 256.0))
     tau_hard = hard_route_costs(e)
     hard = _full_solution_from_tau(e, tau_hard)
     rows = NamedTuple[]
