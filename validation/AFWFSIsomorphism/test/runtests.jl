@@ -14,7 +14,19 @@ using Test
         @test primal.flow_error <= 2e-6
     end
 
-    @testset "spatial planner and full decentralized AFW equilibrium" begin
+    @testset "expanded entropy planner and full decentralized AFW equilibrium" begin
+        planner = solve_expanded_planner(economy; route, start=full)
+        @test abs(planner.W - full.W) <= 5e-6
+        @test norm(planner.L - full.L, Inf) <= 1e-5
+        @test norm(planner.c - full.c, Inf) <= 1e-5
+        @test planner.route_cost_error <= 1e-5
+        @test planner.flow_error <= 2e-5
+        @test planner.conservation_error <= 2e-8
+        @test norm(planner.resource_slack, Inf) <= 2e-6
+        @test norm(planner.utility_slack, Inf) <= 2e-6
+    end
+
+    @testset "route-dualized spatial planner and full AFW equilibrium" begin
         planner = solve_spatial_planner(economy; route, start=full)
         @test abs(planner.W - full.W) <= 2e-7
         @test norm(planner.L - full.L, Inf) <= 3e-6
@@ -60,5 +72,6 @@ using Test
         results = run_validation(output=destination)
         @test isfile(destination)
         @test results["recursive_condensation"]["mismatch_residual_theta_2_2"] >= 1e-5
+        @test results["expanded_planner_equilibrium"]["route_cost_error"] <= 1e-5
     end
 end
