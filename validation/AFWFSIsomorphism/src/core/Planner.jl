@@ -166,8 +166,10 @@ function solve_expanded_planner(e::IsomorphismEconomy; route=route_dual(e), star
     E = length(network.edges)
     OD = N * N
     od_index = reshape(collect(1:OD), N, N)
-    od_origin = repeat(collect(1:N), inner=N)
-    od_destination = repeat(collect(1:N), outer=N)
+    # `od_index[i,j] = i + (j-1)N`: origin varies fastest in Julia's
+    # column-major layout, while destination is constant within each block.
+    od_origin = repeat(collect(1:N), outer=N)
+    od_destination = repeat(collect(1:N), inner=N)
 
     model = Model(Ipopt.Optimizer)
     set_silent(model)
