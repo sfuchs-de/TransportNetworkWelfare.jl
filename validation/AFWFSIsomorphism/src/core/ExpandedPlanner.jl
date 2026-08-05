@@ -1,20 +1,24 @@
 """
-More-specific Float64 implementation of `solve_expanded_planner`.
+Direct Float64 implementation of the expanded entropy-regularized planner.
 
-The destination conservation row is omitted for each OD block. It is implied by
-the other rows because one unit is injected at the origin and one unit is
-absorbed at the destination. Dropping it removes the exact row dependence that
-otherwise makes the nonlinear KKT system singular.
+The destination conservation row is omitted for each OD block because it is
+implied by the other rows once one unit is injected at the origin and one unit
+is absorbed at the destination. Route occupancies are parameterized in logs,
+which keeps every flow and every node occupancy strictly positive and prevents
+undefined entropy derivatives during the nonlinear solve.
 """
 function solve_expanded_planner(e::IsomorphismEconomy{Float64};
                                 route=route_dual(e), start=nothing,
-                                positivity::Real=1e-12)
+                                log_flow_lower::Real=-40.0,
+                                log_flow_upper::Real=10.0)
     N = length(e.A)
     benchmark = isnothing(start) ? solve_full_afw(e; route) : start
     network = _network_incidence(e)
     E = length(network.edges)
     OD = N * N
     od_index = reshape(collect(1:OD), N, N)
+    # `od_index[i,j] = i + (j-1)N`: origin varies fastest in Julia's
+    # column-major layout, while destination is constant within each block.
     od_origin = repeat(collect(1:N), outer=N)
     od_destination = repeat(collect(1:N), inner=N)
 
@@ -25,13 +29,14 @@ function solve_expanded_planner(e::IsomorphismEconomy{Float64};
     set_optimizer_attribute(model, "check_derivatives_for_naninf", "yes")
     set_optimizer_attribute(model, "print_level", 5)
 
+    positivity = 1e-12
     @variable(model, W >= positivity)
     @variable(model, L[1:N] >= positivity)
     @variable(model, c[1:N, 1:N] >= positivity)
-    @variable(model, f[1:OD, 1:E] >= positivity)
-    @expression(model, occupancy[od=1:OD, k=1:N],
+    @variable(model, log_flow_lower <= g[1:OD, 1:E] <= log_flow_upper)
+    @NLexpression(model, occupancy[od=1:OD, k=1:N],
         (k == od_origin[od] ? 1.0 : 0.0) +
-        sum(f[od, index] for index in network.incoming[k]))
+        sum(exp(g[od, index]) for index in network.incoming[k]))
 
     set_start_value(W, benchmark.W)
     for i in 1:N
@@ -40,29 +45,32 @@ function solve_expanded_planner(e::IsomorphismEconomy{Float64};
             set_start_value(c[i, j], max(benchmark.c[i, j], 10positivity))
             od = od_index[i, j]
             for (index, (k, l)) in enumerate(network.edges)
-                initial = route.G[i, k] * route.K[k, l] * route.G[l, j] / route.G[i, j]
-                set_start_value(f[od, index], max(initial, 10positivity))
+                initial = route.G[i, k] * route.K[k, l] * route.G[l, j] /
+                          route.G[i, j]
+                initial_log = log(max(initial, exp(log_flow_lower)))
+                set_start_value(g[od, index],
+                    clamp(initial_log, log_flow_lower + 1e-8,
+                          log_flow_upper - 1e-8))
             end
         end
     end
 
     for od in 1:OD, k in 1:N
         k == od_destination[od] && continue
-        @constraint(model,
-            occupancy[od, k] == sum(f[od, index] for index in network.outgoing[k]))
+        @NLconstraint(model,
+            occupancy[od, k] ==
+            sum(exp(g[od, index]) for index in network.outgoing[k]))
     end
 
     invtheta = 1 / e.theta
-    route_log_cost = Vector{Any}(undef, OD)
-    for od in 1:OD
-        destination = od_destination[od]
-        route_log_cost[od] = @NLexpression(model,
-            sum(f[od, index] * network.log_edge_cost[index] +
-                invtheta * f[od, index] *
-                    log(f[od, index] / occupancy[od, network.edge_origin[index]])
-                for index in 1:E) +
-            invtheta * log(1 / occupancy[od, destination]))
-    end
+    @NLexpression(model, route_log_cost[od=1:OD],
+        sum(
+            exp(g[od, index]) * network.log_edge_cost[index] +
+            invtheta * exp(g[od, index]) *
+                (g[od, index] -
+                 log(occupancy[od, network.edge_origin[index]]))
+            for index in 1:E
+        ) - invtheta * log(occupancy[od, od_destination[od]]))
 
     @constraint(model, sum(L) == e.labor)
     for i in 1:N
@@ -83,16 +91,17 @@ function solve_expanded_planner(e::IsomorphismEconomy{Float64};
     W_value = value(W)
     L_value = value.(L)
     c_value = value.(c)
-    route_log_value = [value(route_log_cost[od]) for od in 1:OD]
+    route_log_value = value.(route_log_cost)
     route_cost = reshape(exp.(route_log_value), N, N)
     flow = zeros(Float64, N, N, N, N)
     dual_flow = zeros(Float64, N, N, N, N)
     for i in 1:N, j in 1:N
         od = od_index[i, j]
         for (index, (k, l)) in enumerate(network.edges)
-            flow[i, j, k, l] = value(f[od, index])
+            flow[i, j, k, l] = exp(value(g[od, index]))
             dual_flow[i, j, k, l] =
-                route.G[i, k] * route.K[k, l] * route.G[l, j] / route.G[i, j]
+                route.G[i, k] * route.K[k, l] * route.G[l, j] /
+                route.G[i, j]
         end
     end
     conservation_error = 0.0
