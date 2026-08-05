@@ -1,0 +1,46 @@
+name: AFW-FS Isomorphism
+
+permissions:
+  contents: read
+
+concurrency:
+  group: afw-fs-isomorphism-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/kernels/AdjointRSUE.jl'
+      - 'validation/AFWFSIsomorphism/**'
+      - '.github/workflows/isomorphism.yml'
+  pull_request:
+    paths:
+      - 'src/kernels/AdjointRSUE.jl'
+      - 'validation/AFWFSIsomorphism/**'
+      - '.github/workflows/isomorphism.yml'
+
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: julia-actions/setup-julia@4c0cb0fce8556fdb04a90347310e5db8b1f98fb9 # v2
+        with:
+          version: '1.10'
+      - uses: julia-actions/cache@d10a6fd8f31b12404a54613ebad242900567f2b9 # v2
+      - name: Instantiate validation environment
+        working-directory: validation/AFWFSIsomorphism
+        run: julia --project=. -e 'using Pkg; Pkg.develop(path="../.."); Pkg.instantiate()'
+      - name: Test planner-flow isomorphism
+        working-directory: validation/AFWFSIsomorphism
+        run: julia --project=. -e 'using Pkg; Pkg.test()'
+      - name: Generate validation report
+        working-directory: validation/AFWFSIsomorphism
+        run: julia --project=. scripts/run_validation.jl output/validation.toml
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: afw-fs-isomorphism-validation
+          path: validation/AFWFSIsomorphism/output/validation.toml
