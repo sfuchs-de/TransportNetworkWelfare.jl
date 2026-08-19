@@ -4,10 +4,10 @@
 
 - [x] Package, CLI, synthetic examples, and documentation run without private
   data or credentials.
-- [x] Julia tests, independent finite differences, algebraic identities, and
+- [x] Julia tests, nonlinear finite differences, algebraic identities, and
   deterministic artifact checks pass.
 - [x] `Project.toml`, `CITATION.cff`, changelog, practitioner guide, and locked
-  RSUE environment agree on version `0.2.0`.
+  RSUE environment agree on version `0.3.0`.
 - [x] Provenance, secret, local-path, helper-artifact, and repository-content
   checks run in CI.
 - [x] The tag workflow rebuilds the practitioner guide and publishes its
@@ -27,8 +27,8 @@
 ## Final publication steps
 
 - [x] Run `make public-release-check` from a clean clone.
-- [x] Create and verify tag `v0.2.0`.
-- [x] Confirm the GitHub release contains the checked practitioner-guide PDF
+- [ ] Create and verify tag `v0.3.0`.
+- [ ] Confirm the GitHub release contains the checked practitioner-guide PDF
   and checksum.
 - [x] Change repository visibility only after the automated and external gates
   above are complete.

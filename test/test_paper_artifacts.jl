@@ -1,8 +1,32 @@
 module PaperArtifactTests
 
 using Test
+using TOML
 
 include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.jl"))
+
+@testset "Committed RSUE finite-difference provenance is current" begin
+    report_path = joinpath(
+        @__DIR__, "..", "replication", "rsue", "verification",
+        "choice_logsum_rsue_fd.toml")
+    report = TOML.parsefile(report_path)
+    @test report["verification_status"] == "accepted"
+    @test report["package_version"] == string(Base.pkgversion(TNW))
+    @test VP.validate_source_provenance(report, ROOT)
+    @test report["source_tree_sha256"] ==
+          VP.digest_hash_map(Dict{String,String}(report["source_hashes"]))
+    @test report["operator_bundle_sha256"] ==
+          VP.digest_hash_map(Dict{String,String}(report["operator_hashes"]))
+
+    missing_source = deepcopy(report)
+    delete!(missing_source["source_hashes"], first(keys(missing_source["source_hashes"])))
+    @test_throws ErrorException VP.validate_source_provenance(missing_source, ROOT)
+
+    stale_source = deepcopy(report)
+    path = first(keys(stale_source["source_hashes"]))
+    stale_source["source_hashes"][path] = repeat("0", 64)
+    @test_throws ErrorException VP.validate_source_provenance(stale_source, ROOT)
+end
 
 @testset "Paper macros respect the configured shock size" begin
     statistics = Dict{String,Any}(
@@ -91,6 +115,39 @@ end
         "descending traditional traffic statistic, then physical_link_id"
     @test isapprox(subsets["3"]["pearson"], -1.0; atol=1.0e-12)
     @test isapprox(subsets["3"]["spearman"], -1.0; atol=1.0e-12)
+end
+
+@testset "Mechanism links satisfy the multiplicative identity" begin
+    rows = [
+        (physical_link_id="a", hulten=0.4, primitive_F=0.2,
+         chi_effective=0.5, m_F=-0.5),
+        (physical_link_id="b", hulten=0.3, primitive_F=0.3,
+         chi_effective=1.0, m_F=-0.5),
+    ]
+    mechanisms = mechanism_link_statistics(
+        rows, -2.0, 0.01; link_ids=("a",), tolerance=1.0e-12)
+    @test length(mechanisms) == 1
+    @test mechanisms[1]["traditional_gain_basis_points"] == 40.0
+    @test mechanisms[1]["equilibrium_multiplier"] == 1.0
+    @test mechanisms[1]["extended_to_traditional_ratio"] == 0.5
+    @test mechanisms[1]["rank_gain"] == -1
+    @test abs(mechanisms[1]["identity_residual"]) <= 1.0e-12
+end
+
+@testset "Rank-distribution diagnostics use deterministic equal-count bins" begin
+    rows = [
+        (physical_link_id="a", hulten=0.4, primitive_F=0.1),
+        (physical_link_id="b", hulten=0.3, primitive_F=0.4),
+        (physical_link_id="c", hulten=0.2, primitive_F=0.2),
+        (physical_link_id="d", hulten=0.1, primitive_F=0.3),
+    ]
+    diagnostics = rank_distribution_statistics(
+        rows; bins=2, overlap_counts=(1, 2))
+    @test length(diagnostics["deciles"]) == 2
+    @test all(row["count"] == 2 for row in diagnostics["deciles"])
+    @test diagnostics["top_k_overlap"][1]["k"] == 1
+    @test diagnostics["top_k_overlap"][1]["overlap_count"] == 0
+    @test diagnostics["top_k_overlap"][2]["overlap_count"] == 1
 end
 
 @testset "Policy-relevant path preserves the welfare identity" begin

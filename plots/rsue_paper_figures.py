@@ -278,7 +278,10 @@ def decomposition_summary(rows, tolerance=1.0e-12):
         numeric.append(values)
 
     mean = lambda field: float(np.mean([row[field] for row in numeric]))
-    return {field: mean(field) for field in fields}
+    summary = {field: mean(field) for field in fields}
+    summary["baseline_net_change"] = (
+        summary["extended"]-summary["domestic_efficient"])
+    return summary
 
 
 def _format_effect(value):
@@ -295,8 +298,11 @@ def decomposition_figure(rows, output):
 
     ladder_axis = axes[0]
     ladder_fields = (
-        ("traditional", "Traditional approach", MUTED),
-        ("domestic_efficient", "U.S. welfare\n(fixed foreign markets)", TEAL),
+        (
+            "domestic_efficient",
+            "Baseline U.S. welfare\n(no externalities or congestion)",
+            MUTED,
+        ),
         ("spatial_no_congestion", "Spatial externalities\n(no congestion)", PURPLE),
         ("extended", "Extended approach", BLUE),
     )
@@ -339,8 +345,7 @@ def decomposition_figure(rows, output):
 
     component_axis = axes[1]
     components = (
-        (None, "Traditional baseline", MUTED),
-        ("boundary_adjustment", "Fixed foreign markets", TEAL),
+        (None, "Baseline", MUTED),
         ("spatial_externality_adjustment", "Net spatial externalities", PURPLE),
         (
             "road_congestion_policy_adjustment",
@@ -393,7 +398,7 @@ def decomposition_figure(rows, output):
     component_axis.tick_params(axis="y", length=0)
     component_axis.text(
         0.98, 0.03,
-        f"Net change: {scale*summary['net_change']:+.4f}",
+        f"Net change: {scale*summary['baseline_net_change']:+.4f}",
         transform=component_axis.transAxes, ha="right", va="bottom",
         fontsize=7, color=MUTED,
     )

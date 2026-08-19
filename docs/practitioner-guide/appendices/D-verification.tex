@@ -71,10 +71,13 @@ The Python oracle provides 55 checks of the corrected transformed
 economic-geography system. Julia fixtures compare Jacobian blocks, the welfare
 row, the Hulten limit, and the legacy result interfaces.
 
-The active choice-logsum path is checked independently using nonlinear
-equilibria. The freight verification chooses a deterministic traffic-stratified
-set of arcs, solves positive and negative primitive shocks, and binds the
-report to configuration, input, and source hashes.
+The active choice-logsum derivative is checked with nonlinear equilibria. The
+freight verification chooses a deterministic traffic-stratified set of arcs
+and solves positive and negative primitive shocks independently of the adjoint
+calculation. It remains conditional on the baseline operators and welfare row
+constructed by the package. The report is bound to the package version,
+configuration, inputs, complete Julia source set, and stable fingerprints of
+those baseline objects.
 
 The guide example adds central finite differences for one road improvement and
 one transit improvement. It also checks its efficient Hulten limit, one-mode

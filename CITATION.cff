@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use this software, please cite the software release and the associated paper."
 title: "TransportNetworkWelfare.jl"
 type: software
-version: 0.2.0
-date-released: 2026-07-30
+version: 0.3.0
+date-released: 2026-08-19
 license: MIT
 repository-code: "https://github.com/sfuchs-de/TransportNetworkWelfare.jl"
 url: "https://github.com/sfuchs-de/TransportNetworkWelfare.jl"

@@ -1,18 +1,19 @@
 # Theory, Code, and Self-Containment Audit
 
-**Audit date:** 2026-07-30
+**Audit date:** 2026-08-19
 
-**Release:** `v0.2.0`
+**Release:** `v0.3.0` release candidate
 
-**Package baseline:** numerical source from `origin/main` at
-`fd63ab17374ce9040477e5851d5f0317d09d6eed`, plus public-release
-documentation and checks that do not alter the numerical implementation
+**Package baseline:** `origin/main` at
+`e02ea8bf22c516b078e62539a0b47582a559b903`, plus the release metadata and
+verification-provenance changes described in this audit. The accepted result
+tables are unchanged from that baseline.
 
 **Paper baseline:** Overleaf
-`041f0425623e6b0265cdfdc439d26277bb22c7dd`
+`96283f92b4cd8fbcc68ed98b9aac32d7f5ba9343`
 
 **Theory-library baseline:** Mathdown
-`82a7cb3194a470d1fca001615d513d3d8822de36`
+`23f350a4de16eb842803f53267278deccb724f5d`
 
 ## Decisions
 
@@ -43,11 +44,11 @@ curates derivations and unresolved decisions. Restricted empirical adapters
 remain downstream of their source manifests.
 
 This release audit compares the implementation directly with the synchronized
-paper source at `041f042`. Relative to the earlier audit baseline at
-`7fab4d5`, the paper clarifies labor mobility, transshipment costs, and
-interpretation. It does not change the active modal index, route recursion,
-Proposition 1, Proposition 2, or the appendix derivations. No Overleaf source
-or private snapshot is part of the package or guide build.
+paper source at `96283f9` and its accepted machine-readable result vintage.
+The paper and package use the same active modal index, route recursion,
+external-node closure, welfare constituency, Proposition 1 comparator, and
+Proposition 2 derivative. No Overleaf source or private snapshot is part of
+the package or guide build.
 
 ## Model states
 
@@ -242,12 +243,12 @@ reports:
 | Statistic | Value |
 | --- | ---: |
 | Mean traditional elasticity | 0.0003872368807309085 |
-| Mean realized full-model elasticity | 0.0005133741112112903 |
-| Mean primitive extended elasticity | 0.00022309500106786957 |
-| Median primitive extended elasticity | 0.00018070218508596492 |
-| Maximum primitive extended elasticity | 0.0008718749697784064 |
-| Pearson correlation with traditional statistic | 0.9474377146863426 |
-| Spearman rank correlation | 0.9591921172385324 |
+| Mean realized full-model elasticity | 0.0005162437100091318 |
+| Mean primitive extended elasticity | 0.00022541416433537957 |
+| Median primitive extended elasticity | 0.00018277339936180882 |
+| Maximum primitive extended elasticity | 0.0008612196978247786 |
+| Pearson correlation with traditional statistic | 0.9453059295358930 |
+| Spearman rank correlation | 0.9573867734180728 |
 | Top-ten overlap | 4 |
 
 The tracked aggregate ledger is bound to the accepted configuration, Census
@@ -259,31 +260,49 @@ verify and display the accepted aggregate claims without containing the
 restricted result table or raw inputs.
 
 The accepted RSUE decomposition also contains large offsetting signed terms:
-externality scale \(0.0010068\), equilibrium propagation \(-0.0011017\), road
-congestion \(-0.0000313\), terminal congestion zero in the headline
-specification, and primitive-cost pass-through \(0.0002903\).
+externality scale \(0.0010068\), equilibrium propagation \(-0.0011045\), road
+congestion \(-0.0000314\), terminal congestion zero in the headline
+specification, primitive-cost pass-through \(0.0002908\), and the
+external-market boundary adjustment \(0.0000129\). The generated ledger and
+paper artifact builder verify these values from the same 352-link result
+vintage.
 
 ## Verification performed
 
-- Full Julia suite on Julia 1.10 and 1.12: 656 passes and three documented
-  expected failures for external-data integration gates on each version.
+- Full Julia 1.12.5 suite with the restricted RSUE inputs enabled: 739 passes
+  and two documented expected failures for the optional Sioux Falls and
+  Seattle external-data integration gates.
+- Public Julia suite without external data: 712 passes and three documented
+  expected external-data integration skips.
+- Restricted RSUE acceptance suite: 27 of 27 checks passed, including the 234
+  nodes, 704 directed policies, 352 physical links, accepted hashes, and
+  aggregate paper statistics.
 - Independent Proposition 2 oracle: 55 of 55 checks passed.
+- The RSUE nonlinear finite-difference harness agrees with the adjoint result
+  to \(3.40\times10^{-15}\), with maximum nonlinear residual
+  \(2.18\times10^{-16}\). Its report fingerprints every Julia package source,
+  the verification sources, the baseline operators, and the welfare row. The
+  nonlinear equilibrium solve is independent of the adjoint calculation,
+  conditional on those package-constructed baseline objects.
 - Grid example: analysis and decomposition passed all algebraic,
   contraction, conditioning, finite-difference, and limiting-case gates.
-- Generated source assets and standalone figures reproduced byte for byte.
+- The generated result macros, selected-link mechanism table, rank-distribution
+  table, and decomposition figure reproduce the active paper artifacts byte
+  for byte. The remaining generated paper figures are also byte-identical.
 - HTML documentation built with doctests and cross-reference checks.
 - Practitioner guide: 80 pages, no undefined citations or references, no
   duplicate bibliography keys, no LaTeX errors, and no overfull boxes.
 - Visual inspection covered the title page, complete worked example, RSUE
   summary, provenance appendix, and references.
-- A fresh worktree from `origin/main`, after `Pkg.instantiate()`, built the
-  guide without Dropbox, Overleaf, credentials, or restricted data. Python is
-  used only by the release-time asset drift checks. The PDF has SHA-256
-  `15579449bc32a1101fe58b693f30683dbbf5eb58f330f56b170b0fee3a789a2f`.
+- A fresh release worktree, after `Pkg.instantiate()`, built the guide without
+  Dropbox, Overleaf, credentials, or restricted data. Python is used only by
+  the release-time asset drift checks. The 80-page PDF has
+  SHA-256
+  `ec6a547c7ce03bb94a1afac9c3780dd3db30e936745eba58a67e7d74b271d0b1`.
 - Provenance validation checked nine kernel records.
 - Secret scan and `git diff --check` passed.
 - Release metadata checks confirm that `Project.toml`, `CITATION.cff`, the
-  guide, changelog, and locked RSUE environment all identify version `0.2.0`.
+  guide, changelog, and locked RSUE environment all identify version `0.3.0`.
 - Intermediate working notes, review traces, and local helper artifacts are
   excluded from the release source.
 

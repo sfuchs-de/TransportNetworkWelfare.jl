@@ -5,12 +5,27 @@ recorded here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-19
+
 ### Models and welfare calculations
 
 - Add an external-node economic-geography closure with fixed foreign supply
   and demand schedules and welfare over endogenous residents.
 - Use that closure in the paper RSUE configurations and report the associated
   foreign-market boundary adjustment separately from domestic externalities.
+
+### Verification and reproducibility
+
+- Bind the full-network finite-difference report to every Julia package source
+  file and to stable fingerprints of the baseline equilibrium operators and
+  welfare row.
+- Add a public regression test that rejects omitted, added, or stale source
+  hashes before restricted paper artifacts can be built.
+- Generate the paper's selected-link mechanism table, traffic-decile rank
+  diagnostics, and current decomposition figure from the accepted artifact
+  pipeline.
+- Refresh the theory-code audit and release metadata for the August 2026 paper
+  result vintage.
 
 ## [0.2.0] - 2026-07-30
 
@@ -71,6 +86,7 @@ recorded here.
 - Add the initial closure ladder, sensitivity paths, manifests,
   documentation, CI, and external RSUE adapter contract.
 
-[Unreleased]: https://github.com/sfuchs-de/TransportNetworkWelfare.jl/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/sfuchs-de/TransportNetworkWelfare.jl/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/sfuchs-de/TransportNetworkWelfare.jl/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/sfuchs-de/TransportNetworkWelfare.jl/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/sfuchs-de/TransportNetworkWelfare.jl/releases/tag/v0.1.0

@@ -11,6 +11,8 @@ const MAIN_CONFIG = joinpath(HERE, "rsue_paper_choice_edge_census_2017.toml")
 const TERMINAL_CONFIG = joinpath(HERE, "rsue_paper_terminal_extension_census_2017.toml")
 const CONTROL_CONFIG = joinpath(HERE, "rsue_paper_choice_edge_legacy_ports_control.toml")
 const ROOT = normpath(joinpath(HERE, "..", ".."))
+include(joinpath(HERE, "verification", "VerificationProvenance.jl"))
+const VP = VerificationProvenance
 
 function sorted_physical(result)
     rows = collect(result.physical)
@@ -32,14 +34,15 @@ function accepted_verification(project, model)
     report = TOML.parsefile(path)
     report["verification_status"] == "accepted" ||
         error("choice-logsum verification report is not accepted")
+    report["package_version"] == string(Base.pkgversion(TNW)) ||
+        error("choice-logsum verification report has a stale package version")
+    VP.validate_source_provenance(report, ROOT)
     report["config_sha256"] == TNW.file_sha256(project.config_path) ||
         error("choice-logsum verification report has a stale configuration hash")
     Dict{String,String}(report["input_hashes"]) == model.data.input_hashes ||
         error("choice-logsum verification report has stale input hashes")
-    for (relative, expected) in report["source_hashes"]
-        TNW.file_sha256(joinpath(ROOT, relative)) == expected ||
-            error("choice-logsum verification report has a stale source hash: $relative")
-    end
+    welfare_row = TNW.economic_welfare_gradient(model.data, model.closures.c)
+    VP.validate_operator_provenance(report, model, welfare_row)
     return path, report
 end
 
@@ -89,6 +92,114 @@ function traffic_ranked_subset_statistics(rows, counts=(50, 100))
         )
     end
     return output
+end
+
+function link_rank_maps(rows)
+    traditional = sort(collect(rows); by=row -> (-row.hulten, row.physical_link_id))
+    extended = sort(collect(rows); by=row -> (-row.primitive_F, row.physical_link_id))
+    traditional_rank = Dict(
+        row.physical_link_id => rank for (rank, row) in enumerate(traditional))
+    extended_rank = Dict(
+        row.physical_link_id => rank for (rank, row) in enumerate(extended))
+    return (; traditional, extended, traditional_rank, extended_rank)
+end
+
+function mechanism_link_statistics(rows, rho, shock_fraction;
+                                   link_ids=("6_10", "185_188", "184_200", "58_59"),
+                                   tolerance=1.0e-10)
+    by_id = Dict(row.physical_link_id => row for row in rows)
+    ranks = link_rank_maps(rows)
+    rationales = Dict(
+        "6_10" => "highest traditional and extended rank",
+        "185_188" => "large gain in rank under the extended approach",
+        "184_200" => "large loss in rank under the extended approach",
+        "58_59" => "below-median traffic and a large equilibrium multiplier",
+    )
+    display_labels = Dict(
+        "6_10" => "Los Angeles--San Diego",
+        "185_188" => "Durham--Raleigh",
+        "184_200" => "Washington--Baltimore",
+        "58_59" => "Fort Smith--Fayetteville",
+    )
+    output = Dict{String,Any}[]
+    for link_id in link_ids
+        haskey(by_id, link_id) || error("mechanism-table link is missing: $link_id")
+        row = by_id[link_id]
+        row.hulten > 0 || error("mechanism-table link has nonpositive traffic: $link_id")
+        ismissing(row.chi_effective) &&
+            error("mechanism-table link has undefined cost transmission: $link_id")
+        ratio = row.primitive_F/row.hulten
+        equilibrium_multiplier = rho*row.m_F
+        identity_residual = ratio-row.chi_effective*equilibrium_multiplier
+        abs(identity_residual) <= tolerance || error(
+            "mechanism-table identity failed for $link_id: $identity_residual")
+        traditional_rank = ranks.traditional_rank[link_id]
+        extended_rank = ranks.extended_rank[link_id]
+        push!(output, Dict{String,Any}(
+            "physical_link_id" => link_id,
+            "display_label" => get(display_labels, link_id, link_id),
+            "selection_rationale" => get(
+                rationales, link_id, "author-selected mechanism example"),
+            "traditional_gain_basis_points" =>
+                1.0e4*shock_fraction*row.hulten,
+            "cost_transmission" => row.chi_effective,
+            "equilibrium_multiplier" => equilibrium_multiplier,
+            "extended_to_traditional_ratio" => ratio,
+            "traditional_rank" => traditional_rank,
+            "extended_rank" => extended_rank,
+            "rank_gain" => traditional_rank-extended_rank,
+            "identity_residual" => identity_residual,
+        ))
+    end
+    return output
+end
+
+function rank_distribution_statistics(rows; bins::Int=10,
+                                      overlap_counts=(10, 25, 50, 100))
+    bins > 1 || error("rank distribution requires at least two bins")
+    length(rows) >= bins || error("rank distribution has fewer links than bins")
+    ranks = link_rank_maps(rows)
+    ascending = sort(collect(rows); by=row -> (row.hulten, row.physical_link_id))
+    deciles = Dict{String,Any}[]
+    for bin in 1:bins
+        selected = [
+            row for (index, row) in enumerate(ascending)
+            if fld((index-1)*bins, length(ascending))+1 == bin
+        ]
+        ratios = [row.primitive_F/row.hulten for row in selected]
+        rank_changes = [
+            ranks.traditional_rank[row.physical_link_id]-
+            ranks.extended_rank[row.physical_link_id] for row in selected
+        ]
+        push!(deciles, Dict{String,Any}(
+            "traditional_traffic_decile" => bin,
+            "count" => length(selected),
+            "mean_absolute_rank_change" => mean(abs, rank_changes),
+            "median_extended_to_traditional_ratio" => median(ratios),
+            "p25_extended_to_traditional_ratio" => quantile(ratios, 0.25),
+            "p75_extended_to_traditional_ratio" => quantile(ratios, 0.75),
+            "mean_absolute_proportional_difference" =>
+                mean(abs(row.primitive_F-row.hulten)/row.hulten for row in selected),
+        ))
+    end
+    overlaps = Dict{String,Any}[]
+    for count in overlap_counts
+        1 <= count <= length(rows) || error("invalid top-k overlap count: $count")
+        traditional_ids = Set(
+            row.physical_link_id for row in ranks.traditional[1:count])
+        extended_ids = Set(row.physical_link_id for row in ranks.extended[1:count])
+        overlap = length(intersect(traditional_ids, extended_ids))
+        push!(overlaps, Dict{String,Any}(
+            "k" => count,
+            "overlap_count" => overlap,
+            "overlap_share" => overlap/count,
+        ))
+    end
+    return Dict{String,Any}(
+        "binning" => "equal-count bins ordered by the traditional traffic statistic, then physical_link_id",
+        "deciles" => deciles,
+        "top_k_overlap" => overlaps,
+    )
 end
 
 function decomposition_statistics(rows)
@@ -604,6 +715,10 @@ function main()
     top_ten_tex_path = joinpath(output_dir, "paper_top_10_links.tex")
     top_thirty_csv_path = joinpath(output_dir, "paper_top_30_links.csv")
     top_thirty_tex_path = joinpath(output_dir, "paper_top_30_links.tex")
+    mechanism_csv_path = joinpath(output_dir, "paper_mechanism_links.csv")
+    mechanism_tex_path = joinpath(output_dir, "paper_mechanism_links.tex")
+    rank_distribution_csv_path = joinpath(output_dir, "paper_rank_distribution.csv")
+    rank_distribution_tex_path = joinpath(output_dir, "paper_rank_distribution.tex")
 
     statistics = result_statistics(physical, main_project.policy.shock_fraction)
     statistics["traffic_ranked_subsets"] =
@@ -611,6 +726,9 @@ function main()
     decomposition = decomposition_statistics(physical)
     ranking = top_link_comparison(physical, 10)
     appendix_ranking = top_link_comparison(physical, 30)
+    mechanism_links = mechanism_link_statistics(
+        physical, main_result.diagnostics["rho"], main_project.policy.shock_fraction)
+    rank_distribution = rank_distribution_statistics(physical)
     census_diagnostics_source = joinpath(
         HERE, "census_ports", "derived", "2017", "census_port_region_diagnostics.json")
     census_diagnostics_path = joinpath(output_dir, "census_port_source_metadata.json")
@@ -649,6 +767,8 @@ function main()
         "top_links" => top_links(physical),
         "top_link_comparison" => ranking,
         "appendix_top_link_comparison" => appendix_ranking,
+        "mechanism_links" => mechanism_links,
+        "rank_distribution" => rank_distribution,
         "sensitivity_link_panel" => sensitivity_link_diagnostics,
         "extension_sensitivity_link_panel" =>
             extension_sensitivity_diagnostics,
@@ -666,6 +786,10 @@ function main()
             "top_10_links_tex" => basename(top_ten_tex_path),
             "top_30_links_csv" => basename(top_thirty_csv_path),
             "top_30_links_tex" => basename(top_thirty_tex_path),
+            "mechanism_links_csv" => basename(mechanism_csv_path),
+            "mechanism_links_tex" => basename(mechanism_tex_path),
+            "rank_distribution_csv" => basename(rank_distribution_csv_path),
+            "rank_distribution_tex" => basename(rank_distribution_tex_path),
             "choice_logsum_verification" => basename(verification_path),
         ),
         "choice_logsum_verification_sha256" => TNW.file_sha256(verification_path),
@@ -685,7 +809,7 @@ function main()
         modal_diagnostics)
 
     labels_path = joinpath(output_dir, "paper_link_labels.csv")
-    run(`python3 $(joinpath(HERE, "build_cbsa_crosswalk.py")) $geometry_path $claims_path $labels_path --cache-dir $(joinpath(HERE, ".public_cache")) --sensitivity-links $sensitivity_links_path --top-10-links-csv $top_ten_csv_path --top-10-links-tex $top_ten_tex_path --top-30-links-csv $top_thirty_csv_path --top-30-links-tex $top_thirty_tex_path`)
+    run(`python3 $(joinpath(HERE, "build_cbsa_crosswalk.py")) $geometry_path $claims_path $labels_path --cache-dir $(joinpath(HERE, ".public_cache")) --sensitivity-links $sensitivity_links_path --top-10-links-csv $top_ten_csv_path --top-10-links-tex $top_ten_tex_path --top-30-links-csv $top_thirty_csv_path --top-30-links-tex $top_thirty_tex_path --mechanism-links-csv $mechanism_csv_path --mechanism-links-tex $mechanism_tex_path --rank-distribution-csv $rank_distribution_csv_path --rank-distribution-tex $rank_distribution_tex_path`)
 
     figure_dir = joinpath(output_dir, "figures")
     run(`python3 $(joinpath(ROOT, "plots", "rsue_paper_figures.py")) $output_dir $figure_dir`)
@@ -704,6 +828,8 @@ function main()
         extension_sensitivity_path, extension_sensitivity_links_path,
         top_ten_csv_path, top_ten_tex_path,
         top_thirty_csv_path, top_thirty_tex_path,
+        mechanism_csv_path, mechanism_tex_path,
+        rank_distribution_csv_path, rank_distribution_tex_path,
         claims_path, tex_path, verification_path,
         census_diagnostics_path,
         figure_outputs...,

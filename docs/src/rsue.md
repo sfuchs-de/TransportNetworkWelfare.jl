@@ -79,7 +79,13 @@ is absent from the headline specification and remains an extension.
 
 The tracked replication manifest fixes the Julia package environment. The artifact manifest also records the Julia and BLAS configuration, Python version, GDAL version, lockfile hashes, input hashes, and source hashes.
 
-The builder requires an accepted report from the independent nonlinear choice-logsum finite-difference harness. The report is bound to the paper configuration, restricted inputs, and derivative source files. Regenerate it after any of those change:
+The builder requires an accepted report from the nonlinear choice-logsum
+finite-difference harness. The harness solves the nonlinear equilibrium
+independently of the adjoint calculation, conditional on the baseline
+operators and welfare row constructed by the package. The report is bound to
+the package version, paper configuration, restricted inputs, every Julia
+package source file, and stable fingerprints of the constructed operators.
+Regenerate it after any of those change:
 
 ```bash
 export RSUE_DATA_ROOT=/absolute/path/to/rsue/Input
