@@ -6,6 +6,8 @@ using TOML
 include(joinpath(@__DIR__, "..", "replication", "rsue", "build_paper_artifacts.jl"))
 
 @testset "Committed RSUE finite-difference provenance is current" begin
+    @test VP.portable_path(raw"src\kernels\AdjointRSUE.jl") ==
+          "src/kernels/AdjointRSUE.jl"
     report_path = joinpath(
         @__DIR__, "..", "replication", "rsue", "verification",
         "choice_logsum_rsue_fd.toml")

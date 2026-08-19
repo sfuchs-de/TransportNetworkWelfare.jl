@@ -10,6 +10,7 @@ const INDEPENDENCE_SCOPE =
     "independent nonlinear equilibrium solve conditional on package-constructed baseline operators and welfare row"
 
 file_sha256(path::AbstractString) = bytes2hex(open(SHA.sha256, path))
+portable_path(path::AbstractString) = replace(path, '\\' => '/')
 
 function verification_source_paths(root::AbstractString)
     source_root = joinpath(root, "src")
@@ -18,12 +19,12 @@ function verification_source_paths(root::AbstractString)
         for file in files
             endswith(file, ".jl") || continue
             path = joinpath(directory, file)
-            push!(paths, relpath(path, root))
+            push!(paths, portable_path(relpath(path, root)))
         end
     end
     append!(paths, [
-        joinpath("replication", "rsue", "verify_choice_logsum_fd.jl"),
-        joinpath("replication", "rsue", "verification", "VerificationProvenance.jl"),
+        "replication/rsue/verify_choice_logsum_fd.jl",
+        "replication/rsue/verification/VerificationProvenance.jl",
     ])
     return sort!(unique!(paths))
 end

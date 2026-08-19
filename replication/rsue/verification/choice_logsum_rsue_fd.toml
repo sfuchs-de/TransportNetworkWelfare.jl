@@ -11,7 +11,7 @@ package_version = "0.3.0"
 schema_version = 2
 solve_residual_tolerance = 1.0e-10
 source_hash_scope = "all Julia package sources under src plus the RSUE finite-difference verification sources"
-source_tree_sha256 = "ccdb3d4dd8991f8f540d7d68244b350cf5275451f13ff721c84015ad59e77ec7"
+source_tree_sha256 = "716f7bfa385ac6ab5f62860cd8149dade6ebbb22d7291afd098caf1fb9b46655"
 verification_status = "accepted"
 
 [input_hashes]
@@ -114,7 +114,7 @@ relative_error = 2.134230313034508e-12
 traffic = 0.0009363981831675498
 
 [source_hashes]
-"replication/rsue/verification/VerificationProvenance.jl" = "85a67004d8a51119d19e23ac2cf7e736748b6a6f9c870a3734f12bc52e0959fe"
+"replication/rsue/verification/VerificationProvenance.jl" = "e53494d69cc1905429648a5b56bca1da4940d6d651b9e32c6155d0bac149eeff"
 "replication/rsue/verify_choice_logsum_fd.jl" = "9cfd270633158cbc3199713a1af4b69424a0096ffd1074eff37501d40156a220"
 "src/Analysis.jl" = "bf29598edb8b7dde4e89562daab3fc0b6b7f3f26cd463310620c0ef313eb9753"
 "src/CLI.jl" = "956bafd0f02f45f492a5f6d6bad6dc541abe5d27dab6cd88da8c39bc22d8663d"
