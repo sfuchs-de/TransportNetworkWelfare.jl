@@ -156,7 +156,10 @@ julia --project=replication/rsue/environment \
   replication/rsue/build_paper_artifacts.jl
 ```
 
-The builder verifies source hashes and an independent finite-difference report.
+The builder verifies the complete Julia source hash set, stable fingerprints of
+the constructed baseline operators, and a nonlinear finite-difference report.
+The nonlinear solve is independent of the adjoint calculation but conditional
+on the baseline operators and welfare row constructed by the package.
 Restricted microdata and link-level paper outputs are not committed. Aggregate
 acceptance targets and non-sensitive hashes remain available for verification.
 See the [RSUE documentation](docs/src/rsue.md) and

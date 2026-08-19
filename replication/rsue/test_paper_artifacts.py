@@ -15,6 +15,8 @@ from build_cbsa_crosswalk import (  # noqa: E402
     descriptive_link_label,
     label_sensitivity_links,
     tex_escape,
+    write_mechanism_link_outputs,
+    write_rank_distribution_outputs,
     write_top_link_outputs,
 )
 
@@ -190,6 +192,63 @@ class PaperArtifactTests(unittest.TestCase):
             self.assertEqual(
                 row["verified_label"], "Alpha-One, ZZ--Beta-Two, ZZ")
 
+
+    def test_writes_mechanism_table(self):
+        mechanisms = [{
+            "physical_link_id": "a_b",
+            "selection_rationale": "test",
+            "traditional_gain_basis_points": 0.04,
+            "cost_transmission": 0.5,
+            "equilibrium_multiplier": 1.2,
+            "extended_to_traditional_ratio": 0.6,
+            "traditional_rank": 20,
+            "extended_rank": 5,
+            "rank_gain": 15,
+            "identity_residual": 0.0,
+        }]
+        labels = [{
+            "physical_link_id": "a_b",
+            "cbsa_name_a": "Alpha-One, ZZ",
+            "cbsa_name_b": "Beta-Two, ZZ",
+            "verified_label": "Alpha-One, ZZ--Beta-Two, ZZ",
+        }]
+        with tempfile.TemporaryDirectory() as directory:
+            csv_path = Path(directory) / "mechanisms.csv"
+            tex_path = Path(directory) / "mechanisms.tex"
+            write_mechanism_link_outputs(
+                mechanisms, labels, csv_path, tex_path)
+            with csv_path.open(newline="") as handle:
+                row = next(csv.DictReader(handle))
+            self.assertEqual(row["display_label"], "Alpha-One--Beta-Two")
+            tex = tex_path.read_text()
+            self.assertIn(r"\chi_e", tex)
+            self.assertIn(r"20$\to$5 (+15)", tex)
+            self.assertIn("0.600", tex)
+
+    def test_writes_rank_distribution_table(self):
+        distribution = {
+            "deciles": [{
+                "traditional_traffic_decile": 1,
+                "count": 2,
+                "mean_absolute_rank_change": 3.5,
+                "median_extended_to_traditional_ratio": 0.7,
+                "p25_extended_to_traditional_ratio": 0.6,
+                "p75_extended_to_traditional_ratio": 0.8,
+                "mean_absolute_proportional_difference": 0.3,
+            }],
+            "top_k_overlap": [
+                {"k": 10, "overlap_count": 4, "overlap_share": 0.4},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            csv_path = Path(directory) / "ranks.csv"
+            tex_path = Path(directory) / "ranks.tex"
+            write_rank_distribution_outputs(
+                distribution, csv_path, tex_path)
+            tex = tex_path.read_text()
+            self.assertIn("[0.600, 0.800]", tex)
+            self.assertIn(r"4/10 at $k=10$", tex)
+            self.assertIn("measure ranking and proportional differences directly", tex)
 
 if __name__ == "__main__":
     unittest.main()

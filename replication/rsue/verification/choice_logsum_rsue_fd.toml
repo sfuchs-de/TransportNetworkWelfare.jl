@@ -1,12 +1,17 @@
 absolute_error_tolerance = 1.0e-6
 config_sha256 = "701b3768a52a3cf154ad958c5378b62441fd0d32ae91f4a9df05b8e4714c3ad9"
 finite_difference_step = 1.0e-5
+independence_scope = "independent nonlinear equilibrium solve conditional on package-constructed baseline operators and welfare row"
 max_absolute_error = 3.3968054063970854e-15
 max_relative_error = 1.2130080974110257e-10
 max_solve_residual = 2.175434354732244e-16
 modal_specification = "choice_logsum"
-schema_version = 1
+operator_bundle_sha256 = "eb9ed321bf5f878a46a1c01c9c601439886db272a420835f4691e51dc7299255"
+package_version = "0.3.0"
+schema_version = 2
 solve_residual_tolerance = 1.0e-10
+source_hash_scope = "all Julia package sources under src plus the RSUE finite-difference verification sources"
+source_tree_sha256 = "716f7bfa385ac6ab5f62860cd8149dade6ebbb22d7291afd098caf1fb9b46655"
 verification_status = "accepted"
 
 [input_hashes]
@@ -16,6 +21,26 @@ verification_status = "accepted"
 "node_labor_income_interstate.csv" = "c4c914e5a4c5ea263283def3c3d09c8d5cc67b149a1726214239df3334b97b1f"
 "sparse_adjmat_interstate.csv" = "43d0dfb228742f87c64f7f0bec0214a068a84a01e36549887e58e5b014ff0edd"
 "terminals_count.csv" = "decd7c1733ccc9377e18e9c30fbf0beb40e8e1ea3ce44cd1b0be4c44aa78dcf3"
+
+[operator_hashes]
+basis_L = "4e0e46c9d4cb67286674dc30ec269cdd9f7e5f7b285807a00941c21f2b4db32b"
+basis_Sagg = "f667915a4c30533514fefe04e8fa5753f847f6a639bf7cf6d3c527c3a919c341"
+spatial_B = "2be378feb0131447f7d7b068699271db780198353c3a08a9c76e256b3023874d"
+spatial_J0 = "387e4883e411683298115cf8024fbb55cda65b7b938f553bf969b0c05be44c9c"
+transport_A = "63ee5c95992b001e8ccdfd6f684bb4a324b151c7ba11790ef9e7988c23eb9f08"
+transport_Croute = "90bde7f5a3a5c28ffce6889564cef6365fa6930bf6caf93c2c10b398a458716c"
+transport_G = "9811dc9ea550813957c9b12f7cf3faa2a4829c7fb9df80a1264d8f3c2507e5b7"
+transport_H = "105b20f27b0ac81438c81318306582d0558bcce572a2c3675f212c20f8eaf1f5"
+transport_Jc = "99624e4f7293046e4ae5c44281f32e452d664e78769e70a44566fab171ac743f"
+transport_Kedge = "474c9e51112916f55388182b6cfaa600acea5d5d8be8d6d94c908db248e23ca6"
+transport_Qz_edge = "515f1a20196be6a335fa951094ba66c73059987ad4d70469eed1d0b1e1233d91"
+transport_Xq = "0485e4911cce3aaec62eeab19cbfe19ff7c2f1f201d304a144ba9a25ba423fd6"
+transport_Xz = "5eb53ca93b7fd424ef9aa29dd671575a9d6c20cc318f9f8eb60fc419f7b0e3c1"
+transport_edge_cost_state = "21cec5906936847e043e645b4deb20e9a656bac6449656dad8a2ffdf393c5b7f"
+transport_left = "60a47fb3e37a48e3ee77658f23f0af9a745a8121dfce113edb528ca7ec368e8f"
+transport_quantity_state = "c88d0779abcd98ed7e043e9d6ae9997f7f47bb19eca02d9f48698d569fed57de"
+transport_right = "492ab55e6e1701cb84328b8c34d8f4b293f6a3d4cf2837acae54d0e2887dbe0f"
+welfare_row = "bf5eb927fb2c665c4542a2a50ad43964726113e5313950f795b1f1f361514a60"
 
 [[samples]]
 absolute_error = 9.08122657476175e-16
@@ -89,7 +114,26 @@ relative_error = 2.134230313034508e-12
 traffic = 0.0009363981831675498
 
 [source_hashes]
-"replication/rsue/verify_choice_logsum_fd.jl" = "62428804b5ce0be4e1ca356155073428a3af7db1ae0f1ad3d60a286fe99d7025"
+"replication/rsue/verification/VerificationProvenance.jl" = "e53494d69cc1905429648a5b56bca1da4940d6d651b9e32c6155d0bac149eeff"
+"replication/rsue/verify_choice_logsum_fd.jl" = "9cfd270633158cbc3199713a1af4b69424a0096ffd1074eff37501d40156a220"
+"src/Analysis.jl" = "bf29598edb8b7dde4e89562daab3fc0b6b7f3f26cd463310620c0ef313eb9753"
+"src/CLI.jl" = "956bafd0f02f45f492a5f6d6bad6dc541abe5d27dab6cd88da8c39bc22d8663d"
 "src/CompleteEngine.jl" = "1ba6147a999631b062661fc929ff29d4468fe791fd803b40b8b5d6e77891eea2"
-"src/kernels/AdjointRSUE.jl" = "664c1654e15f58306deb4844be4f34575fd679e015fb29fec3cd6e2d4abe2f9e"
+"src/DataIO.jl" = "a8ba0b3c01d425f4dc7450d8ecd744bbe071e2ce0ecdc469c0514b79d3142dc5"
+"src/EdgeLocalEngine.jl" = "f4ff505a63dad26757299fee5f50ead6a914ad2db7c32ddbaba7815a2a6b60bf"
+"src/Output.jl" = "977dc2f30c28cca7cea0f5a904cb2f612e666bc61b34194b67a92a2c9076d696"
+"src/PolicyBundles.jl" = "df8d3f97b60ce075f84b5159084f748b6f6939529c2a641e85674675f13518e1"
+"src/ProjectConfig.jl" = "34a70305ecf0952d4a3a8b3c04be050c7a95d2ec9b0ccdd909eadd42666814ec"
+"src/RSUEAdapter.jl" = "7c0d2212870d942d314d1b838671a59a25e18d8c74b10a3fdae3a4dc2d04f305"
+"src/Sensitivity.jl" = "a8ec2ebe0d9794ff4811cc33bffc7878763c69fc2c01a3bb0c6f49523e2dc0cc"
+"src/SharedTransport.jl" = "40d4795ca5e6c53076412b96d19ef58174db677bf9c47f03090d72f468d48e49"
+"src/Specifications.jl" = "07df29515a8f7518a1fb7c75051b6e73be32c66357f3d18632024969c819bf24"
+"src/TransportNetworkWelfare.jl" = "cbce5e4736c0b6d229c20e8f66492540f2d1c2732d42419cf69f00ba30787726"
+"src/UrbanEngine.jl" = "4e5765752b8887163c624d356933cb78f1cdf1e5f702fe833c3027344c10ef7e"
+"src/UrbanNonlinear.jl" = "c53a0107e1dcd136e6324322c4a6df4a36158ac0af1af3476e075e45b2a4510d"
+"src/kernels/AdjointRSUE.jl" = "7f51d4c59d65833cb93f9c47ff8e5ed1545c899d0426d1aabf72b0c3e2620505"
+"src/kernels/IFTCompleteDecomposition.jl" = "a1d6e3d7dc08f66ddcabbcad1060abccaf3954e34ef961bb578815706cf84341"
 "src/kernels/IFTDecomposition.jl" = "976c84eff20e4bcfc285506e1b20fbe4adabd2ecea4f934aa50f8e54d8e05889"
+"src/kernels/RSUEParameterSensitivity.jl" = "9d5392b5ecec331615ce5e47c5d09e7a66954cad9a2ab7ca7c693d37b1e7ddbc"
+"src/kernels/RSUETerminalCongestion.jl" = "4cc3c2eb97f18d1df440d8b441d6193f5806c8a158027a40fb6673c2d5013e55"
+"src/kernels/UrbanCommutingIFT.jl" = "80f708a38728b31b29560c031d01c73f83588f00c1bb1bd8145ef6d481af44a8"

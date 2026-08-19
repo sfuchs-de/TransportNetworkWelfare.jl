@@ -98,6 +98,7 @@ class DecompositionFigureTests(unittest.TestCase):
         summary = FIGURES.decomposition_summary(self.rows())
         self.assertAlmostEqual(summary["spatial_no_congestion"], 0.0011)
         self.assertAlmostEqual(summary["extended"], 0.0007)
+        self.assertAlmostEqual(summary["baseline_net_change"], -0.00032)
         self.assertAlmostEqual(
             summary["boundary_adjustment"]+
             summary["spatial_externality_adjustment"]+

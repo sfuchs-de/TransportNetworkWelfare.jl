@@ -6,6 +6,8 @@ using TransportNetworkWelfare
 
 const TNW = TransportNetworkWelfare
 const ROOT = normpath(joinpath(@__DIR__, "..", ".."))
+include(joinpath(@__DIR__, "verification", "VerificationProvenance.jl"))
+const VP = VerificationProvenance
 
 function nonlinear_solve(model, policy_pair::Int, shock::Float64)
     closure = model.closures.transport.F
@@ -87,17 +89,15 @@ function main(args=ARGS)
             "maximum_solve_residual" => max(plus_residual, minus_residual),
         ))
     end
-    source_paths = [
-        "src/CompleteEngine.jl",
-        "src/kernels/AdjointRSUE.jl",
-        "src/kernels/IFTDecomposition.jl",
-        "replication/rsue/verify_choice_logsum_fd.jl",
-    ]
+    source_hashes = VP.verification_source_hashes(ROOT)
+    operator_hashes = VP.baseline_operator_hashes(model, welfare_row)
     max_solve_residual = maximum(sample["maximum_solve_residual"] for sample in samples)
     passed = max_absolute_error <= 1e-6 && max_solve_residual <= 1e-10
     report = Dict{String,Any}(
-        "schema_version" => 1,
+        "schema_version" => 2,
+        "package_version" => string(Base.pkgversion(TNW)),
         "verification_status" => passed ? "accepted" : "failed",
+        "independence_scope" => VP.INDEPENDENCE_SCOPE,
         "modal_specification" => "choice_logsum",
         "finite_difference_step" => step,
         "absolute_error_tolerance" => 1e-6,
@@ -107,7 +107,11 @@ function main(args=ARGS)
         "max_solve_residual" => max_solve_residual,
         "config_sha256" => TNW.file_sha256(config),
         "input_hashes" => model.data.input_hashes,
-        "source_hashes" => Dict(path => TNW.file_sha256(joinpath(ROOT, path)) for path in source_paths),
+        "source_hash_scope" => VP.SOURCE_HASH_SCOPE,
+        "source_hashes" => source_hashes,
+        "source_tree_sha256" => VP.digest_hash_map(source_hashes),
+        "operator_hashes" => operator_hashes,
+        "operator_bundle_sha256" => VP.digest_hash_map(operator_hashes),
         "samples" => samples,
     )
     mkpath(dirname(output))

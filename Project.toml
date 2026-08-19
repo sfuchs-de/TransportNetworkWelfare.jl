@@ -1,7 +1,7 @@
 name = "TransportNetworkWelfare"
 uuid = "dbfb5db5-415a-4388-9e6f-1250c40a4d1d"
 authors = ["Treb Allen", "Simon Fuchs", "Woan Foong Wong"]
-version = "0.2.0"
+version = "0.3.0"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
