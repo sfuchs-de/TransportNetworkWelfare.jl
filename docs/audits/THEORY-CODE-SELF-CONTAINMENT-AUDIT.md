@@ -269,10 +269,10 @@ vintage.
 
 ## Verification performed
 
-- Full Julia 1.12.5 suite with the restricted RSUE inputs enabled: 739 passes
+- Full Julia 1.12.5 suite with the restricted RSUE inputs enabled: 740 passes
   and two documented expected failures for the optional Sioux Falls and
   Seattle external-data integration gates.
-- Public Julia suite without external data: 712 passes and three documented
+- Public Julia suite without external data: 713 passes and three documented
   expected external-data integration skips.
 - Restricted RSUE acceptance suite: 27 of 27 checks passed, including the 234
   nodes, 704 directed policies, 352 physical links, accepted hashes, and

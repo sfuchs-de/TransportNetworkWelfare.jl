@@ -21,7 +21,8 @@ environment.
 Install Git and Julia 1.10 or later, then run the self-contained toy project:
 
 ```bash
-git clone https://github.com/sfuchs-de/TransportNetworkWelfare.jl.git
+git clone --branch v0.3.0 --depth 1 \
+  https://github.com/sfuchs-de/TransportNetworkWelfare.jl.git
 cd TransportNetworkWelfare.jl
 julia --project=. -e 'using Pkg; Pkg.instantiate()'
 julia --project=. bin/tnw.jl validate examples/toy/config.toml
