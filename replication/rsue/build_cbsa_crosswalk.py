@@ -363,16 +363,22 @@ def write_mechanism_link_outputs(mechanisms, label_rows, csv_path, tex_path):
     output_rows = []
     for mechanism in mechanisms:
         label_row = labels.get(mechanism["physical_link_id"], {})
+        author_label = mechanism.get("display_label")
+        verified_label = label_row.get("verified_label", "")
+        if author_label and not verified_label:
+            raise ValueError(
+                "author mechanism label lacks a verified Census-crosswalk "
+                f"match: {mechanism['physical_link_id']}")
         output_rows.append({
             **mechanism,
-            "display_label": mechanism.get("display_label") or compact_link_label(
+            "display_label": author_label or compact_link_label(
                 label_row.get("cbsa_name_a", ""),
                 label_row.get("cbsa_name_b", ""),
                 label_row.get("place_name_a", ""),
                 label_row.get("place_name_b", ""),
                 mechanism["physical_link_id"],
             ),
-            "verified_label": label_row.get("verified_label", ""),
+            "verified_label": verified_label,
         })
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(output_rows[0])

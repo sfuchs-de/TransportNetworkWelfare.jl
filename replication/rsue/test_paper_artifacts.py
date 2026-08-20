@@ -196,6 +196,7 @@ class PaperArtifactTests(unittest.TestCase):
     def test_writes_mechanism_table(self):
         mechanisms = [{
             "physical_link_id": "a_b",
+            "display_label": "Alpha--Beta",
             "selection_rationale": "test",
             "traditional_gain_basis_points": 0.04,
             "cost_transmission": 0.5,
@@ -219,11 +220,17 @@ class PaperArtifactTests(unittest.TestCase):
                 mechanisms, labels, csv_path, tex_path)
             with csv_path.open(newline="") as handle:
                 row = next(csv.DictReader(handle))
-            self.assertEqual(row["display_label"], "Alpha-One--Beta-Two")
+            self.assertEqual(row["display_label"], "Alpha--Beta")
+            self.assertEqual(
+                row["verified_label"], "Alpha-One, ZZ--Beta-Two, ZZ")
             tex = tex_path.read_text()
             self.assertIn(r"\chi_e", tex)
             self.assertIn(r"20$\to$5 (+15)", tex)
             self.assertIn("0.600", tex)
+            with self.assertRaisesRegex(
+                    ValueError, "lacks a verified Census-crosswalk match"):
+                write_mechanism_link_outputs(
+                    mechanisms, [], csv_path, tex_path)
 
     def test_writes_rank_distribution_table(self):
         distribution = {

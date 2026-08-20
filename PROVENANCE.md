@@ -15,8 +15,8 @@ in CI.
 
 | Package file | Relationship to frozen source |
 | --- | --- |
-| `src/kernels/AdjointRSUE.jl` | Validation-only divergence: finite-input assertions became explicit errors. |
-| `src/kernels/IFTDecomposition.jl` | Extended with analytic closure factors, distinct-margin reconstruction, and explicit route curvature. |
+| `src/kernels/AdjointRSUE.jl` | Extended with explicit finite-input errors, reduced endogenous-location states for fixed external markets, and legacy-only labels for positive-power helpers. |
+| `src/kernels/IFTDecomposition.jl` | Extended with analytic closure factors, distinct-margin route reconstruction, reduced endogenous-location states, and explicit route-curvature entry points. |
 | `src/kernels/UrbanCommutingIFT.jl` | Frozen one-mode Allen--Arkolakis regression oracle. |
 | `src/UrbanEngine.jl` | Shared multimodal closure engine; replaces the one-mode builder. |
 | `src/SharedTransport.jl` | New spatial-model-neutral transport basis. |
@@ -31,10 +31,11 @@ provenance only and are not runtime dependencies.
 The RSUE manuscript remains in Overleaf. Restricted data remain outside Git and are located through `RSUE_DATA_ROOT`. No manuscript source or restricted input is vendored here.
 
 The practitioner guide and theory--code audit use the active manuscript at
-Overleaf commit `041f0425623e6b0265cdfdc439d26277bb22c7dd` as the authority for
-the paper-facing model statement. The software repository remains authoritative
-for executable behavior. The audit records any difference between those two
-sources rather than silently reconciling it.
+Overleaf commit `96283f92b4cd8fbcc68ed98b9aac32d7f5ba9343` as the authority for
+the paper-facing model statement. The curated derivations use Mathdown commit
+`23f350a4de16eb842803f53267278deccb724f5d` as their theory baseline. The
+software repository remains authoritative for executable behavior. The audit
+records differences among these sources rather than silently reconciling them.
 
 ## Seattle multimodal candidate
 

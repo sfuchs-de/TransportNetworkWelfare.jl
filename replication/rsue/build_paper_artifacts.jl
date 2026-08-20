@@ -115,7 +115,10 @@ function mechanism_link_statistics(rows, rho, shock_fraction;
         "184_200" => "large loss in rank under the extended approach",
         "58_59" => "below-median traffic and a large equilibrium multiplier",
     )
-    display_labels = Dict(
+    # Serialized as `display_label` for artifact compatibility. These are
+    # concise author abbreviations whose endpoints are verified downstream
+    # against the pinned Census crosswalk.
+    author_labels = Dict(
         "6_10" => "Los Angeles--San Diego",
         "185_188" => "Durham--Raleigh",
         "184_200" => "Washington--Baltimore",
@@ -137,7 +140,7 @@ function mechanism_link_statistics(rows, rho, shock_fraction;
         extended_rank = ranks.extended_rank[link_id]
         push!(output, Dict{String,Any}(
             "physical_link_id" => link_id,
-            "display_label" => get(display_labels, link_id, link_id),
+            "display_label" => get(author_labels, link_id, link_id),
             "selection_rationale" => get(
                 rationales, link_id, "author-selected mechanism example"),
             "traditional_gain_basis_points" =>

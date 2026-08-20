@@ -5,7 +5,7 @@ recorded here.
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-08-19
+## [0.3.0] - 2026-08-20
 
 ### Models and welfare calculations
 
